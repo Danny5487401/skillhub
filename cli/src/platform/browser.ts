@@ -6,6 +6,16 @@ type Launch = (command: string, args: string[]) => boolean
 interface OpenExternalUrlOptions {
   platform?: NodeJS.Platform
   launch?: Launch
+  env?: NodeJS.ProcessEnv
+}
+
+export function canOpenBrowser(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  if (env.CI || env.SSH_CONNECTION || env.SSH_TTY) return false
+  if (platform === 'linux') return Boolean(env.DISPLAY || env.WAYLAND_DISPLAY)
+  return platform === 'darwin' || platform === 'win32'
 }
 
 function launchDetached(command: string, args: string[]): boolean {
@@ -36,6 +46,7 @@ export function openExternalUrl(url: string, options: OpenExternalUrlOptions = {
 
   const platform = options.platform ?? process.platform
   if (platform !== 'darwin' && platform !== 'linux' && platform !== 'win32') return false
+  if (!canOpenBrowser(platform, options.env ?? process.env)) return false
   const [command, args] = launcherFor(platform, parsed.toString())
   return (options.launch ?? launchDetached)(command, args)
 }

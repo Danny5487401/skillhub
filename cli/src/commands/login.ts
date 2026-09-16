@@ -26,7 +26,7 @@ export async function loginCommand(options: LoginCommandOptions): Promise<string
           : [
               `Authorize this device at: ${details.verificationUri}`,
               `Code: ${details.userCode}`,
-              opened ? 'A browser window was opened.' : 'Open the URL in a browser to continue.',
+              opened ? 'Browser launch requested. If no browser opened, use the URL above.' : 'Open the URL in a browser to continue.',
               `Waiting for authorization (expires in ${details.expiresIn}s)...`
             ].join('\n')
         process.stderr.write(`${message}\n`)
