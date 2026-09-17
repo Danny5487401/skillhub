@@ -48,5 +48,9 @@ export function openExternalUrl(url: string, options: OpenExternalUrlOptions = {
   if (platform !== 'darwin' && platform !== 'linux' && platform !== 'win32') return false
   if (!canOpenBrowser(platform, options.env ?? process.env)) return false
   const [command, args] = launcherFor(platform, parsed.toString())
-  return (options.launch ?? launchDetached)(command, args)
+  try {
+    return (options.launch ?? launchDetached)(command, args)
+  } catch {
+    return false
+  }
 }

@@ -237,8 +237,11 @@ cli
   .option('--token <token>', 'API token')
   .option('--no-open', 'Do not open the verification URL in a browser')
   .option('--json', 'Output JSON')
-  .action((options: { registry?: string; token?: string; noOpen?: boolean; json?: boolean }) => {
-    return runCommand(() => loginCommand(options), Boolean(options.json))
+  .action((options: { registry?: string; token?: string; open?: boolean; json?: boolean }) => {
+    return runCommand(
+      () => loginCommand({ ...options, noOpen: options.open === false }),
+      Boolean(options.json)
+    )
   })
 
 cli

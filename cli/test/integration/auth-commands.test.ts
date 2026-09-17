@@ -120,7 +120,8 @@ describe('auth commands', () => {
     expect(JSON.parse(result.stderr)).toMatchObject({
       event: 'device_authorization',
       userCode: 'ABCD-2345',
-      verificationUri: `${registry.url}/device`
+      verificationUri: `${registry.url}/device`,
+      browserOpened: false
     })
     expect(`${result.stdout}\n${result.stderr}`).not.toContain('oauth-secret')
     expect(`${result.stdout}\n${result.stderr}`).not.toContain('device-secret')
