@@ -214,25 +214,25 @@ LLM 辅助不会放宽这一规则。
 ## 脚本
 
 新的 GitHub 自动化脚本位于
-[`.github/scripts`](/Users/wowo/workspace/skillhub/.github/scripts)：
+[`.github/scripts`](../.github/scripts)：
 
-- [github.ts](/Users/wowo/workspace/skillhub/.github/scripts/github.ts)：精简版
+- [github.ts](../.github/scripts/github.ts)：精简版
   GitHub REST 客户端
-- [issue-triage-config.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-triage-config.ts)：
+- [issue-triage-config.ts](../.github/scripts/issue-triage-config.ts)：
   标签、阈值和关键词规则
-- [issue-llm-config.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-llm-config.ts)：
+- [issue-llm-config.ts](../.github/scripts/issue-llm-config.ts)：
   LLM 模式、环境变量和调用启发式
-- [issue-llm-provider.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-llm-provider.ts)：
+- [issue-llm-provider.ts](../.github/scripts/issue-llm-provider.ts)：
   兼容 OpenAI 的 chat completions 客户端
-- [issue-llm-evaluator.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-llm-evaluator.ts)：
+- [issue-llm-evaluator.ts](../.github/scripts/issue-llm-evaluator.ts)：
   prompt 构造、JSON 校验和缓存 key 生成
-- [issue-triage-lib.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-triage-lib.ts)：
+- [issue-triage-lib.ts](../.github/scripts/issue-triage-lib.ts)：
   解析、评分、路由和评论渲染
-- [issue-triage-merge.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-triage-merge.ts)：
+- [issue-triage-merge.ts](../.github/scripts/issue-triage-merge.ts)：
   有界合并和硬性门槛重应用
-- [issue-triage.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-triage.ts)：
+- [issue-triage.ts](../.github/scripts/issue-triage.ts)：
   单 issue 入口
-- [issue-backlog-rescore.ts](/Users/wowo/workspace/skillhub/.github/scripts/issue-backlog-rescore.ts)：
+- [issue-backlog-rescore.ts](../.github/scripts/issue-backlog-rescore.ts)：
   deferred 队列重新评分入口
 
 ## 配置

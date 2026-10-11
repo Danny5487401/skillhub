@@ -47,7 +47,8 @@ And matching local branches:
 You can override the base branch or destination root:
 
 ```bash
-make parallel-init TASK=legal-pages PARALLEL_BASE_REF=origin/main PARALLEL_WORKTREE_ROOT=/Users/wowo/workspace
+mkdir -p ../skillhub-worktrees
+make parallel-init TASK=legal-pages PARALLEL_BASE_REF=origin/main PARALLEL_WORKTREE_ROOT=../skillhub-worktrees
 ```
 
 If you are iterating on this workflow itself before it lands on `origin/main`, create the worktrees from your current branch instead:

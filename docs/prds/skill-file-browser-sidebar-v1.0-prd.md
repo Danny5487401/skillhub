@@ -230,12 +230,14 @@
 
 ## 关联文档
 
+以下配套文档当前未收录于仓库，补齐后再添加链接：
+
 ### 需求文档
-- [API 接口契约](../requirements/2026-03-20-skill-file-browser-sidebar/05-api-contract.md) - 定义前后端接口规范
-- [验收用例](../requirements/2026-03-20-skill-file-browser-sidebar/04-acceptance-cases.md) - 功能验收测试用例
+- API 接口契约（`docs/requirements/2026-03-20-skill-file-browser-sidebar/05-api-contract.md`）- 定义前后端接口规范
+- 验收用例（`docs/requirements/2026-03-20-skill-file-browser-sidebar/04-acceptance-cases.md`）- 功能验收测试用例
 
 ### 执行计划
-- [实施计划](../superpowers/plans/2026-03-22-skill-file-browser-sidebar.md) - 详细的开发任务分解与执行步骤
+- 实施计划（`docs/superpowers/plans/2026-03-22-skill-file-browser-sidebar.md`）- 详细的开发任务分解与执行步骤
 
 ### 技术参考
 - 现有组件：
