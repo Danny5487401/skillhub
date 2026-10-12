@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +14,7 @@ export function JoinPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const enteredNamespace = useRef(false)
   const [token] = useState(() => {
     captureInvitationFragment()
     return storedInvitationToken()
@@ -35,14 +36,19 @@ export function JoinPage() {
   const invalid = !token || (preview.error instanceof ApiError && preview.error.status === 404)
     || (accept.error instanceof ApiError && accept.error.status === 404)
   useEffect(() => { if (invalid) clearInvitationToken() }, [invalid])
-  useEffect(() => { if (preview.data?.outcome === 'ALREADY_MEMBER') clearInvitationToken() }, [preview.data?.outcome])
+  useEffect(() => {
+    if (preview.data?.outcome !== 'ALREADY_MEMBER' || enteredNamespace.current) return
+    enteredNamespace.current = true
+    clearInvitationToken()
+    void navigate({ to: '/space/$namespace', params: { namespace: preview.data.namespaceSlug }, replace: true })
+  }, [navigate, preview.data])
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
       <Card className="space-y-5 p-8">
         <h1 className="text-2xl font-semibold">{t('invitation.title')}</h1>
-        {invalid ? <p>{t('invitation.invalid')}</p> : null}
-        {!invalid && preview.isPending ? <p>{t('invitation.loading')}</p> : null}
+        {invalid ? <p role="alert">{t('invitation.invalid')}</p> : null}
+        {!invalid && preview.isPending ? <p role="status">{t('invitation.loading')}</p> : null}
         {!invalid && preview.error ? (
           <div className="space-y-3">
             <p role="alert">{t('invitation.networkError')}</p>
@@ -54,10 +60,7 @@ export function JoinPage() {
             <p>{t('invitation.namespace', { name: preview.data.namespaceDisplayName })}</p>
             <p>{t('invitation.account', { name: user?.displayName ?? user?.userId ?? '' })}</p>
             {preview.data.outcome === 'ALREADY_MEMBER' ? (
-              <>
-                <p>{t('invitation.alreadyMember')}</p>
-                <Button onClick={() => { clearInvitationToken(); navigate({ to: '/space/$namespace', params: { namespace: preview.data.namespaceSlug }, replace: true }) }}>{t('invitation.enter')}</Button>
-              </>
+              <p role="status">{t('invitation.alreadyMember')}</p>
             ) : (
               <>
                 <p>{t('invitation.permissions')}</p>
