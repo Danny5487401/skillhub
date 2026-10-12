@@ -11,6 +11,7 @@ import java.util.Optional;
  */
 public interface NamespaceRepository {
     Optional<Namespace> findById(Long id);
+    Optional<Namespace> findLockedById(Long id);
     List<Namespace> findAll();
     List<Namespace> findByIdIn(List<Long> ids);
     List<Namespace> findBySlugIn(List<String> slugs);
