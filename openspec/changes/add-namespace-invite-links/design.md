@@ -5,7 +5,7 @@
 ## Decisions
 
 1. 每个 Namespace 只保存一条当前邀请：Token SHA-256、签发人和时间、过期时间、消费人和时间。原文只在生成响应中返回一次。作废删除当前邀请记录或等价地使其不可匹配，写审计；不删除已加入成员。
-2. 涉及用户的写操作先按 userId 升序锁参与者用户行，再按 Namespace ID 升序锁目标 Namespace 行，最后读取或写入邀请与成员；账号合并沿用先锁用户的现有顺序，以免与成员或审计外键检查形成锁环。邀请创建、替换、作废锁操作者后锁 Namespace；接受锁接收者后锁 Namespace。纯 Namespace 生命周期与删除操作锁 Namespace。批量操作预先收集 ID、去重并排序。接受在锁内重检，成员创建、消费和审计原子提交。
+2. 涉及用户的写操作先按 userId 升序锁参与者用户行，再按 Namespace ID 升序锁目标 Namespace 行，最后读取或写入邀请与成员；账号合并沿用先锁用户的现有顺序，以免与成员或审计外键检查形成锁环。邀请创建、替换、作废以及带操作者审计的生命周期操作先锁操作者，再锁 Namespace；接受先锁接收者，再锁 Namespace。当前不写用户审计的 Namespace 删除只锁 Namespace。批量操作预先收集 ID、去重并排序。接受在锁内重检，成员创建、消费和审计原子提交。
 3. 前端在 `/join` 入口同步读取 fragment，放入当前标签页 sessionStorage，保留 path/query 清除 fragment，再应用原登录逻辑。登录 `returnTo=/join` 不传 Token。分享链接复用 `resolvePublicRegistryUrl` 构造并兼容 BASE_PATH。
 4. Preview/Accept 复用 Issue 的判定顺序：先验证 Token 为当前邀请，再查已有成员；已有成员返回 ALREADY_MEMBER。非成员必须面对 ACTIVE TEAM、未消费且未过期的邀请。失效统一 404，不区分随机、旧、作废、过期或已用 Token。Accept 锁前只按 Token 哈希查询标量 Namespace ID；取得 Namespace 锁后重新加载当前邀请并校验，不能沿用锁前已经进入 ORM 一级缓存的邀请实体，否则并发兑换可能都看到未消费状态。
 5. 只有可用浏览器 Session 能创建、预览、接受、作废；现有账号准入不能由邀请绕过。浏览器请求使用既有 CSRF。创建/预览/接受/作废与缓存或日志配置均不得泄露原文和哈希。
