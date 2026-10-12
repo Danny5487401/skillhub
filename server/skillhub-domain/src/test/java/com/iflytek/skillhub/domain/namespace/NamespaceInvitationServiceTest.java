@@ -77,6 +77,35 @@ class NamespaceInvitationServiceTest {
     }
 
     @Test
+    void namespaceMemberCannotCreateInvitation() {
+        Optional<UserAccount> active = users.findById("owner");
+        when(members.findByNamespaceIdAndUserId(7L, "guest"))
+                .thenReturn(Optional.of(new NamespaceMember(7L, "guest", NamespaceRole.MEMBER)));
+        when(users.findLockedById("guest")).thenReturn(active);
+
+        assertThatThrownBy(() -> service.create("team", "guest"))
+                .isInstanceOf(DomainNotFoundException.class);
+        verify(invitations, never()).save(any());
+    }
+
+    @Test
+    void ownerCannotCreateInvitationForGlobalFrozenOrArchivedNamespace() {
+        Namespace namespace = namespaces.findById(7L).orElseThrow();
+        namespace.setType(NamespaceType.GLOBAL);
+        assertThatThrownBy(() -> service.create("team", "owner"))
+                .isInstanceOf(DomainNotFoundException.class);
+
+        namespace.setType(NamespaceType.TEAM);
+        for (NamespaceStatus status : new NamespaceStatus[] {NamespaceStatus.FROZEN, NamespaceStatus.ARCHIVED}) {
+            namespace.setStatus(status);
+            assertThatThrownBy(() -> service.create("team", "owner"))
+                    .as("Namespace status %s", status)
+                    .isInstanceOf(DomainNotFoundException.class);
+        }
+        verify(invitations, never()).save(any());
+    }
+
+    @Test
     void platformAdminWithoutNamespaceMembershipCannotCreateInvitation() {
         Optional<UserAccount> active = users.findById("owner");
         when(users.findLockedById("platform-admin")).thenReturn(active);

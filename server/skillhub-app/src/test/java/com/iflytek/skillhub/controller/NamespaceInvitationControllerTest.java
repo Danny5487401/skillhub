@@ -33,6 +33,19 @@ class NamespaceInvitationControllerTest {
     }
 
     @Test
+    void refusesApiTokenForInvitationStatusAndRevoke() {
+        when(request.getSession(false)).thenReturn(mock(HttpSession.class));
+        PlatformPrincipal token = new PlatformPrincipal("admin", "Admin", null, null, "api_token", Set.of("SUPER_ADMIN"));
+
+        assertThatThrownBy(() -> controller.status("team", token, request, response))
+                .isInstanceOf(UnauthorizedException.class);
+        verifyNoInteractions(invitations);
+        assertThatThrownBy(() -> controller.revoke("team", token, request, response))
+                .isInstanceOf(UnauthorizedException.class);
+        verifyNoInteractions(invitations);
+    }
+
+    @Test
     void refusesAuthenticationWithoutAnExistingBrowserSession() {
         PlatformPrincipal principal = new PlatformPrincipal("owner", "Owner", null, null, "local", Set.of());
         assertThatThrownBy(() -> controller.preview(new com.iflytek.skillhub.dto.NamespaceInvitationTokenRequest("secret"),
