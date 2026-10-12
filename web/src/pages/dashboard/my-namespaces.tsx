@@ -10,6 +10,7 @@ import { Pagination } from '@/shared/components/pagination'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { CreateNamespaceDialog } from '@/features/namespace/create-namespace-dialog'
+import { InvitationControls } from '@/features/namespace/invitation-controls'
 import {
   useArchiveNamespace,
   useDeleteNamespace,
@@ -178,11 +179,6 @@ export function MyNamespacesPage() {
     navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/members` })
   }
 
-  const handleInviteClick = (slug: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigate({ to: '/dashboard/namespaces/$slug/members', params: { slug }, hash: 'invite' })
-  }
-
   const handleReviewsClick = (slug: string, e: React.MouseEvent) => {
     e.stopPropagation()
     navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/reviews` })
@@ -313,9 +309,7 @@ export function MyNamespacesPage() {
                   )}
                   {namespace.type === 'TEAM' && namespace.status === 'ACTIVE'
                     && (namespace.currentUserRole === 'OWNER' || namespace.currentUserRole === 'ADMIN') && (
-                    <Button variant="outline" size="sm" onClick={(e) => handleInviteClick(namespace.slug, e)}>
-                      {t('invitation.create')}
-                    </Button>
+                    <InvitationControls slug={namespace.slug} compact />
                   )}
                   <Button
                     variant="outline"

@@ -1,17 +1,30 @@
 package com.iflytek.skillhub.repository;
 
 import com.iflytek.skillhub.domain.audit.AuditLogService;
+import com.iflytek.skillhub.auth.merge.AccountMergeRequest;
+import com.iflytek.skillhub.auth.merge.AccountMergeRequestRepository;
+import com.iflytek.skillhub.auth.merge.AccountMergeService;
 import com.iflytek.skillhub.domain.namespace.Namespace;
 import com.iflytek.skillhub.domain.namespace.NamespaceInvitationService;
+import com.iflytek.skillhub.domain.namespace.NamespaceAccessPolicy;
+import com.iflytek.skillhub.domain.namespace.NamespaceGovernanceService;
+import com.iflytek.skillhub.domain.namespace.NamespaceMemberService;
+import com.iflytek.skillhub.domain.namespace.NamespaceService;
 import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
+import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
+import com.iflytek.skillhub.domain.review.PromotionRequestRepository;
+import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
+import com.iflytek.skillhub.domain.skill.SkillRepository;
 import com.iflytek.skillhub.domain.user.UserAccount;
+import com.iflytek.skillhub.domain.user.UserStatus;
 import com.iflytek.skillhub.infra.jpa.NamespaceInvitationJpaRepository;
 import com.iflytek.skillhub.infra.jpa.NamespaceJpaRepository;
 import com.iflytek.skillhub.infra.jpa.NamespaceMemberJpaRepository;
 import com.iflytek.skillhub.infra.jpa.UserAccountJpaRepository;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -21,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,7 +54,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Testcontainers
-@Import({NamespaceInvitationService.class, AuditLogService.class, NamespaceInvitationPostgresTest.ClockConfig.class})
+@Import({NamespaceInvitationService.class, NamespaceMemberService.class, NamespaceService.class,
+        AccountMergeService.class,
+        NamespaceAccessPolicy.class, NamespaceGovernanceService.class, AuditLogService.class,
+        NamespaceInvitationPostgresTest.ClockConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class NamespaceInvitationPostgresTest {
     @Container
@@ -63,11 +80,19 @@ class NamespaceInvitationPostgresTest {
     }
 
     @Autowired private NamespaceInvitationService invitations;
+    @Autowired private NamespaceMemberService memberService;
+    @Autowired private NamespaceGovernanceService governance;
+    @Autowired private NamespaceService namespaceService;
+    @Autowired private AccountMergeService accountMerge;
+    @Autowired private AccountMergeRequestRepository mergeRequests;
     @Autowired private NamespaceInvitationJpaRepository invitationRows;
     @Autowired private NamespaceJpaRepository namespaces;
     @Autowired private NamespaceMemberJpaRepository members;
     @Autowired private UserAccountJpaRepository users;
     @Autowired private PlatformTransactionManager transactionManager;
+    @MockBean private SkillRepository skills;
+    @MockBean private ReviewTaskRepository reviewTasks;
+    @MockBean private PromotionRequestRepository promotions;
 
     @Test
     void twoConcurrentAcceptsCreateOnlyOneMemberAndOneConsumption() throws Exception {
@@ -134,6 +159,156 @@ class NamespaceInvitationPostgresTest {
                 assertThat(attempt(new CountDownLatch(0), oldToken, guest)).isZero();
             }
         }
+    }
+
+    @Test
+    void directAddAndAcceptProduceOneMembershipWithoutConsumingUnusedLink() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String owner = "inv-owner-" + suffix;
+        String guest = "inv-guest-" + suffix;
+        String slug = "inv-" + suffix;
+        Long namespaceId = createTeam(slug, owner, guest);
+        String token = invitations.create(slug, owner).token();
+        CountDownLatch start = new CountDownLatch(1);
+        boolean acceptedAsExistingMember;
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var accept = pool.submit(() -> {
+                start.await();
+                return invitations.accept(token, guest).alreadyMember();
+            });
+            var direct = pool.submit(() -> {
+                start.await();
+                try {
+                    memberService.addMember(namespaceId, guest, NamespaceRole.MEMBER, owner);
+                    return true;
+                } catch (DomainBadRequestException alreadyMember) {
+                    assertThat(alreadyMember).hasMessageContaining("error.namespace.member.alreadyExists");
+                    return false;
+                }
+            });
+            start.countDown();
+            acceptedAsExistingMember = accept.get(20, TimeUnit.SECONDS);
+            boolean directAdded = direct.get(20, TimeUnit.SECONDS);
+            assertThat(acceptedAsExistingMember).isEqualTo(directAdded);
+        }
+        assertThat(members.findByNamespaceId(namespaceId, org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream().filter(member -> member.getUserId().equals(guest))).hasSize(1);
+        assertThat(invitationRows.findByNamespaceId(namespaceId).orElseThrow().getConsumedAt() != null)
+                .isEqualTo(!acceptedAsExistingMember);
+    }
+
+    @Test
+    void freezeAndArchiveSerializeWithAcceptance() throws Exception {
+        for (boolean archive : new boolean[] {false, true}) {
+            String suffix = UUID.randomUUID().toString().substring(0, 8);
+            String owner = "inv-owner-" + suffix;
+            String guest = "inv-guest-" + suffix;
+            String slug = "inv-" + suffix;
+            Long namespaceId = createTeam(slug, owner, guest);
+            String token = invitations.create(slug, owner).token();
+            CountDownLatch start = new CountDownLatch(1);
+            try (var pool = Executors.newFixedThreadPool(2)) {
+                var accept = pool.submit(() -> attempt(start, token, guest));
+                var lifecycle = pool.submit(() -> {
+                    start.await();
+                    if (archive) governance.archiveNamespace(slug, owner, "test", null, null, null);
+                    else governance.freezeNamespace(slug, owner, "test", null, null, null);
+                    return true;
+                });
+                start.countDown();
+                int accepted = accept.get(20, TimeUnit.SECONDS);
+                assertThat(lifecycle.get(20, TimeUnit.SECONDS)).isTrue();
+                assertThat(members.findByNamespaceIdAndUserId(namespaceId, guest).isPresent())
+                        .isEqualTo(accepted == 1);
+                assertThat(invitationRows.findByNamespaceId(namespaceId).orElseThrow().getConsumedAt() != null)
+                        .isEqualTo(accepted == 1);
+            }
+        }
+    }
+
+    @Test
+    void deletingNamespaceAndAcceptingInvitationLeaveNoOrphan() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String owner = "inv-owner-" + suffix;
+        String guest = "inv-guest-" + suffix;
+        String slug = "inv-" + suffix;
+        Long namespaceId = createTeam(slug, owner, guest);
+        String token = invitations.create(slug, owner).token();
+        CountDownLatch start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var accept = pool.submit(() -> attempt(start, token, guest));
+            var deletion = pool.submit(() -> {
+                start.await();
+                namespaceService.deleteNamespace(namespaceId, owner);
+                return true;
+            });
+            start.countDown();
+            accept.get(20, TimeUnit.SECONDS);
+            assertThat(deletion.get(20, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(namespaces.findBySlug(slug)).isEmpty();
+        assertThat(invitationRows.findByNamespaceId(namespaceId)).isEmpty();
+        assertThat(members.findByNamespaceIdAndUserId(namespaceId, guest)).isEmpty();
+    }
+
+    @Test
+    void overlappingNamespaceAccountMergeAndAcceptKeepOnePrimaryMembership() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String owner = "inv-owner-" + suffix;
+        String primary = "inv-a-" + suffix;
+        String secondary = "inv-z-" + suffix;
+        String inviteSlug = "inv-b-" + suffix;
+        Long[] ids = new TransactionTemplate(transactionManager).execute(status -> {
+            users.saveAndFlush(new UserAccount(owner, owner, null, null));
+            users.saveAndFlush(new UserAccount(primary, primary, null, null));
+            users.saveAndFlush(new UserAccount(secondary, secondary, null, null));
+            Namespace shared = namespaces.saveAndFlush(new Namespace("inv-a-" + suffix, "Shared", owner));
+            Namespace invited = namespaces.saveAndFlush(new Namespace(inviteSlug, "Invited", owner));
+            for (Namespace ns : new Namespace[] {shared, invited}) {
+                members.saveAndFlush(new NamespaceMember(ns.getId(), owner, NamespaceRole.OWNER));
+                members.saveAndFlush(new NamespaceMember(ns.getId(), secondary, NamespaceRole.MEMBER));
+            }
+            members.saveAndFlush(new NamespaceMember(shared.getId(), primary, NamespaceRole.MEMBER));
+            AccountMergeRequest request = new AccountMergeRequest(primary, secondary, null,
+                    Instant.now().plusSeconds(3600));
+            request.setStatus(AccountMergeRequest.STATUS_VERIFIED);
+            return new Long[] {shared.getId(), invited.getId(), mergeRequests.saveAndFlush(request).getId()};
+        });
+        String token = invitations.create(inviteSlug, owner).token();
+        CountDownLatch start = new CountDownLatch(1);
+        boolean alreadyMember;
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var accept = pool.submit(() -> {
+                start.await();
+                return invitations.accept(token, primary).alreadyMember();
+            });
+            var merge = pool.submit(() -> {
+                start.await();
+                accountMerge.confirm(primary, ids[2]);
+                return true;
+            });
+            start.countDown();
+            alreadyMember = accept.get(20, TimeUnit.SECONDS);
+            assertThat(merge.get(20, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(users.findAllById(java.util.List.of(secondary)).iterator().next().getStatus()).isEqualTo(UserStatus.MERGED);
+        assertThat(members.findByNamespaceIdAndUserId(ids[0], secondary)).isEmpty();
+        assertThat(members.findByNamespaceIdAndUserId(ids[1], secondary)).isEmpty();
+        assertThat(members.findByNamespaceIdAndUserId(ids[1], primary)).isPresent();
+        assertThat(members.findByNamespaceId(ids[1], org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream().filter(member -> member.getUserId().equals(primary))).hasSize(1);
+        assertThat(invitationRows.findByNamespaceId(ids[1]).orElseThrow().getConsumedAt() != null)
+                .isEqualTo(!alreadyMember);
+    }
+
+    private Long createTeam(String slug, String owner, String guest) {
+        return new TransactionTemplate(transactionManager).execute(status -> {
+            users.saveAndFlush(new UserAccount(owner, owner, null, null));
+            users.saveAndFlush(new UserAccount(guest, guest, null, null));
+            Namespace namespace = namespaces.saveAndFlush(new Namespace(slug, "Invitation race", owner));
+            members.saveAndFlush(new NamespaceMember(namespace.getId(), owner, NamespaceRole.OWNER));
+            return namespace.getId();
+        });
     }
 
     private int attempt(CountDownLatch start, String token, String userId) throws InterruptedException {

@@ -10,12 +10,12 @@ import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 
-export function InvitationControls({ slug }: { slug: string }) {
+export function InvitationControls({ slug, compact = false }: { slug: string; compact?: boolean }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState<'replace' | 'revoke' | null>(null)
   const [link, setLink] = useState<string | null>(null)
-  const status = useQuery({ queryKey: ['namespace-invitation-status', slug], queryFn: () => namespaceApi.invitationStatus(slug) })
+  const status = useQuery({ queryKey: ['namespace-invitation-status', slug], queryFn: () => namespaceApi.invitationStatus(slug), enabled: !compact })
   const create = useMutation({
     mutationFn: (replace: boolean) => namespaceApi.createInvitation(slug, replace),
     onSuccess: async ({ token, replaced }) => {
@@ -38,14 +38,15 @@ export function InvitationControls({ slug }: { slug: string }) {
       toast.success(t('invitation.revoked'))
     },
   })
-  const handleCreate = () => {
-    if (status.data?.active) setConfirm('replace')
-    else create.mutate(false)
+  const handleCreate = async () => {
+    const current = compact ? (await status.refetch()).data : status.data
+    if (current?.active) setConfirm('replace')
+    else if (current) create.mutate(false)
   }
   return (
-    <div id="invite" className="space-y-2 scroll-mt-24">
+    <div id={compact ? undefined : 'invite'} className="space-y-2 scroll-mt-24" onClick={compact ? (event) => event.stopPropagation() : undefined}>
       <div className="flex gap-2">
-        <Button variant="outline" disabled={status.isPending || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>
+        <Button variant="outline" size={compact ? 'sm' : 'default'} disabled={(!compact && status.isPending) || status.isFetching || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>
         {status.data?.active ? <Button variant="outline" disabled={revoke.isPending} onClick={() => setConfirm('revoke')}>{t('invitation.revoke')}</Button> : null}
       </div>
       {link ? (
