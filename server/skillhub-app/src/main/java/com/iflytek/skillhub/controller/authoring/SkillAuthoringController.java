@@ -104,7 +104,11 @@ public class SkillAuthoringController extends BaseApiController {
 
     @Operation(operationId = "listDraftFiles", summary = "List a draft's files with metadata")
     @GetMapping("/drafts/{draftId}/files")
-    public ApiResponse<List<DraftFileResponse>> listFiles(@PathVariable Long draftId) {
+    public ApiResponse<List<DraftFileResponse>> listFiles(@PathVariable Long draftId,
+                                                          @RequestAttribute("userId") String userId,
+                                                          @RequestAttribute(value = "platformRoles", required = false)
+                                                          Set<String> platformRoles) {
+        draftService.getOwnedDraft(draftId, userId, platformRoles);
         return ok("response.success", draftService.listFiles(draftId).stream()
                 .map(DraftFileResponse::from)
                 .toList());
@@ -171,7 +175,11 @@ public class SkillAuthoringController extends BaseApiController {
 
     @Operation(operationId = "listValidationRuns", summary = "List the draft's validation runs")
     @GetMapping("/drafts/{draftId}/runs")
-    public ApiResponse<List<ValidationRunResponse>> listRuns(@PathVariable Long draftId) {
+    public ApiResponse<List<ValidationRunResponse>> listRuns(@PathVariable Long draftId,
+                                                             @RequestAttribute("userId") String userId,
+                                                             @RequestAttribute(value = "platformRoles", required = false)
+                                                             Set<String> platformRoles) {
+        draftService.getOwnedDraft(draftId, userId, platformRoles);
         return ok("response.success", runService.listRuns(draftId).stream()
                 .map(ValidationRunResponse::from)
                 .toList());
