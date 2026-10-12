@@ -31,7 +31,7 @@ public class NamespaceInvitationController extends BaseApiController {
         this.invitations = invitations;
     }
 
-    @GetMapping("/namespaces/{slug}/invitation")
+    @GetMapping("/namespaces/{slug}/invitations")
     public ApiResponse<InvitationStatus> status(@PathVariable String slug, @AuthenticationPrincipal PlatformPrincipal principal,
                                                  HttpServletRequest request, HttpServletResponse response) {
         noStore(response);
@@ -39,7 +39,7 @@ public class NamespaceInvitationController extends BaseApiController {
         return ok("response.success.read", new InvitationStatus(invitations.hasActiveInvitation(slug, principal.userId())));
     }
 
-    @PostMapping("/namespaces/{slug}/invitation")
+    @PostMapping("/namespaces/{slug}/invitations")
     public ApiResponse<NamespaceInvitationService.Created> create(@PathVariable String slug,
             @RequestBody(required = false) NamespaceInvitationCreateRequest body,
             @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request, HttpServletResponse response) {
@@ -48,7 +48,7 @@ public class NamespaceInvitationController extends BaseApiController {
         return ok("response.success.created", invitations.create(slug, principal.userId(), body != null && body.replace()));
     }
 
-    @DeleteMapping("/namespaces/{slug}/invitation")
+    @DeleteMapping("/namespaces/{slug}/invitations")
     public ApiResponse<MessageResponse> revoke(@PathVariable String slug,
             @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request, HttpServletResponse response) {
         noStore(response);
@@ -57,7 +57,7 @@ public class NamespaceInvitationController extends BaseApiController {
         return ok("response.success.deleted", new MessageResponse("Invitation revoked"));
     }
 
-    @PostMapping("/invitations/preview")
+    @PostMapping("/namespace-invitations/preview")
     public ApiResponse<NamespaceInvitationService.Preview> preview(@Valid @RequestBody NamespaceInvitationTokenRequest body,
             @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request, HttpServletResponse response) {
         noStore(response);
@@ -65,8 +65,8 @@ public class NamespaceInvitationController extends BaseApiController {
         return ok("response.success.read", invitations.preview(body.token(), principal.userId()));
     }
 
-    @PostMapping("/invitations/accept")
-    public ApiResponse<NamespaceInvitationService.Preview> accept(@Valid @RequestBody NamespaceInvitationTokenRequest body,
+    @PostMapping("/namespace-invitations/accept")
+    public ApiResponse<NamespaceInvitationService.Accepted> accept(@Valid @RequestBody NamespaceInvitationTokenRequest body,
             @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request, HttpServletResponse response) {
         noStore(response);
         requireSession(principal, request);

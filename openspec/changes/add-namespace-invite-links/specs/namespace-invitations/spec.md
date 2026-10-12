@@ -94,3 +94,19 @@ Token 原始随机字节不得少于 32 字节，并采用 Base64URL 编码；�
 #### Scenario: 网络错误
 - **WHEN** 预览或接受遇到可重试网络错误
 - **THEN** 页面保留 Token，用户可重试而无需新邀请
+
+### Requirement: REQ-INV-07 API SHALL 使用 Issue #911 的路径与响应合同
+
+API SHALL 使用 Issue #911 的路径与响应合同。
+
+创建或替换使用 `POST /api/v1/namespaces/{slug}/invitations`，首次创建允许无请求体；有仍可兑换的当前邀请时须按已批准的确认流程传入 `replace=true`。状态查询和单独作废分别使用同一路径的 GET 与 DELETE。预览和接受分别使用 `POST /api/v1/namespace-invitations/preview` 与 `POST /api/v1/namespace-invitations/accept`，请求体均为 `{ "token": "..." }`；可保留 `/api/web` 别名。
+
+创建数据仅包含 `token`、`expiresAt`、`replaced`。预览数据包含 `namespaceSlug`、`namespaceDisplayName`、`namespaceAvatarUrl`、`outcome`（`CONFIRM_REQUIRED` 或 `ALREADY_MEMBER`）和 `expiresAt`。接受数据仅包含 `namespaceSlug` 和 `outcome`（`JOINED` 或 `ALREADY_MEMBER`）。无效邀请使用 `error.namespace.invitation.invalid` 本地化键，中文为“邀请链接无效或已失效”，响应为 HTTP 404、envelope `code=404`、`data=null`。
+
+#### Scenario: 首次创建和预览
+- **WHEN** OWNER/ADMIN 首次创建邀请且不传请求体，非成员预览链接
+- **THEN** 创建返回三字段，预览返回五字段且 `outcome=CONFIRM_REQUIRED`
+
+#### Scenario: 接受与已有成员
+- **WHEN** 非成员确认加入，或已有成员访问当前邀请
+- **THEN** 接受分别返回 `JOINED` 或 `ALREADY_MEMBER`，且仅包含 `namespaceSlug` 和 `outcome`

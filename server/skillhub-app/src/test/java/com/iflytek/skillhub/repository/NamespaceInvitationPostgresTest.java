@@ -174,7 +174,7 @@ class NamespaceInvitationPostgresTest {
         try (var pool = Executors.newFixedThreadPool(2)) {
             var accept = pool.submit(() -> {
                 start.await();
-                return invitations.accept(token, guest).alreadyMember();
+                return invitations.accept(token, guest).outcome() == NamespaceInvitationService.AcceptOutcome.ALREADY_MEMBER;
             });
             var direct = pool.submit(() -> {
                 start.await();
@@ -280,7 +280,7 @@ class NamespaceInvitationPostgresTest {
         try (var pool = Executors.newFixedThreadPool(2)) {
             var accept = pool.submit(() -> {
                 start.await();
-                return invitations.accept(token, primary).alreadyMember();
+                return invitations.accept(token, primary).outcome() == NamespaceInvitationService.AcceptOutcome.ALREADY_MEMBER;
             });
             var merge = pool.submit(() -> {
                 start.await();

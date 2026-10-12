@@ -1403,7 +1403,7 @@
     "manualCopy": "Automatic copy failed. Copy the link below manually.",
     "revoked": "Invitation revoked",
     "error": "Invitation action failed. Try again.",
-    "invalid": "This invitation is invalid or expired. Ask a space admin for a new link.",
+    "invalid": "This invitation link is invalid or expired. Ask a space admin for a new link.",
     "loading": "Checking invitation…",
     "networkError": "Connection failed. Try again.",
     "retry": "Retry",

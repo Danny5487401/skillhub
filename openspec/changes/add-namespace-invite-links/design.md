@@ -10,6 +10,7 @@
 4. Preview/Accept 复用 Issue 的判定顺序：先验证 Token 为当前邀请，再查已有成员；已有成员返回 ALREADY_MEMBER。非成员必须面对 ACTIVE TEAM、未消费且未过期的邀请。失效统一 404，不区分随机、旧、作废、过期或已用 Token。Accept 锁前只按 Token 哈希查询标量 Namespace ID；取得 Namespace 锁后重新加载当前邀请并校验，不能沿用锁前已经进入 ORM 一级缓存的邀请实体，否则并发兑换可能都看到未消费状态。
 5. 只有可用浏览器 Session 能创建、预览、接受、作废；现有账号准入不能由邀请绕过。浏览器请求使用既有 CSRF。创建/预览/接受/作废与缓存或日志配置均不得泄露原文和哈希。
 6. 管理页面保留原直接添加成员入口，新增邀请按钮和单独作废按钮。仍可兑换的旧链接替换前先确认；剪贴板失败时展示本次生成的同一链接。
+7. 正式路径沿用 Issue #911 的复数合同：`POST /api/v1/namespaces/{slug}/invitations` 创建或替换，`POST /api/v1/namespace-invitations/preview|accept` 预览及确认。状态查询和作废使用同一 `/namespaces/{slug}/invitations` 路径的 GET/DELETE；保留现有 `/api/web` 别名。Preview 返回 `namespaceSlug`、`namespaceDisplayName`、`namespaceAvatarUrl`、`outcome`、`expiresAt`；Accept 仅返回 `namespaceSlug`、`outcome`。无效邀请的本地化键为 `error.namespace.invitation.invalid`。
 
 ## Risks and verification
 

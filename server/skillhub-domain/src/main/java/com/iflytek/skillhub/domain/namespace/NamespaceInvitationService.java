@@ -39,7 +39,11 @@ public class NamespaceInvitationService {
     }
 
     public record Created(String token, Instant expiresAt, boolean replaced) {}
-    public record Preview(String namespaceSlug, String namespaceName, boolean alreadyMember) {}
+    public enum PreviewOutcome { CONFIRM_REQUIRED, ALREADY_MEMBER }
+    public enum AcceptOutcome { JOINED, ALREADY_MEMBER }
+    public record Preview(String namespaceSlug, String namespaceDisplayName, String namespaceAvatarUrl,
+                          PreviewOutcome outcome, Instant expiresAt) {}
+    public record Accepted(String namespaceSlug, AcceptOutcome outcome) {}
 
     @Transactional
     public Created create(String slug, String actorId) {
@@ -88,7 +92,7 @@ public class NamespaceInvitationService {
     @Transactional(readOnly = true)
     public boolean hasActiveInvitation(String slug, String actorId) {
         Namespace namespace = namespaces.findBySlug(slug)
-                .orElseThrow(() -> new DomainNotFoundException("error.namespace.invite.invalid"));
+                .orElseThrow(() -> new DomainNotFoundException("error.namespace.invitation.invalid"));
         requireManager(namespace, actorId);
         return invitations.findByNamespaceId(namespace.getId())
                 .filter(invite -> invite.getConsumedAt() == null && invite.getExpiresAt().isAfter(clock.instant()))
@@ -104,11 +108,12 @@ public class NamespaceInvitationService {
             requireActiveUser(userId);
             requireValid(namespace, invitation);
         }
-        return new Preview(namespace.getSlug(), namespace.getDisplayName(), member);
+        return new Preview(namespace.getSlug(), namespace.getDisplayName(), namespace.getAvatarUrl(),
+                member ? PreviewOutcome.ALREADY_MEMBER : PreviewOutcome.CONFIRM_REQUIRED, invitation.getExpiresAt());
     }
 
     @Transactional
-    public Preview accept(String token, String userId) {
+    public Accepted accept(String token, String userId) {
         // Membership writers and account merge lock users before the Namespace root.
         // The FK check on namespace_member would otherwise invert that order.
         requireActiveLockedUser(userId);
@@ -120,7 +125,7 @@ public class NamespaceInvitationService {
             throw invalid();
         }
         if (members.findByNamespaceIdAndUserId(namespace.getId(), userId).isPresent()) {
-            return new Preview(namespace.getSlug(), namespace.getDisplayName(), true);
+            return new Accepted(namespace.getSlug(), AcceptOutcome.ALREADY_MEMBER);
         }
         requireActiveUser(userId);
         requireValid(namespace, invitation);
@@ -128,7 +133,7 @@ public class NamespaceInvitationService {
         invitation.consume(userId, clock.instant());
         invitations.save(invitation);
         record(userId, "NAMESPACE_INVITE_ACCEPTED", namespace.getId());
-        return new Preview(namespace.getSlug(), namespace.getDisplayName(), false);
+        return new Accepted(namespace.getSlug(), AcceptOutcome.JOINED);
     }
 
     private Namespace lock(String slug) {
@@ -170,7 +175,7 @@ public class NamespaceInvitationService {
         if (invitation.getConsumedAt() != null || !invitation.getExpiresAt().isAfter(clock.instant())) throw invalid();
     }
 
-    private DomainNotFoundException invalid() { return new DomainNotFoundException("error.namespace.invite.invalid"); }
+    private DomainNotFoundException invalid() { return new DomainNotFoundException("error.namespace.invitation.invalid"); }
 
     private String hash(String token) {
         try {

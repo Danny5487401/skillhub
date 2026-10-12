@@ -172,6 +172,37 @@ describe('namespaceApi.delete', () => {
   })
 })
 
+describe('namespace invitation API', () => {
+  it('uses the Issue #911 plural paths for status, create, revoke, preview, and accept', async () => {
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      writable: true,
+      value: { cookie: 'XSRF-TOKEN=test-token' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ code: 0, msg: 'ok', data: {}, timestamp: '', requestId: '' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await namespaceApi.invitationStatus('@team')
+    await namespaceApi.createInvitation('@team', false)
+    await namespaceApi.revokeInvitation('@team')
+    await namespaceApi.previewInvitation('raw-token')
+    await namespaceApi.acceptInvitation('raw-token')
+
+    expect(fetchMock.mock.calls.map(([url, init]) => [url, init.method ?? 'GET'])).toEqual([
+      ['/api/web/namespaces/team/invitations', 'GET'],
+      ['/api/web/namespaces/team/invitations', 'POST'],
+      ['/api/web/namespaces/team/invitations', 'DELETE'],
+      ['/api/web/namespace-invitations/preview', 'POST'],
+      ['/api/web/namespace-invitations/accept', 'POST'],
+    ])
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ replace: false })
+    expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual({ token: 'raw-token' })
+  })
+})
+
 describe('getDirectAuthRuntimeConfig', () => {
   it('returns disabled when no runtime config is present', () => {
     const config = getDirectAuthRuntimeConfig()

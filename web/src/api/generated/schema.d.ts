@@ -1932,7 +1932,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/web/namespaces/{slug}/invitation": {
+    "/api/web/namespaces/{slug}/invitations": {
         parameters: {
             query?: never;
             header?: never;
@@ -1948,7 +1948,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/namespaces/{slug}/invitation": {
+    "/api/v1/namespaces/{slug}/invitations": {
         parameters: {
             query?: never;
             header?: never;
@@ -2060,7 +2060,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/invitations/preview": {
+    "/api/web/namespace-invitations/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -2076,7 +2076,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/web/invitations/preview": {
+    "/api/v1/namespace-invitations/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -2092,7 +2092,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/web/invitations/accept": {
+    "/api/web/namespace-invitations/accept": {
         parameters: {
             query?: never;
             header?: never;
@@ -2108,7 +2108,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/invitations/accept": {
+    "/api/v1/namespace-invitations/accept": {
         parameters: {
             query?: never;
             header?: never;
@@ -6201,8 +6201,26 @@ export interface components {
         };
         Preview: {
             namespaceSlug?: string;
-            namespaceName?: string;
-            alreadyMember?: boolean;
+            namespaceDisplayName?: string;
+            namespaceAvatarUrl?: string;
+            /** @enum {string} */
+            outcome?: "CONFIRM_REQUIRED" | "ALREADY_MEMBER";
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        Accepted: {
+            namespaceSlug?: string;
+            /** @enum {string} */
+            outcome?: "JOINED" | "ALREADY_MEMBER";
+        };
+        ApiResponseAccepted: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["Accepted"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
         };
         ApiResponseGovernanceNotificationResponse: {
             /** Format: int32 */
@@ -12485,7 +12503,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponsePreview"];
+                    "*/*": components["schemas"]["ApiResponseAccepted"];
                 };
             };
         };
@@ -12509,7 +12527,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponsePreview"];
+                    "*/*": components["schemas"]["ApiResponseAccepted"];
                 };
             };
         };

@@ -138,7 +138,8 @@ class NamespaceInvitationServiceTest {
     @Test
     void revokedTokenCannotBePreviewed() {
         assertThatThrownBy(() -> service.preview("A".repeat(43), "guest"))
-                .isInstanceOf(DomainNotFoundException.class);
+                .isInstanceOf(DomainNotFoundException.class)
+                .hasMessage("error.namespace.invitation.invalid");
         verify(invitations).findByTokenHash(any());
     }
 
@@ -151,9 +152,16 @@ class NamespaceInvitationServiceTest {
         when(invitations.findByTokenHash(invitation.getTokenHash())).thenReturn(Optional.of(invitation));
         when(invitations.findNamespaceIdByTokenHash(invitation.getTokenHash())).thenReturn(Optional.of(7L));
         when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(invitation));
+        namespaces.findById(7L).orElseThrow().setAvatarUrl("https://example.com/team.png");
 
-        assertThat(service.preview(created.token(), "guest").alreadyMember()).isFalse();
-        assertThat(service.accept(created.token(), "guest").alreadyMember()).isFalse();
+        NamespaceInvitationService.Preview preview = service.preview(created.token(), "guest");
+        assertThat(preview.namespaceSlug()).isEqualTo("team");
+        assertThat(preview.namespaceDisplayName()).isEqualTo("Team");
+        assertThat(preview.namespaceAvatarUrl()).isEqualTo("https://example.com/team.png");
+        assertThat(preview.outcome()).isEqualTo(NamespaceInvitationService.PreviewOutcome.CONFIRM_REQUIRED);
+        assertThat(preview.expiresAt()).isEqualTo(created.expiresAt());
+        assertThat(service.accept(created.token(), "guest"))
+                .isEqualTo(new NamespaceInvitationService.Accepted("team", NamespaceInvitationService.AcceptOutcome.JOINED));
 
         verify(members).save(argThat(member -> member.getRole() == NamespaceRole.MEMBER
                 && member.getNamespaceId().equals(7L) && member.getUserId().equals("guest")));
@@ -203,8 +211,10 @@ class NamespaceInvitationServiceTest {
         when(members.findByNamespaceIdAndUserId(7L, "guest"))
                 .thenReturn(Optional.of(new NamespaceMember(7L, "guest", NamespaceRole.MEMBER)));
 
-        assertThat(service.preview(created.token(), "guest").alreadyMember()).isTrue();
-        assertThat(service.accept(created.token(), "guest").alreadyMember()).isTrue();
+        assertThat(service.preview(created.token(), "guest").outcome())
+                .isEqualTo(NamespaceInvitationService.PreviewOutcome.ALREADY_MEMBER);
+        assertThat(service.accept(created.token(), "guest").outcome())
+                .isEqualTo(NamespaceInvitationService.AcceptOutcome.ALREADY_MEMBER);
         verify(members, never()).save(any());
     }
 
@@ -278,8 +288,10 @@ class NamespaceInvitationServiceTest {
         namespaces.findById(7L).orElseThrow().setStatus(NamespaceStatus.FROZEN);
         clearInvocations(invitations, members, audit);
 
-        assertThat(service.preview(created.token(), "guest").alreadyMember()).isTrue();
-        assertThat(service.accept(created.token(), "guest").alreadyMember()).isTrue();
+        assertThat(service.preview(created.token(), "guest").outcome())
+                .isEqualTo(NamespaceInvitationService.PreviewOutcome.ALREADY_MEMBER);
+        assertThat(service.accept(created.token(), "guest").outcome())
+                .isEqualTo(NamespaceInvitationService.AcceptOutcome.ALREADY_MEMBER);
         verify(members, never()).save(any());
         verify(invitations, never()).save(any());
         assertThat(expired.getConsumedAt()).isNull();
