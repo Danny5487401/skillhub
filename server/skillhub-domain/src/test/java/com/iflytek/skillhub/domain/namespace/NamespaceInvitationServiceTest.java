@@ -60,6 +60,7 @@ class NamespaceInvitationServiceTest {
         assertThat(created.token()).matches("[A-Za-z0-9_-]{43}");
         assertThat(saved.getValue().getTokenHash()).matches("[a-f0-9]{64}").doesNotContain(created.token());
         assertThat(created.expiresAt()).isEqualTo(Instant.parse("2026-10-13T00:00:00Z"));
+        assertThat(created.replaced()).isFalse();
     }
 
     @Test
@@ -122,7 +123,7 @@ class NamespaceInvitationServiceTest {
         when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(invitation));
         service.preview(first.token(), "guest");
 
-        service.create("team", "owner", true);
+        assertThat(service.create("team", "owner", true).replaced()).isTrue();
         assertThatThrownBy(() -> service.accept(first.token(), "guest"))
                 .isInstanceOf(DomainNotFoundException.class);
         verify(members, never()).save(any());
@@ -135,5 +136,20 @@ class NamespaceInvitationServiceTest {
         service.revoke("team", "owner");
         verify(invitations).deleteByNamespaceId(7L);
         verify(members, never()).deleteByNamespaceId(any());
+    }
+
+    @Test
+    void renewingConsumedInvitationDoesNotClaimToReplaceUsableLink() {
+        NamespaceInvitationService.Created first = service.create("team", "owner");
+        ArgumentCaptor<NamespaceInvitation> saved = ArgumentCaptor.forClass(NamespaceInvitation.class);
+        verify(invitations).save(saved.capture());
+        NamespaceInvitation old = saved.getValue();
+        old.consume("guest", clock.instant());
+        when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(old));
+
+        NamespaceInvitationService.Created renewed = service.create("team", "owner", false);
+
+        assertThat(renewed.replaced()).isFalse();
+        assertThat(renewed.token()).isNotEqualTo(first.token());
     }
 }

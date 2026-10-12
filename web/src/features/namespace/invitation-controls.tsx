@@ -18,13 +18,13 @@ export function InvitationControls({ slug }: { slug: string }) {
   const status = useQuery({ queryKey: ['namespace-invitation-status', slug], queryFn: () => namespaceApi.invitationStatus(slug) })
   const create = useMutation({
     mutationFn: (replace: boolean) => namespaceApi.createInvitation(slug, replace),
-    onSuccess: async ({ token }) => {
+    onSuccess: async ({ token, replaced }) => {
       await queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] })
       const url = invitationUrl(resolvePublicRegistryUrl(getAppBaseUrl(), window.location.origin, BASE_PATH), token)
       setLink(url)
       try {
         await navigator.clipboard.writeText(url)
-        toast.success(t('invitation.copied'))
+        toast.success(t(replaced ? 'invitation.replacedCopied' : 'invitation.copied'))
       } catch {
         toast.info(t('invitation.manualCopy'))
       }
@@ -43,7 +43,7 @@ export function InvitationControls({ slug }: { slug: string }) {
     else create.mutate(false)
   }
   return (
-    <div className="space-y-2">
+    <div id="invite" className="space-y-2 scroll-mt-24">
       <div className="flex gap-2">
         <Button variant="outline" disabled={status.isPending || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>
         {status.data?.active ? <Button variant="outline" disabled={revoke.isPending} onClick={() => setConfirm('revoke')}>{t('invitation.revoke')}</Button> : null}

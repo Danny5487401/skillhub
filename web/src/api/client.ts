@@ -751,8 +751,8 @@ export const namespaceApi = {
     return fetchJson<{ active: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitation`)
   },
 
-  async createInvitation(slug: string, replace: boolean): Promise<{ token: string; expiresAt: string }> {
-    return fetchJson<{ token: string; expiresAt: string }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitation`, {
+  async createInvitation(slug: string, replace: boolean): Promise<{ token: string; expiresAt: string; replaced: boolean }> {
+    return fetchJson<{ token: string; expiresAt: string; replaced: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitation`, {
       method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ replace }),
     })

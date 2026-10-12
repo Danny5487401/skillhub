@@ -178,6 +178,11 @@ export function MyNamespacesPage() {
     navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/members` })
   }
 
+  const handleInviteClick = (slug: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigate({ to: '/dashboard/namespaces/$slug/members', params: { slug }, hash: 'invite' })
+  }
+
   const handleReviewsClick = (slug: string, e: React.MouseEvent) => {
     e.stopPropagation()
     navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/reviews` })
@@ -304,6 +309,12 @@ export function MyNamespacesPage() {
                       onClick={(e) => handleMembersClick(namespace.slug, e)}
                     >
                       {t('myNamespaces.manageMembers')}
+                    </Button>
+                  )}
+                  {namespace.type === 'TEAM' && namespace.status === 'ACTIVE'
+                    && (namespace.currentUserRole === 'OWNER' || namespace.currentUserRole === 'ADMIN') && (
+                    <Button variant="outline" size="sm" onClick={(e) => handleInviteClick(namespace.slug, e)}>
+                      {t('invitation.create')}
                     </Button>
                   )}
                   <Button

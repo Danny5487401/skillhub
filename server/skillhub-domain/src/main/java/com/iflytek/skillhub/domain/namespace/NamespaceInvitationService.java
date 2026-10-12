@@ -38,7 +38,7 @@ public class NamespaceInvitationService {
         this.clock = clock;
     }
 
-    public record Created(String token, Instant expiresAt) {}
+    public record Created(String token, Instant expiresAt, boolean replaced) {}
     public record Preview(String namespaceSlug, String namespaceName, boolean alreadyMember) {}
 
     @Transactional
@@ -57,9 +57,9 @@ public class NamespaceInvitationService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant now = clock.instant();
         NamespaceInvitation invitation = invitations.findByNamespaceId(namespace.getId()).orElse(null);
-        boolean replaced = invitation != null;
-        if (invitation != null && invitation.getConsumedAt() == null
-                && invitation.getExpiresAt().isAfter(now) && !replace) {
+        boolean replaced = invitation != null && invitation.getConsumedAt() == null
+                && invitation.getExpiresAt().isAfter(now);
+        if (replaced && !replace) {
             throw new DomainConflictException("error.namespace.invite.replaceConfirmationRequired");
         }
         if (invitation == null) {
@@ -69,7 +69,7 @@ public class NamespaceInvitationService {
         }
         invitations.save(invitation);
         record(actorId, replaced ? "NAMESPACE_INVITE_REPLACED" : "NAMESPACE_INVITE_CREATED", namespace.getId());
-        return new Created(token, invitation.getExpiresAt());
+        return new Created(token, invitation.getExpiresAt(), replaced);
     }
 
     @Transactional

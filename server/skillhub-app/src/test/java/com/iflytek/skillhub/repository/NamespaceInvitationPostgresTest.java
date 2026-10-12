@@ -96,6 +96,46 @@ class NamespaceInvitationPostgresTest {
         assertThat(invitationRows.findByNamespaceId(namespaceId).orElseThrow().getConsumedBy()).isIn(first, second);
     }
 
+    @Test
+    void revokeAndReplaceSerializeWithAcceptance() throws Exception {
+        for (boolean replace : new boolean[] {false, true}) {
+            String suffix = UUID.randomUUID().toString().substring(0, 8);
+            String owner = "inv-owner-" + suffix;
+            String guest = "inv-guest-" + suffix;
+            String slug = "inv-" + suffix;
+            Long namespaceId = new TransactionTemplate(transactionManager).execute(status -> {
+                users.saveAndFlush(new UserAccount(owner, owner, null, null));
+                users.saveAndFlush(new UserAccount(guest, guest, null, null));
+                Namespace namespace = namespaces.saveAndFlush(new Namespace(slug, "Invitation race", owner));
+                members.saveAndFlush(new NamespaceMember(namespace.getId(), owner, NamespaceRole.OWNER));
+                return namespace.getId();
+            });
+            String oldToken = invitations.create(slug, owner).token();
+            CountDownLatch start = new CountDownLatch(1);
+            try (var pool = Executors.newFixedThreadPool(2)) {
+                var accept = pool.submit(() -> attempt(start, oldToken, guest));
+                var change = pool.submit(() -> {
+                    start.await();
+                    if (replace) invitations.create(slug, owner, true);
+                    else invitations.revoke(slug, owner);
+                    return true;
+                });
+                start.countDown();
+                int accepted = accept.get(20, TimeUnit.SECONDS);
+                assertThat(change.get(20, TimeUnit.SECONDS)).isTrue();
+                assertThat(members.findByNamespaceIdAndUserId(namespaceId, guest).isPresent())
+                        .isEqualTo(accepted == 1);
+                if (replace) {
+                    assertThat(invitationRows.findByNamespaceId(namespaceId)).isPresent();
+                    assertThat(invitationRows.findByNamespaceId(namespaceId).orElseThrow().getConsumedAt()).isNull();
+                } else {
+                    assertThat(invitationRows.findByNamespaceId(namespaceId)).isEmpty();
+                }
+                assertThat(attempt(new CountDownLatch(0), oldToken, guest)).isZero();
+            }
+        }
+    }
+
     private int attempt(CountDownLatch start, String token, String userId) throws InterruptedException {
         start.await();
         try {

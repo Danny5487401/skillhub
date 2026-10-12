@@ -29,12 +29,13 @@ export function JoinPage() {
     onSuccess: async (result) => {
       clearInvitationToken()
       await queryClient.invalidateQueries({ queryKey: ['namespaces'] })
-      await navigate({ to: '/space/$namespace', params: { namespace: result.namespaceSlug } })
+      await navigate({ to: '/space/$namespace', params: { namespace: result.namespaceSlug }, replace: true })
     },
   })
   const invalid = !token || (preview.error instanceof ApiError && preview.error.status === 404)
     || (accept.error instanceof ApiError && accept.error.status === 404)
   useEffect(() => { if (invalid) clearInvitationToken() }, [invalid])
+  useEffect(() => { if (preview.data?.alreadyMember) clearInvitationToken() }, [preview.data?.alreadyMember])
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16">
@@ -55,7 +56,7 @@ export function JoinPage() {
             {preview.data.alreadyMember ? (
               <>
                 <p>{t('invitation.alreadyMember')}</p>
-                <Button onClick={() => { clearInvitationToken(); navigate({ to: '/space/$namespace', params: { namespace: preview.data.namespaceSlug } }) }}>{t('invitation.enter')}</Button>
+                <Button onClick={() => { clearInvitationToken(); navigate({ to: '/space/$namespace', params: { namespace: preview.data.namespaceSlug }, replace: true }) }}>{t('invitation.enter')}</Button>
               </>
             ) : (
               <>

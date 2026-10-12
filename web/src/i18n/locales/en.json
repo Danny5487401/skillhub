@@ -1399,6 +1399,7 @@
     "link": "Invitation link",
     "linkHint": "Valid for 24 hours and one new member. Share it securely.",
     "copied": "Invitation link copied",
+    "replacedCopied": "Old invitation replaced; new link copied",
     "manualCopy": "Automatic copy failed. Copy the link below manually.",
     "revoked": "Invitation revoked",
     "error": "Invitation action failed. Try again.",
