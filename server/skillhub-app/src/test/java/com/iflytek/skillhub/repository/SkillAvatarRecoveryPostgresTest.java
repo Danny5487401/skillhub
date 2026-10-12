@@ -82,6 +82,7 @@ class SkillAvatarRecoveryPostgresTest {
 
     @Autowired private SkillJpaRepository skills;
     @Autowired private NamespaceJpaRepository namespaces;
+    @Autowired private com.iflytek.skillhub.infra.jpa.SkillVersionJpaRepository versions;
     @Autowired private SkillAvatarCandidateJpaRepository candidates;
     @Autowired private SkillAvatarAppService avatars;
     @Autowired private SkillAvatarMachineRecoveryTask machineRecovery;
@@ -282,6 +283,10 @@ class SkillAvatarRecoveryPostgresTest {
         var other = avatars.submit(namespaceSlug(otherProviderId), "skill", "owner", image, new AuditRequestContext(null, null));
         assertThat(other.machineStatus()).isEqualTo("PENDING");
         assertThat(other.avatarUrl()).isNull();
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.times(1))
+                .moderate(eq("xfyun"), any(byte[].class));
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.never())
+                .moderate(eq("aliyun"), any(byte[].class));
     }
 
     @Test
@@ -366,6 +371,146 @@ class SkillAvatarRecoveryPostgresTest {
     }
 
 
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void reviewPolicyMatrixAppliesToPublicUploadsButPrivateUploadsBypassReview(boolean machineEnabled, boolean manualEnabled) {
+        when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(machineEnabled, manualEnabled, 1, null));
+        when(imageProcessor.normalize(any())).thenAnswer(call -> call.getArgument(0));
+        Long publicId = skill(false);
+        Skill publicSkill = readSkill(publicId);
+        var ownerRole = java.util.Map.of(publicSkill.getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER);
+        byte[] publicImage = UUID.randomUUID().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var submitted = avatars.submit(namespaceSlug(publicId), "skill", "owner", publicImage, new AuditRequestContext(null, null));
+        assertThat(submitted.machineStatus()).isEqualTo(machineEnabled ? "PENDING" : "SKIPPED");
+        assertThat(submitted.reviewStatus()).isEqualTo(manualEnabled ? "PENDING" : "NOT_REQUIRED");
+        if (machineEnabled || manualEnabled) {
+            assertThat(submitted.avatarUrl()).isNull();
+            assertThat(readSkill(publicId).getPendingAvatarId()).isEqualTo(submitted.candidateId());
+        } else {
+            assertThat(submitted.avatarUrl()).isNotNull();
+        }
+        if (machineEnabled) {
+            var machineResult = avatars.processMachine(submitted.candidateId(), new AuditRequestContext(null, null));
+            assertThat(machineResult.machineStatus()).isEqualTo("PASSED");
+            assertThat(machineResult.avatarUrl() == null).isEqualTo(manualEnabled);
+        }
+        if (manualEnabled) {
+            assertThat(avatars.reviewQueue("owner", ownerRole, java.util.Set.of()))
+                    .extracting(com.iflytek.skillhub.dto.SkillAvatarStatusResponse::candidateId).contains(submitted.candidateId());
+            var reviewed = avatars.decide(namespaceSlug(publicId), "skill", submitted.candidateId(), true, "reviewed", "owner",
+                    ownerRole, java.util.Set.of(), new AuditRequestContext(null, null));
+            assertThat(reviewed.avatarUrl()).isNotNull();
+        }
+        assertThat(readSkill(publicId).getActiveAvatarId()).isEqualTo(submitted.candidateId());
+        assertThat(readSkill(publicId).getPendingAvatarId()).isNull();
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.times(machineEnabled ? 1 : 0))
+                .moderate(anyString(), any(byte[].class));
+
+        Long privateId = skill(false);
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            Skill privateSkill = skills.findLockedById(privateId).orElseThrow();
+            privateSkill.setVisibility(SkillVisibility.PRIVATE);
+        });
+        var privateUploaded = avatars.submit(namespaceSlug(privateId), "skill", "owner",
+                UUID.randomUUID().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), new AuditRequestContext(null, null));
+        assertThat(privateUploaded.machineStatus()).isEqualTo("SKIPPED");
+        assertThat(privateUploaded.reviewStatus()).isEqualTo("NOT_REQUIRED");
+        assertThat(privateUploaded.avatarUrl()).isNotNull();
+        assertThat(readSkill(privateId).getActiveAvatarId()).isEqualTo(privateUploaded.candidateId());
+        assertThat(readSkill(privateId).getPendingAvatarId()).isNull();
+        assertThat(avatars.reviewQueue("owner", java.util.Map.of(readSkill(privateId).getNamespaceId(),
+                com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER), java.util.Set.of()))
+                .extracting(com.iflytek.skillhub.dto.SkillAvatarStatusResponse::candidateId).doesNotContain(privateUploaded.candidateId());
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.times(machineEnabled ? 1 : 0))
+                .moderate(anyString(), any(byte[].class));
+    }
+
+    @Test
+    void teamAdministratorCannotActAsOwnerOrReadPrivateAvatar() {
+        Long skillId = skill(false);
+        Skill skill = readSkill(skillId);
+        var adminRole = java.util.Map.of(skill.getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.ADMIN);
+        when(imageProcessor.normalize(any())).thenAnswer(call -> call.getArgument(0));
+        assertThatThrownBy(() -> avatars.submit(namespaceSlug(skillId), "skill", "admin", new byte[] {7},
+                new AuditRequestContext(null, null)))
+                .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException.class);
+        org.mockito.Mockito.verify(storage, org.mockito.Mockito.never())
+                .putObject(anyString(), any(), org.mockito.ArgumentMatchers.anyLong(), anyString());
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            Skill privateSkill = skills.findLockedById(skillId).orElseThrow();
+            privateSkill.setVisibility(SkillVisibility.PRIVATE);
+        });
+        var uploaded = avatars.submit(namespaceSlug(skillId), "skill", "owner", new byte[] {8}, new AuditRequestContext(null, null));
+        when(visibility.canAccess(any(), eq("admin"), any(), any())).thenReturn(true);
+        assertThatThrownBy(() -> avatars.readActive(namespaceSlug(skillId), "skill", "admin", adminRole, java.util.Set.of()))
+                .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException.class);
+        assertThatThrownBy(() -> avatars.readCandidate(namespaceSlug(skillId), "skill", uploaded.candidateId(), "admin", adminRole, java.util.Set.of()))
+                .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException.class);
+        assertThatThrownBy(() -> avatars.remove(namespaceSlug(skillId), "skill", "admin", false, null, adminRole,
+                java.util.Set.of(), new AuditRequestContext(null, null)))
+                .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException.class);
+        org.mockito.Mockito.verify(storage, org.mockito.Mockito.never()).getObject(anyString());
+        assertThat(readSkill(skillId).getActiveAvatarId()).isEqualTo(uploaded.candidateId());
+    }
+
+
+    @Test
+    void scopeRejectionSuppressesCurrentPublicationAndNewPublicationCreatesOneFreshReview() {
+        Long skillId = skill(true);
+        publishVersion(skillId, "1.0.0");
+        when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(false, true, 1, null));
+        Long rejectedId = avatars.prepareScopeReview(skillId, null).candidateId();
+        var roles = java.util.Map.of(readSkill(skillId).getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER);
+        avatars.decide(namespaceSlug(skillId), "skill", rejectedId, false, "rejected for this publication", "owner",
+                roles, java.util.Set.of(), new AuditRequestContext(null, null));
+        scopeRecovery.recover();
+        scopeRecovery.recover();
+        assertThat(candidates.findBySkillIdOrderByCreatedAtDesc(skillId)).hasSize(2);
+        assertThat(readSkill(skillId).getPendingAvatarId()).isNull();
+        assertThat(SkillAvatarUrls.current(readSkill(skillId), "test")).isNull();
+        publishVersion(skillId, "1.1.0");
+        scopeRecovery.recover();
+        scopeRecovery.recover();
+        assertThat(candidates.findBySkillIdOrderByCreatedAtDesc(skillId)).hasSize(3);
+        Long newCandidateId = readSkill(skillId).getPendingAvatarId();
+        assertThat(newCandidateId).isNotNull().isNotEqualTo(rejectedId);
+        SkillAvatarCandidate newCandidate = candidates.findById(newCandidateId).orElseThrow();
+        assertThat(newCandidate.getScopeReviewVersionId()).isEqualTo(readSkill(skillId).getLatestVersionId());
+        assertThat(newCandidate.getReviewStatus()).isEqualTo(SkillAvatarCandidate.ReviewStatus.PENDING);
+        assertThat(newCandidate.getStatus()).isEqualTo(SkillAvatarCandidate.Status.PENDING);
+        assertThat(SkillAvatarUrls.current(readSkill(skillId), "test")).isNull();
+    }
+
+    @Test
+    void machineOnlyBlockCanBeAppealedAndExplicitlyApproved() {
+        Long skillId = skill(false);
+        Long candidateId = pending(skillId);
+        when(moderation.moderate(eq("xfyun"), any(byte[].class))).thenReturn(AvatarModerationProvider.Verdict.BLOCK);
+        assertThat(avatars.processMachine(candidateId, new AuditRequestContext(null, null)).avatarUrl()).isNull();
+        var appealed = avatars.appeal(namespaceSlug(skillId), "skill", candidateId, "owner", new AuditRequestContext(null, null));
+        assertThat(appealed.reviewStatus()).isEqualTo("APPEAL_PENDING");
+        assertThat(appealed.avatarUrl()).isNull();
+        var approved = avatars.decide(namespaceSlug(skillId), "skill", candidateId, true, "machine false positive", "owner",
+                java.util.Map.of(readSkill(skillId).getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER),
+                java.util.Set.of(), new AuditRequestContext(null, null));
+        assertThat(approved.avatarUrl()).isNotNull();
+        SkillAvatarCandidate candidate = candidates.findById(candidateId).orElseThrow();
+        assertThat(candidate.getReviewReason()).isEqualTo("machine false positive");
+        assertThat(candidate.getReviewedBy()).isEqualTo("owner");
+        assertThat(readSkill(skillId).getPendingAvatarId()).isNull();
+        assertThat(readSkill(skillId).getActiveAvatarId()).isEqualTo(candidateId);
+    }
+
+    private void publishVersion(Long skillId, String version) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var published = new com.iflytek.skillhub.domain.skill.SkillVersion(skillId, version, "owner");
+            published.setStatus(com.iflytek.skillhub.domain.skill.SkillVersionStatus.PUBLISHED);
+            versions.saveAndFlush(published);
+            skills.findLockedById(skillId).orElseThrow().setLatestVersionId(published.getId());
+        });
+    }
 
     private java.util.List<SkillAvatarCandidate> abandoned(Instant staleBefore, Instant now) {
         return candidates.findAbandonedMachineCandidates(0L, SkillAvatarCandidate.Status.PENDING,
