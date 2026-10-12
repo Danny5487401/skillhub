@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getAppBaseUrl, namespaceApi } from '@/api/client'
@@ -12,22 +12,24 @@ import { Input } from '@/shared/ui/input'
 
 export function InvitationControls({ slug, compact = false }: { slug: string; compact?: boolean }) {
   const { t } = useTranslation()
+  const linkId = useId()
   const queryClient = useQueryClient()
   const [confirm, setConfirm] = useState<'replace' | 'revoke' | null>(null)
   const [link, setLink] = useState<string | null>(null)
   const status = useQuery({ queryKey: ['namespace-invitation-status', slug], queryFn: () => namespaceApi.invitationStatus(slug), enabled: !compact })
   const create = useMutation({
     mutationFn: (replace: boolean) => namespaceApi.createInvitation(slug, replace),
-    onSuccess: async ({ token, replaced }) => {
-      await queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] })
+    onSuccess: ({ token, replaced }) => {
       const url = invitationUrl(resolvePublicRegistryUrl(getAppBaseUrl(), window.location.origin, BASE_PATH), token)
       setLink(url)
       try {
-        await navigator.clipboard.writeText(url)
-        toast.success(t(replaced ? 'invitation.replacedCopied' : 'invitation.copied'))
+        void navigator.clipboard.writeText(url)
+          .then(() => toast.success(t(replaced ? 'invitation.replacedCopied' : 'invitation.copied')))
+          .catch(() => toast.info(t('invitation.manualCopy')))
       } catch {
         toast.info(t('invitation.manualCopy'))
       }
+      void queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] })
     },
   })
   const revoke = useMutation({
@@ -51,8 +53,8 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
       </div>
       {link ? (
         <div className="space-y-1">
-          <label className="text-sm" htmlFor="namespace-invite-link">{t('invitation.link')}</label>
-          <Input id="namespace-invite-link" readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
+          <label className="text-sm" htmlFor={linkId}>{t('invitation.link')}</label>
+          <Input id={linkId} readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
           <p className="text-xs text-muted-foreground">{t('invitation.linkHint')}</p>
         </div>
       ) : null}
