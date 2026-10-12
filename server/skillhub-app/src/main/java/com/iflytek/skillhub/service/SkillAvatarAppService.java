@@ -365,7 +365,8 @@ public class SkillAvatarAppService {
                 candidate == null ? null : candidate.getReviewStatus().name(),
                 candidate == null ? null : candidate.getReviewReason(),
                 candidate == null || candidate.getObjectKey() == null ? null
-                        : SkillAvatarUrls.candidate(namespaceSlug, skill, candidate.getId()));
+                        : SkillAvatarUrls.candidate(namespaceSlug, skill, candidate.getId()),
+                namespaceSlug, skill.getSlug());
     }
 
     private String sha256(byte[] image) {

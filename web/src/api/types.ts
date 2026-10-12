@@ -36,6 +36,25 @@ export interface SystemAuthSettings {
   updatedAt: string
 }
 
+export interface AvatarReviewSettings {
+  machineEnabled: boolean
+  manualEnabled: boolean
+  version: number
+  updatedAt: string
+}
+
+export interface SkillAvatarStatus {
+  avatarUrl: string | null
+  candidateId: number | null
+  candidateStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUPERSEDED' | 'REMOVED' | null
+  machineStatus: 'SKIPPED' | 'PENDING' | 'PASSED' | 'BLOCKED' | 'ERROR' | null
+  reviewStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'APPEAL_PENDING' | null
+  reviewReason: string | null
+  candidateUrl: string | null
+  namespace: string
+  slug: string
+}
+
 export interface ExternalRoleGrantRule {
   id: number
   providerCode: string
@@ -252,6 +271,7 @@ export interface SkillSummary {
   ownerPreviewVersion?: SkillLifecycleVersion
   resolutionMode?: string
   complianceSnapshot?: ComplianceSnapshot
+  avatarUrl?: string | null
 }
 
 export type LabelItem = Omit<components['schemas']['SkillLabelDto'], 'slug' | 'type' | 'displayName'> & {
@@ -345,6 +365,7 @@ export type SkillDetail = Omit<
   >,
   'labels' | 'headlineVersion' | 'publishedVersion' | 'ownerPreviewVersion' | 'entryForSuites' | 'memberOfSuites'
 > & {
+  avatarUrl?: string | null
   labels?: LabelItem[]
   headlineVersion?: SkillLifecycleVersion
   publishedVersion?: SkillLifecycleVersion

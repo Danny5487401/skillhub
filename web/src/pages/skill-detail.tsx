@@ -4,6 +4,9 @@ import { Link, useParams, useNavigate, useRouterState, useSearch } from '@tansta
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpCircle, Boxes, ChevronDown, ChevronUp, Clock, Folder, Globe, Lock, RefreshCw, ShieldCheck, Terminal, User, Users } from 'lucide-react'
 import { MarkdownRenderer } from '@/features/skill/markdown-renderer'
+import { SkillAvatar } from '@/features/skill/skill-avatar'
+import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
+import { SkillAvatarTakedown } from '@/features/skill/skill-avatar-takedown'
 import { resolvePackageRelativeLink } from '@/features/skill/package-relative-link'
 import { FileTree } from '@/features/skill/file-tree'
 import { FilePreviewDialog } from '@/features/skill/file-preview-dialog'
@@ -29,6 +32,7 @@ import { StarButton } from '@/features/social/star-button'
 import { SubscribeButton } from '@/features/social/subscribe-button'
 import { SkillReviews } from '@/features/social/skill-reviews'
 import { useAuth } from '@/features/auth/use-auth'
+import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { adminApi, ApiError, buildApiUrl, WEB_API_PREFIX } from '@/api/client'
 import { useSubmitSkillReport } from '@/features/report/use-skill-reports'
 import { SecurityAuditSummary } from '@/features/security-audit/security-audit-summary'
@@ -166,6 +170,7 @@ export function SkillDetailPage() {
   const overviewQuietGenerationRef = useRef(0)
   const { namespace, slug } = useParams({ from: '/space/$namespace/$slug' })
   const { user, hasRole } = useAuth()
+  const { data: myNamespaces } = useMyNamespaces(Boolean(user))
   const isPromotionAdmin = hasRole('SKILL_ADMIN') || hasRole('SUPER_ADMIN')
   const detailQueriesEnabled = isSkillDetailQueriesEnabled(skillDeleted)
   const qns = detailQueriesEnabled ? namespace : ''
@@ -897,7 +902,12 @@ export function SkillDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="text-balance break-words text-4xl font-bold font-heading text-foreground [overflow-wrap:anywhere]">{skill.displayName}</h1>
+          <div className="flex items-center gap-4"><SkillAvatar name={skill.displayName} url={skill.avatarUrl} size="h-16 w-16 text-2xl" /><h1 className="text-balance break-words text-4xl font-bold font-heading text-foreground [overflow-wrap:anywhere]">{skill.displayName}</h1></div>
+          {user?.userId === skill.ownerId && <SkillAvatarManager namespace={namespace} slug={slug} />}
+          {skill.avatarUrl && user?.userId !== skill.ownerId && (namespace === 'global'
+            ? isPromotionAdmin
+            : myNamespaces?.some((item) => item.slug === namespace && (item.currentUserRole === 'OWNER' || item.currentUserRole === 'ADMIN')))
+            && <SkillAvatarTakedown namespace={namespace} slug={slug} />}
           {skill.ownerDisplayName && (
             <div className="flex min-w-0">
               <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur-sm">

@@ -7,6 +7,7 @@ import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
 import com.iflytek.skillhub.dto.SkillAvatarDecisionRequest;
+import com.iflytek.skillhub.dto.SkillAvatarReasonRequest;
 import com.iflytek.skillhub.dto.SkillAvatarStatusResponse;
 import com.iflytek.skillhub.service.AuditRequestContext;
 import com.iflytek.skillhub.service.SkillAvatarAppService;
@@ -125,10 +126,10 @@ public class SkillAvatarController extends BaseApiController {
 
     @PostMapping("/{namespace}/{slug}/avatar/takedown")
     public ApiResponse<Void> takedown(@PathVariable String namespace, @PathVariable String slug,
-            @RequestBody String reason, @AuthenticationPrincipal PlatformPrincipal principal,
+            @Valid @RequestBody SkillAvatarReasonRequest input, @AuthenticationPrincipal PlatformPrincipal principal,
             @RequestAttribute(value = "userNsRoles", required = false) Map<Long, NamespaceRole> roles,
             HttpServletRequest request) {
-        service.remove(namespace, slug, userId(principal), true, reason, roles, platformRoles(principal),
+        service.remove(namespace, slug, userId(principal), true, input.reason(), roles, platformRoles(principal),
                 AuditRequestContext.from(request));
         return ok("response.success.updated", null);
     }

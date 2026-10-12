@@ -22,6 +22,15 @@ class AliyunAvatarModerationProviderTest {
         assertThat(provider.classify(response("high"))).isEqualTo(AvatarModerationProvider.Verdict.BLOCK);
         assertThat(provider.classify(response(null))).isEqualTo(AvatarModerationProvider.Verdict.ERROR);
         assertThat(provider.classify(response("unknown"))).isEqualTo(AvatarModerationProvider.Verdict.ERROR);
+        assertThat(provider.classify(response("none").setStatusCode(500)))
+                .isEqualTo(AvatarModerationProvider.Verdict.ERROR);
+        assertThat(provider.classify(response("none").setBody(
+                new ImageModerationResponseBody().setCode(500))))
+                .isEqualTo(AvatarModerationProvider.Verdict.ERROR);
+        assertThat(provider.classify(response("none").setBody(
+                new ImageModerationResponseBody().setCode(200).setData(
+                        new ImageModerationResponseBodyData().setRiskLevel("none").setResult(List.of())))))
+                .isEqualTo(AvatarModerationProvider.Verdict.ERROR);
     }
 
     private ImageModerationResponse response(String level) {

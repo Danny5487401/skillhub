@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { useNamespaceDetail } from '@/shared/hooks/use-namespace-queries'
 import { useReviewList } from '@/features/review/use-review-list'
+import { SkillAvatarReviewQueue } from '@/features/skill/skill-avatar-review'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
@@ -161,6 +162,7 @@ export function NamespaceReviewsPage() {
           {readOnlyMessage}
         </Card>
       ) : null}
+      <SkillAvatarReviewQueue namespace={slug} />
       <ReviewListSection namespaceId={namespace?.id} slug={slug} />
     </div>
   )

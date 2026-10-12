@@ -25,6 +25,7 @@ import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { ProfileReviewTable } from './profile-review-table'
+import { SkillAvatarReviewQueue } from '@/features/skill/skill-avatar-review'
 
 type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 type TimeSortDirection = 'ASC' | 'DESC'
@@ -264,6 +265,8 @@ export function ReviewsPage() {
   return (
     <div className="space-y-8 animate-fade-up">
       <DashboardPageHeader title={t('reviews.title')} subtitle={t('reviews.subtitle')} />
+
+      {isSkillAdmin && <SkillAvatarReviewQueue />}
 
       {showTypeTabs ? (
         <Tabs value={activeType} onValueChange={handleTypeChange}>

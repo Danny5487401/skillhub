@@ -36,6 +36,8 @@ import type {
   AuthMethod,
   LocalAuthCapabilities,
   SystemAuthSettings,
+  AvatarReviewSettings,
+  SkillAvatarStatus,
   ExternalRoleGrantRule,
   PlatformRole,
   OAuthProvider,
@@ -459,6 +461,17 @@ export const authApi = {
 }
 
 export const systemConfigApi = {
+  getAvatarReview(): Promise<AvatarReviewSettings> {
+    return fetchJson<AvatarReviewSettings>('/api/v1/admin/system-config/avatar-review')
+  },
+
+  updateAvatarReview(request: Pick<AvatarReviewSettings, 'machineEnabled' | 'manualEnabled' | 'version'>): Promise<AvatarReviewSettings> {
+    return fetchJson<AvatarReviewSettings>('/api/v1/admin/system-config/avatar-review', {
+      method: 'PUT',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(request),
+    })
+  },
   getLocalAuth(): Promise<SystemAuthSettings> {
     return fetchJson<SystemAuthSettings>('/api/v1/admin/system-config/auth/local')
   },
@@ -499,6 +512,51 @@ export const systemConfigApi = {
     return fetchJson<ExternalRoleGrantRule>(`/api/v1/admin/system-config/role-grants/${id}?version=${version}`, {
       method: 'DELETE',
       headers: getCsrfHeaders(),
+    })
+  },
+}
+
+function avatarPath(namespace: string, slug: string): string {
+  return `/api/v1/skills/${encodeURIComponent(namespace)}/${encodeURIComponent(slug)}/avatar`
+}
+
+export const skillAvatarApi = {
+  status(namespace: string, slug: string): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/status`)
+  },
+  upload(namespace: string, slug: string, file: Blob): Promise<SkillAvatarStatus> {
+    const body = new FormData()
+    body.append('file', file, 'avatar.png')
+    return fetchJson<SkillAvatarStatus>(avatarPath(namespace, slug), {
+      method: 'POST', headers: getCsrfHeaders(), body,
+    })
+  },
+  delete(namespace: string, slug: string): Promise<void> {
+    return fetchJson<void>(avatarPath(namespace, slug), { method: 'DELETE', headers: getCsrfHeaders() })
+  },
+  appeal(namespace: string, slug: string, candidateId: number): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/appeal`, {
+      method: 'POST', headers: getCsrfHeaders(),
+    })
+  },
+  retry(namespace: string, slug: string, candidateId: number): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/retry`, {
+      method: 'POST', headers: getCsrfHeaders(),
+    })
+  },
+  queue(): Promise<SkillAvatarStatus[]> {
+    return fetchJson<SkillAvatarStatus[]>('/api/v1/skills/avatar-review/queue')
+  },
+  decide(namespace: string, slug: string, candidateId: number, approved: boolean, reason: string): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/decision`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ approved, reason }),
+    })
+  },
+  takedown(namespace: string, slug: string, reason: string): Promise<void> {
+    return fetchJson<void>(`${avatarPath(namespace, slug)}/takedown`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ reason }),
     })
   },
 }

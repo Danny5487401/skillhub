@@ -8,6 +8,7 @@ import com.aliyun.green20220302.models.ImageModerationResponse;
 import com.aliyun.green20220302.models.ImageModerationResponseBody;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.ClientBuilderConfiguration;
 import com.aliyun.oss.model.PutObjectRequest;
 import com.aliyun.teaopenapi.models.Config;
 import com.aliyun.teautil.models.RuntimeOptions;
@@ -51,7 +52,9 @@ public class AliyunAvatarModerationProvider implements AvatarModerationProvider 
             config.setAccessKeySecret(accessKeySecret);
             config.setEndpoint(ENDPOINT);
             Client client = new Client(config);
-            DescribeUploadTokenResponse tokenResponse = client.describeUploadToken();
+            RuntimeOptions runtime = new RuntimeOptions().setConnectTimeout(3000).setReadTimeout(8000)
+                    .setAutoretry(false);
+            DescribeUploadTokenResponse tokenResponse = client.describeUploadTokenWithOptions(runtime);
             if (tokenResponse == null || tokenResponse.getBody() == null
                     || !Objects.equals(tokenResponse.getBody().getCode(), 200)) {
                 return Verdict.ERROR;
@@ -61,8 +64,11 @@ public class AliyunAvatarModerationProvider implements AvatarModerationProvider 
                     || token.getOssInternetEndPoint() == null || token.getSecurityToken() == null) {
                 return Verdict.ERROR;
             }
+            ClientBuilderConfiguration ossConfig = new ClientBuilderConfiguration();
+            ossConfig.setConnectionTimeout(3000);
+            ossConfig.setSocketTimeout(8000);
             oss = new OSSClientBuilder().build(token.getOssInternetEndPoint(), token.getAccessKeyId(),
-                    token.getAccessKeySecret(), token.getSecurityToken());
+                    token.getAccessKeySecret(), token.getSecurityToken(), ossConfig);
             String objectName = token.getFileNamePrefix() + UUID.randomUUID() + ".png";
             oss.putObject(new PutObjectRequest(token.getBucketName(), objectName,
                     new ByteArrayInputStream(normalizedPng)));
@@ -73,7 +79,7 @@ public class AliyunAvatarModerationProvider implements AvatarModerationProvider 
                     "ossBucketName", token.getBucketName(),
                     "ossObjectName", objectName,
                     "dataId", UUID.randomUUID().toString())));
-            ImageModerationResponse response = client.imageModerationWithOptions(request, new RuntimeOptions());
+            ImageModerationResponse response = client.imageModerationWithOptions(request, runtime);
             return classify(response);
         } catch (Exception failure) {
             // SDK exception text may include credential or temporary upload details.

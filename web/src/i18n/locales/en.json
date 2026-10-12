@@ -1598,6 +1598,8 @@
     "save": "Save review",
     "cancel": "Cancel",
     "delete": "Delete review",
+    "takedown": "Take down avatar",
+    "takedownHelp": "Enter a reason to remove the current avatar. The skill will show its initial.",
     "saved": "Review saved",
     "deleted": "Review deleted; your star rating was kept",
     "textRequired": "Enter a review before saving",
@@ -2565,6 +2567,47 @@
       "SKILL_ARCHIVED": "Skill archived",
       "VERSION_UNAVAILABLE": "Version unavailable",
       "VISIBILITY_INCOMPATIBLE": "Visibility incompatible"
+    }
+  },
+  "skillAvatar": {
+    "title": "Skill avatar",
+    "ownerHelp": "Upload and crop a square image. The current avatar stays visible until the new one is approved.",
+    "status": "Status",
+    "candidatePreview": "Avatar candidate",
+    "choose": "Choose avatar image",
+    "cropPreview": "Crop preview",
+    "zoom": "Zoom",
+    "submit": "Submit avatar",
+    "remove": "Remove current avatar",
+    "appeal": "Request review",
+    "retry": "Retry machine review",
+    "failed": "Action failed. Please try again.",
+    "invalid": "Choose a PNG or JPEG image under 2 MB.",
+    "reviewTitle": "Avatar review",
+    "loading": "Loading",
+    "emptyQueue": "No avatars awaiting review",
+    "reason": "Review reason (required to reject)",
+    "approve": "Approve",
+    "reject": "Reject",
+    "settingsTitle": "Avatar review settings",
+    "settingsHelp": "The machine provider is set at deployment; these switches control machine and manual review.",
+    "machineEnabled": "Enable machine review",
+    "manualEnabled": "Enable manual review",
+    "save": "Save settings",
+    "saved": "Saved",
+    "states": {
+      "PENDING": "Pending",
+      "ACTIVE": "Active",
+      "REJECTED": "Rejected",
+      "SUPERSEDED": "Superseded",
+      "REMOVED": "Removed"
+    },
+    "machine": {
+      "SKIPPED": "Machine review off",
+      "PENDING": "Machine review pending",
+      "PASSED": "Machine review passed",
+      "BLOCKED": "Machine review blocked",
+      "ERROR": "Machine review failed"
     }
   }
 }

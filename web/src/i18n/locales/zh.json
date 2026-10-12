@@ -1597,6 +1597,8 @@
     "save": "保存评价",
     "cancel": "取消",
     "delete": "删除评价",
+    "takedown": "撤下头像",
+    "takedownHelp": "请输入原因后撤下当前头像，技能将显示默认首字母。",
     "saved": "评价已保存",
     "deleted": "评价已删除，星级评分已保留",
     "textRequired": "请先填写评价内容",
@@ -2564,6 +2566,47 @@
       "SKILL_ARCHIVED": "技能已归档",
       "VERSION_UNAVAILABLE": "版本不可用",
       "VISIBILITY_INCOMPATIBLE": "可见性不兼容"
+    }
+  },
+  "skillAvatar": {
+    "title": "技能头像",
+    "ownerHelp": "上传并裁剪方形图片。新头像通过审核后才会替换当前头像。",
+    "status": "状态",
+    "candidatePreview": "待审核头像",
+    "choose": "选择头像图片",
+    "cropPreview": "裁剪预览",
+    "zoom": "放大",
+    "submit": "提交头像",
+    "remove": "删除当前头像",
+    "appeal": "申请复核",
+    "retry": "重试机器审核",
+    "failed": "操作失败，请稍后重试",
+    "invalid": "请选择不超过 2 MB 的 PNG 或 JPEG 图片",
+    "reviewTitle": "头像审核",
+    "loading": "加载中",
+    "emptyQueue": "暂无待审核头像",
+    "reason": "审核原因（驳回时必填）",
+    "approve": "通过",
+    "reject": "驳回",
+    "settingsTitle": "头像审核设置",
+    "settingsHelp": "机器审核服务在部署时指定；这里只控制是否启用机器与人工审核。",
+    "machineEnabled": "启用机器审核",
+    "manualEnabled": "启用人工审核",
+    "save": "保存设置",
+    "saved": "已保存",
+    "states": {
+      "PENDING": "待处理",
+      "ACTIVE": "已使用",
+      "REJECTED": "已拒绝",
+      "SUPERSEDED": "已替换",
+      "REMOVED": "已删除"
+    },
+    "machine": {
+      "SKIPPED": "未启用机器审核",
+      "PENDING": "机器审核中",
+      "PASSED": "机器审核通过",
+      "BLOCKED": "机器审核阻止",
+      "ERROR": "机器审核失败"
     }
   }
 }
