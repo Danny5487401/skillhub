@@ -14,7 +14,8 @@ describe('namespace invitation URL handoff', () => {
     window.history.replaceState(null, '', `/join?from=mail#${token}`)
     captureInvitationFragment()
     expect(storedInvitationToken()).toBe(token)
-    expect(window.location.href).toContain('/join?from=mail')
+    expect(window.location.pathname).toBe('/join')
+    expect(window.location.search).toBe('?from=mail')
     expect(window.location.hash).toBe('')
   })
 

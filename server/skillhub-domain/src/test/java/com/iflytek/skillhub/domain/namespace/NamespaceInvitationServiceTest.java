@@ -4,6 +4,7 @@ import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
 import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
+import com.iflytek.skillhub.domain.user.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -134,6 +135,30 @@ class NamespaceInvitationServiceTest {
         when(users.findById("another")).thenReturn(guest);
         assertThatThrownBy(() -> service.accept(created.token(), "another"))
                 .isInstanceOf(DomainNotFoundException.class);
+    }
+
+    @Test
+    void nonActiveUserCannotPreviewOrAcceptAndDoesNotConsumeInvitation() {
+        NamespaceInvitationService.Created created = service.create("team", "owner");
+        ArgumentCaptor<NamespaceInvitation> saved = ArgumentCaptor.forClass(NamespaceInvitation.class);
+        verify(invitations).save(saved.capture());
+        NamespaceInvitation invitation = saved.getValue();
+        when(invitations.findByTokenHash(invitation.getTokenHash())).thenReturn(Optional.of(invitation));
+        when(invitations.findNamespaceIdByTokenHash(invitation.getTokenHash())).thenReturn(Optional.of(7L));
+        when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(invitation));
+        UserAccount pending = mock(UserAccount.class);
+        when(pending.getStatus()).thenReturn(UserStatus.PENDING);
+        when(users.findById("guest")).thenReturn(Optional.of(pending));
+        when(users.findLockedById("guest")).thenReturn(Optional.of(pending));
+        clearInvocations(invitations, members, audit);
+
+        assertThatThrownBy(() -> service.preview(created.token(), "guest"))
+                .isInstanceOf(DomainNotFoundException.class);
+        assertThatThrownBy(() -> service.accept(created.token(), "guest"))
+                .isInstanceOf(DomainNotFoundException.class);
+        verify(members, never()).save(any());
+        verify(invitations, never()).save(any());
+        assertThat(invitation.getConsumedAt()).isNull();
     }
 
     @Test

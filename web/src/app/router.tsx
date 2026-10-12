@@ -236,6 +236,7 @@ const rootRoute = createRootRoute({
 })
 
 const requireAuth = createRequireAuth(getCurrentUser)
+const requireJoinAuth = createRequireAuth(getCurrentUser, '/join')
 const redirectAuthenticated = createRedirectAuthenticated(getCurrentUser)
 
 const landingRoute = createRoute({
@@ -329,7 +330,7 @@ const namespaceRoute = createRoute({
 const joinRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'join',
-  beforeLoad: requireAuth,
+  beforeLoad: requireJoinAuth,
   component: JoinPage,
 })
 
