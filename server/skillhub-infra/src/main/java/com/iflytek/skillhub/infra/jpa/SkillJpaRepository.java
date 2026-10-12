@@ -6,6 +6,7 @@ import com.iflytek.skillhub.domain.skill.SkillStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,12 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 
 /**
  * Base Spring Data JPA repository for persisted skill aggregates and common skill queries.
  */
 @Repository
 public interface SkillJpaRepository extends JpaRepository<Skill, Long>, SkillRepository {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Skill s WHERE s.id = :id")
+    Optional<Skill> findLockedById(@Param("id") Long id);
     List<Skill> findByIdIn(List<Long> ids);
     List<Skill> findByNamespaceIdAndSlug(Long namespaceId, String slug);
     List<Skill> findByNamespaceIdInAndSlugIn(List<Long> namespaceIds, List<String> slugs);

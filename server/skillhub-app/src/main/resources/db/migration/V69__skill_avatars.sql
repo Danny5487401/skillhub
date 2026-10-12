@@ -1,9 +1,10 @@
 ALTER TABLE skill ADD COLUMN active_avatar_id BIGINT;
+ALTER TABLE skill ADD COLUMN active_avatar_audience VARCHAR(32);
 ALTER TABLE skill ADD COLUMN pending_avatar_id BIGINT;
 
 CREATE TABLE skill_avatar_candidate (
     id BIGSERIAL PRIMARY KEY,
-    skill_id BIGINT NOT NULL REFERENCES skill(id),
+    skill_id BIGINT NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
     submitted_by VARCHAR(128) NOT NULL,
     object_key VARCHAR(512),
     content_sha256 VARCHAR(64) NOT NULL,
@@ -25,3 +26,6 @@ CREATE TABLE skill_avatar_candidate (
 CREATE INDEX idx_avatar_candidate_skill ON skill_avatar_candidate(skill_id, created_at DESC);
 CREATE INDEX idx_avatar_candidate_review ON skill_avatar_candidate(status, review_status, created_at);
 CREATE INDEX idx_avatar_candidate_discard ON skill_avatar_candidate(discard_at) WHERE object_key IS NOT NULL;
+
+INSERT INTO system_setting(setting_key, value_json)
+VALUES ('skill.avatar-review', '{"machineEnabled":false,"manualEnabled":true}'::jsonb);

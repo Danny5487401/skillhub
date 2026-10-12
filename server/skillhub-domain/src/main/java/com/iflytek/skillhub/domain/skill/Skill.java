@@ -45,6 +45,10 @@ public class Skill {
     @Column(name = "active_avatar_id")
     private Long activeAvatarId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_avatar_audience", length = 32)
+    private SkillVisibility activeAvatarAudience;
+
     @Column(name = "pending_avatar_id")
     private Long pendingAvatarId;
 
@@ -149,6 +153,8 @@ public class Skill {
 
     public Long getActiveAvatarId() { return activeAvatarId; }
 
+    public SkillVisibility getActiveAvatarAudience() { return activeAvatarAudience; }
+
     public Long getPendingAvatarId() { return pendingAvatarId; }
 
     public Long getDownloadCount() {
@@ -224,7 +230,15 @@ public class Skill {
         this.latestVersionId = latestVersionId;
     }
 
-    public void setActiveAvatarId(Long activeAvatarId) { this.activeAvatarId = activeAvatarId; }
+    public void activateAvatar(Long activeAvatarId, SkillVisibility audience) {
+        this.activeAvatarId = activeAvatarId;
+        this.activeAvatarAudience = audience;
+    }
+
+    public void clearAvatar() {
+        this.activeAvatarId = null;
+        this.activeAvatarAudience = null;
+    }
 
     public void setPendingAvatarId(Long pendingAvatarId) { this.pendingAvatarId = pendingAvatarId; }
 

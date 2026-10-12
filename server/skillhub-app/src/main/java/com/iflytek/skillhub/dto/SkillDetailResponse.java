@@ -30,5 +30,6 @@ public record SkillDetailResponse(
         String ownerPreviewReviewComment,
         String resolutionMode,
         List<SkillSuiteReferenceResponse> entryForSuites,
-        PageResponse<SkillSuiteReferenceResponse> memberOfSuites
+        PageResponse<SkillSuiteReferenceResponse> memberOfSuites,
+        String avatarUrl
 ) {}

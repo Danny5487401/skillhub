@@ -87,7 +87,8 @@ public class ReviewSkillDetailAppService {
                 null,
                 "REVIEW_TASK",
                 List.of(),
-                new PageResponse<>(List.of(), 0, 0, 20)
+                new PageResponse<>(List.of(), 0, 0, 20),
+                SkillAvatarUrls.current(snapshot.skill(), context.namespace().getSlug())
         );
 
         List<SkillVersionResponse> versions = snapshot.versions().stream()

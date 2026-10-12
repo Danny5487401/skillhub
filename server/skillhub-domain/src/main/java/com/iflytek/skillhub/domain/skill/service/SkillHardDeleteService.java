@@ -9,6 +9,8 @@ import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
 import com.iflytek.skillhub.domain.security.SecurityScanService;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.skill.Skill;
+import com.iflytek.skillhub.domain.skill.SkillAvatarCandidate;
+import com.iflytek.skillhub.domain.skill.SkillAvatarCandidateRepository;
 import com.iflytek.skillhub.domain.skill.SkillFile;
 import com.iflytek.skillhub.domain.skill.SkillFileRepository;
 import com.iflytek.skillhub.domain.skill.SkillRepository;
@@ -49,6 +51,7 @@ public class SkillHardDeleteService {
     private final SkillRatingRepository skillRatingRepository;
     private final SkillReportRepository skillReportRepository;
     private final SkillVersionStatsRepository skillVersionStatsRepository;
+    private final SkillAvatarCandidateRepository avatarCandidates;
     private final ObjectStorageService objectStorageService;
     private final SkillStorageDeletionCompensationService compensationService;
     private final SecurityScanService securityScanService;
@@ -65,6 +68,7 @@ public class SkillHardDeleteService {
                                   SkillRatingRepository skillRatingRepository,
                                   SkillReportRepository skillReportRepository,
                                   SkillVersionStatsRepository skillVersionStatsRepository,
+                                  SkillAvatarCandidateRepository avatarCandidates,
                                   ObjectStorageService objectStorageService,
                                   SkillStorageDeletionCompensationService compensationService,
                                   SecurityScanService securityScanService,
@@ -80,6 +84,7 @@ public class SkillHardDeleteService {
         this.skillRatingRepository = skillRatingRepository;
         this.skillReportRepository = skillReportRepository;
         this.skillVersionStatsRepository = skillVersionStatsRepository;
+        this.avatarCandidates = avatarCandidates;
         this.objectStorageService = objectStorageService;
         this.compensationService = compensationService;
         this.securityScanService = securityScanService;
@@ -117,6 +122,10 @@ public class SkillHardDeleteService {
                     .forEach(storageKeys::add);
             storageKeys.add(buildBundleStorageKey(skill.getId(), version.getId()));
         }
+        avatarCandidates.findBySkillIdOrderByCreatedAtDesc(skill.getId()).stream()
+                .map(SkillAvatarCandidate::getObjectKey)
+                .filter(key -> key != null && !key.isBlank())
+                .forEach(storageKeys::add);
         deleteStorageAfterCommit(skill, namespaceSlug, storageKeys);
 
         skill.setLatestVersionId(null);

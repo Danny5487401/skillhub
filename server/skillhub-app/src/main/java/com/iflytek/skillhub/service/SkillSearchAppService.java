@@ -274,7 +274,8 @@ public class SkillSearchAppService {
                 headlineVersion != null
                         ? complianceSnapshotProjectionService.fromParsedMetadataJson(headlineVersion.parsedMetadataJson())
                         : null,
-                null
+                null,
+                SkillAvatarUrls.current(skill, namespaceSlug)
         );
     }
 
