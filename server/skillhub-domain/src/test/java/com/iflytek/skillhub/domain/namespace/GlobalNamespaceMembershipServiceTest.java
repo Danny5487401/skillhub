@@ -24,12 +24,14 @@ class GlobalNamespaceMembershipServiceTest {
 
     @Mock
     private NamespaceMemberRepository namespaceMemberRepository;
+    @Mock
+    private com.iflytek.skillhub.domain.user.UserAccountRepository userAccountRepository;
 
     private GlobalNamespaceMembershipService service;
 
     @BeforeEach
     void setUp() {
-        service = new GlobalNamespaceMembershipService(namespaceRepository, namespaceMemberRepository);
+        service = new GlobalNamespaceMembershipService(namespaceRepository, namespaceMemberRepository, userAccountRepository);
     }
 
     @Test
@@ -37,7 +39,7 @@ class GlobalNamespaceMembershipServiceTest {
         Namespace global = new Namespace("global", "Global", "system");
         setNamespaceId(global, 1L);
 
-        when(namespaceRepository.findBySlug("global")).thenReturn(Optional.of(global));
+        when(namespaceRepository.findIdBySlug("global")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "usr_1")).thenReturn(Optional.empty());
 
         service.ensureMember("usr_1");
@@ -55,7 +57,7 @@ class GlobalNamespaceMembershipServiceTest {
         setNamespaceId(global, 1L);
         NamespaceMember existing = new NamespaceMember(1L, "usr_1", NamespaceRole.ADMIN);
 
-        when(namespaceRepository.findBySlug("global")).thenReturn(Optional.of(global));
+        when(namespaceRepository.findIdBySlug("global")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "usr_1")).thenReturn(Optional.of(existing));
 
         service.ensureMember("usr_1");

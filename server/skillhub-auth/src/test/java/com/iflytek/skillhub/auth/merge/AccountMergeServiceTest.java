@@ -20,6 +20,7 @@ import com.iflytek.skillhub.auth.repository.IdentityBindingRepository;
 import com.iflytek.skillhub.auth.repository.UserRoleBindingRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
+import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
 import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
@@ -52,6 +53,8 @@ class AccountMergeServiceTest {
     private ApiTokenRepository apiTokenRepository;
     @Mock
     private NamespaceMemberRepository namespaceMemberRepository;
+    @Mock
+    private NamespaceRepository namespaceRepository;
     private AccountMergeService service;
     private Clock clock;
 
@@ -66,6 +69,7 @@ class AccountMergeServiceTest {
             userRoleBindingRepository,
             apiTokenRepository,
             namespaceMemberRepository,
+            namespaceRepository,
             clock
         );
     }

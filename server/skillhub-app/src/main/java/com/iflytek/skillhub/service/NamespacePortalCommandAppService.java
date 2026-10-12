@@ -84,8 +84,7 @@ public class NamespacePortalCommandAppService {
 
     @Transactional
     public MessageResponse deleteNamespace(String slug, String userId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        namespaceService.deleteNamespace(namespace.getId(), userId);
+        namespaceService.deleteNamespace(namespaceId(slug), userId);
         return new MessageResponse("Namespace deleted successfully");
     }
 
@@ -147,9 +146,8 @@ public class NamespacePortalCommandAppService {
 
     @Transactional
     public MemberResponse addMember(String slug, String memberUserId, com.iflytek.skillhub.domain.namespace.NamespaceRole role, String operatorUserId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
         NamespaceMember member = namespaceMemberService.addMember(
-                namespace.getId(),
+                namespaceId(slug),
                 memberUserId,
                 role,
                 operatorUserId
@@ -161,8 +159,7 @@ public class NamespacePortalCommandAppService {
     // Intentionally not @Transactional: each addMember runs in its own transaction
     // so partial success is possible (some members added even if others fail).
     public BatchMemberResponse batchAddMembers(String slug, List<MemberRequest> members, String operatorUserId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        Long namespaceId = namespace.getId();
+        Long namespaceId = namespaceId(slug);
 
         List<BatchMemberResult> results = new ArrayList<>();
         int successCount = 0;
@@ -195,8 +192,7 @@ public class NamespacePortalCommandAppService {
 
     @Transactional
     public MessageResponse removeMember(String slug, String memberUserId, String operatorUserId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        namespaceMemberService.removeMember(namespace.getId(), memberUserId, operatorUserId);
+        namespaceMemberService.removeMember(namespaceId(slug), memberUserId, operatorUserId);
         return new MessageResponse("Member removed successfully");
     }
 
@@ -205,9 +201,8 @@ public class NamespacePortalCommandAppService {
                                            String userId,
                                            UpdateMemberRoleRequest request,
                                            String operatorUserId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
         NamespaceMember member = namespaceMemberService.updateMemberRole(
-                namespace.getId(),
+                namespaceId(slug),
                 userId,
                 request.role(),
                 operatorUserId
@@ -217,13 +212,18 @@ public class NamespacePortalCommandAppService {
 
     @Transactional
     public MessageResponse transferOwnership(String slug, String newOwnerId, String currentOwnerId) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        namespaceMemberService.transferOwnership(namespace.getId(), currentOwnerId, newOwnerId);
+        namespaceMemberService.transferOwnership(namespaceId(slug), currentOwnerId, newOwnerId);
         return new MessageResponse("Ownership transferred successfully");
     }
 
     private boolean canCreateNamespace(PlatformPrincipal principal) {
         return principal.platformRoles().contains("SKILL_ADMIN")
                 || principal.platformRoles().contains("SUPER_ADMIN");
+    }
+
+    private Long namespaceId(String slug) {
+        return namespaceRepository.findIdBySlug(slug)
+                .orElseThrow(() -> new com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException(
+                        "error.namespace.slug.notFound", slug));
     }
 }

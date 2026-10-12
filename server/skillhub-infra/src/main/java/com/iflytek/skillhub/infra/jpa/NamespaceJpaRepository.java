@@ -29,5 +29,8 @@ public interface NamespaceJpaRepository
     List<Namespace> findBySlugIn(List<String> slugs);
     Page<Namespace> findByIdIn(List<Long> ids, Pageable pageable);
     Optional<Namespace> findBySlug(String slug);
+    @Override
+    @Query("select n.id from Namespace n where n.slug = :slug")
+    Optional<Long> findIdBySlug(@Param("slug") String slug);
     Page<Namespace> findByStatus(NamespaceStatus status, Pageable pageable);
 }

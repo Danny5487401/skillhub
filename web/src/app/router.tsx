@@ -7,6 +7,7 @@ import { RouteError } from '@/shared/components/route-error'
 import { createRedirectAuthenticated, createRequireAuth, isSafeAuthReturnTo } from '@/shared/lib/auth-route'
 import { clearDynamicImportReloadGuard, recoverFromDynamicImportError } from '@/shared/lib/dynamic-import-recovery'
 import { normalizeSearchQuery } from '@/shared/lib/search-query'
+import { captureInvitationFragment } from '@/shared/lib/namespace-invitation'
 
 /**
  * Central route registry for the SkillHub web app.
@@ -16,6 +17,7 @@ import { normalizeSearchQuery } from '@/shared/lib/search-query'
  */
 // Capture original URL before TanStack Router rewrites it
 const ORIGINAL_URL_SEARCH = typeof window !== 'undefined' ? window.location.search : ''
+captureInvitationFragment()
 
 // Export for use in cli-auth page
 export { ORIGINAL_URL_SEARCH }
@@ -95,6 +97,7 @@ const SuitesPage = createLazyRouteComponent(() => import('@/pages/suites'), 'Sui
 const SuiteDetailPage = createLazyRouteComponent(() => import('@/pages/suite-detail'), 'SuiteDetailPage')
 const TermsOfServicePage = createLazyRouteComponent(() => import('@/pages/terms'), 'TermsOfServicePage')
 const NamespacePage = createLazyRouteComponent(() => import('@/pages/namespace'), 'NamespacePage')
+const JoinPage = createLazyRouteComponent(() => import('@/pages/join'), 'JoinPage')
 const SkillDetailPage = createLazyRouteComponent(() => import('@/pages/skill-detail'), 'SkillDetailPage')
 const SkillVersionComparePage = createLazyRouteComponent(() => import('@/pages/skill-version-compare'), 'SkillVersionComparePage')
 const dashboardRouteOptions = { silentFallback: true } satisfies LazyRouteOptions
@@ -321,6 +324,13 @@ const namespaceRoute = createRoute({
   path: '/space/$namespace',
   beforeLoad: requireAuth,
   component: NamespacePage,
+})
+
+const joinRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'join',
+  beforeLoad: requireAuth,
+  component: JoinPage,
 })
 
 const skillDetailRoute = createRoute({
@@ -678,6 +688,7 @@ const routeTree = rootRoute.addChildren([
   suiteDetailRoute,
   termsRoute,
   namespaceRoute,
+  joinRoute,
   skillDetailRoute,
   skillVersionCompareRoute,
   dashboardRoute,

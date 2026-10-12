@@ -4,6 +4,7 @@ import com.iflytek.skillhub.domain.audit.AuditDetail;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,15 +19,18 @@ public class NamespaceGovernanceService {
     private final NamespaceMemberRepository namespaceMemberRepository;
     private final NamespaceAccessPolicy namespaceAccessPolicy;
     private final AuditLogService auditLogService;
+    private final UserAccountRepository userAccountRepository;
 
     public NamespaceGovernanceService(NamespaceRepository namespaceRepository,
                                       NamespaceMemberRepository namespaceMemberRepository,
                                       NamespaceAccessPolicy namespaceAccessPolicy,
-                                      AuditLogService auditLogService) {
+                                      AuditLogService auditLogService,
+                                      UserAccountRepository userAccountRepository) {
         this.namespaceRepository = namespaceRepository;
         this.namespaceMemberRepository = namespaceMemberRepository;
         this.namespaceAccessPolicy = namespaceAccessPolicy;
         this.auditLogService = auditLogService;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Transactional
@@ -36,6 +40,7 @@ public class NamespaceGovernanceService {
                                      String requestId,
                                      String clientIp,
                                      String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         NamespaceRole role = requireRole(namespace.getId(), actorUserId);
         if (namespace.getStatus() != NamespaceStatus.ACTIVE) {
@@ -57,6 +62,7 @@ public class NamespaceGovernanceService {
                                                     String requestId,
                                                     String clientIp,
                                                     String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         if (namespace.getStatus() != NamespaceStatus.ACTIVE) {
             throw new DomainBadRequestException("error.namespace.state.transition.invalid", namespace.getSlug());
@@ -73,6 +79,7 @@ public class NamespaceGovernanceService {
                                        String requestId,
                                        String clientIp,
                                        String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         NamespaceRole role = requireRole(namespace.getId(), actorUserId);
         if (namespace.getStatus() != NamespaceStatus.FROZEN) {
@@ -93,6 +100,7 @@ public class NamespaceGovernanceService {
                                                       String requestId,
                                                       String clientIp,
                                                       String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         if (namespace.getStatus() != NamespaceStatus.FROZEN) {
             throw new DomainBadRequestException("error.namespace.state.transition.invalid", namespace.getSlug());
@@ -110,6 +118,7 @@ public class NamespaceGovernanceService {
                                       String requestId,
                                       String clientIp,
                                       String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         NamespaceRole role = requireRole(namespace.getId(), actorUserId);
         if (namespace.getStatus() == NamespaceStatus.ARCHIVED) {
@@ -131,6 +140,7 @@ public class NamespaceGovernanceService {
                                                      String requestId,
                                                      String clientIp,
                                                      String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         if (namespace.getStatus() == NamespaceStatus.ARCHIVED) {
             throw new DomainBadRequestException("error.namespace.state.transition.invalid", namespace.getSlug());
@@ -147,6 +157,7 @@ public class NamespaceGovernanceService {
                                       String requestId,
                                       String clientIp,
                                       String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         NamespaceRole role = requireRole(namespace.getId(), actorUserId);
         if (namespace.getStatus() != NamespaceStatus.ARCHIVED) {
@@ -167,6 +178,7 @@ public class NamespaceGovernanceService {
                                                      String requestId,
                                                      String clientIp,
                                                      String userAgent) {
+        userAccountRepository.findLockedById(actorUserId);
         Namespace namespace = loadNamespaceBySlug(slug);
         if (namespace.getStatus() != NamespaceStatus.ARCHIVED) {
             throw new DomainBadRequestException("error.namespace.state.transition.invalid", namespace.getSlug());
@@ -178,7 +190,9 @@ public class NamespaceGovernanceService {
     }
 
     private Namespace loadNamespaceBySlug(String slug) {
-        Namespace namespace = namespaceRepository.findBySlug(slug)
+        Long namespaceId = namespaceRepository.findIdBySlug(slug)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.slug.notFound", slug));
+        Namespace namespace = namespaceRepository.findLockedById(namespaceId)
                 .orElseThrow(() -> new DomainBadRequestException("error.namespace.slug.notFound", slug));
         if (namespaceAccessPolicy.isImmutable(namespace)) {
             throw new DomainBadRequestException("error.namespace.system.immutable", slug);

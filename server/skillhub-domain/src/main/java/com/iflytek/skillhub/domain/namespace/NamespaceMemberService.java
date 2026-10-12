@@ -1,6 +1,7 @@
 package com.iflytek.skillhub.domain.namespace;
 
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,17 +19,24 @@ public class NamespaceMemberService {
     private final NamespaceMemberRepository namespaceMemberRepository;
     private final NamespaceService namespaceService;
     private final NamespaceAccessPolicy namespaceAccessPolicy;
+    private final NamespaceRepository namespaceRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public NamespaceMemberService(NamespaceMemberRepository namespaceMemberRepository,
                                   NamespaceService namespaceService,
-                                  NamespaceAccessPolicy namespaceAccessPolicy) {
+                                  NamespaceAccessPolicy namespaceAccessPolicy,
+                                  NamespaceRepository namespaceRepository,
+                                  UserAccountRepository userAccountRepository) {
         this.namespaceMemberRepository = namespaceMemberRepository;
         this.namespaceService = namespaceService;
         this.namespaceAccessPolicy = namespaceAccessPolicy;
+        this.namespaceRepository = namespaceRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Transactional
     public NamespaceMember addMember(Long namespaceId, String userId, NamespaceRole role, String operatorUserId) {
+        lockUserThenNamespace(userId, namespaceId);
         assertMemberMutationAllowed(namespaceId);
         namespaceService.assertAdminOrOwner(namespaceId, operatorUserId);
 
@@ -46,6 +54,7 @@ public class NamespaceMemberService {
 
     @Transactional
     public void removeMember(Long namespaceId, String userId, String operatorUserId) {
+        lockUserThenNamespace(userId, namespaceId);
         assertMemberMutationAllowed(namespaceId);
         namespaceService.assertAdminOrOwner(namespaceId, operatorUserId);
 
@@ -61,6 +70,7 @@ public class NamespaceMemberService {
 
     @Transactional
     public NamespaceMember updateMemberRole(Long namespaceId, String userId, NamespaceRole newRole, String operatorUserId) {
+        lockUserThenNamespace(userId, namespaceId);
         assertMemberMutationAllowed(namespaceId);
         namespaceService.assertAdminOrOwner(namespaceId, operatorUserId);
 
@@ -77,6 +87,14 @@ public class NamespaceMemberService {
 
     @Transactional
     public void transferOwnership(Long namespaceId, String currentOwnerId, String newOwnerId) {
+        if (currentOwnerId.compareTo(newOwnerId) <= 0) {
+            userAccountRepository.findLockedById(currentOwnerId);
+            userAccountRepository.findLockedById(newOwnerId);
+        } else {
+            userAccountRepository.findLockedById(newOwnerId);
+            userAccountRepository.findLockedById(currentOwnerId);
+        }
+        namespaceRepository.findLockedById(namespaceId);
         Namespace namespace = namespaceService.getNamespace(namespaceId);
         if (!namespaceAccessPolicy.canTransferOwnership(namespace)) {
             throw new DomainBadRequestException("error.namespace.readonly", namespace.getSlug());
@@ -116,5 +134,10 @@ public class NamespaceMemberService {
             }
             throw new DomainBadRequestException("error.namespace.readonly", namespace.getSlug());
         }
+    }
+
+    private void lockUserThenNamespace(String userId, Long namespaceId) {
+        userAccountRepository.findLockedById(userId);
+        namespaceRepository.findLockedById(namespaceId);
     }
 }

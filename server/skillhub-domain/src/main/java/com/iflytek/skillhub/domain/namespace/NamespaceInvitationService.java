@@ -2,6 +2,7 @@ package com.iflytek.skillhub.domain.namespace;
 
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
+import com.iflytek.skillhub.domain.shared.exception.DomainConflictException;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.domain.user.UserStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,12 @@ public class NamespaceInvitationService {
 
     @Transactional
     public Created create(String slug, String actorId) {
+        return create(slug, actorId, false);
+    }
+
+    @Transactional
+    public Created create(String slug, String actorId, boolean replace) {
+        requireActiveLockedUser(actorId);
         Namespace namespace = lock(slug);
         requireManager(namespace, actorId);
         requireActiveTeam(namespace);
@@ -51,6 +58,10 @@ public class NamespaceInvitationService {
         Instant now = clock.instant();
         NamespaceInvitation invitation = invitations.findByNamespaceId(namespace.getId()).orElse(null);
         boolean replaced = invitation != null;
+        if (invitation != null && invitation.getConsumedAt() == null
+                && invitation.getExpiresAt().isAfter(now) && !replace) {
+            throw new DomainConflictException("error.namespace.invite.replaceConfirmationRequired");
+        }
         if (invitation == null) {
             invitation = new NamespaceInvitation(namespace.getId(), hash(token), actorId, now, now.plusSeconds(86400));
         } else {
@@ -63,6 +74,7 @@ public class NamespaceInvitationService {
 
     @Transactional
     public void revoke(String slug, String actorId) {
+        requireActiveLockedUser(actorId);
         Namespace namespace = lock(slug);
         requireManager(namespace, actorId);
         requireActiveTeam(namespace);
@@ -97,8 +109,11 @@ public class NamespaceInvitationService {
 
     @Transactional
     public Preview accept(String token, String userId) {
-        NamespaceInvitation located = current(token);
-        Namespace namespace = namespaces.findLockedById(located.getNamespaceId()).orElseThrow(this::invalid);
+        // Membership writers and account merge lock users before the Namespace root.
+        // The FK check on namespace_member would otherwise invert that order.
+        requireActiveLockedUser(userId);
+        Long namespaceId = locateNamespaceId(token);
+        Namespace namespace = namespaces.findLockedById(namespaceId).orElseThrow(this::invalid);
         NamespaceInvitation invitation = invitations.findByNamespaceId(namespace.getId()).orElseThrow(this::invalid);
         if (!MessageDigest.isEqual(invitation.getTokenHash().getBytes(StandardCharsets.US_ASCII),
                 hash(token).getBytes(StandardCharsets.US_ASCII))) {
@@ -117,13 +132,18 @@ public class NamespaceInvitationService {
     }
 
     private Namespace lock(String slug) {
-        Namespace found = namespaces.findBySlug(slug).orElseThrow(this::invalid);
-        return namespaces.findLockedById(found.getId()).orElseThrow(this::invalid);
+        Long namespaceId = namespaces.findIdBySlug(slug).orElseThrow(this::invalid);
+        return namespaces.findLockedById(namespaceId).orElseThrow(this::invalid);
     }
 
     private NamespaceInvitation current(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) throw invalid();
         return invitations.findByTokenHash(hash(token)).orElseThrow(this::invalid);
+    }
+
+    private Long locateNamespaceId(String token) {
+        if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) throw invalid();
+        return invitations.findNamespaceIdByTokenHash(hash(token)).orElseThrow(this::invalid);
     }
 
     private void requireManager(Namespace namespace, String userId) {
@@ -135,6 +155,10 @@ public class NamespaceInvitationService {
 
     private void requireActiveUser(String userId) {
         if (users.findById(userId).filter(user -> user.getStatus() == UserStatus.ACTIVE).isEmpty()) throw invalid();
+    }
+
+    private void requireActiveLockedUser(String userId) {
+        if (users.findLockedById(userId).filter(user -> user.getStatus() == UserStatus.ACTIVE).isEmpty()) throw invalid();
     }
 
     private void requireActiveTeam(Namespace namespace) {

@@ -73,6 +73,15 @@ Discover a security issue in the namespace and temporarily freeze all publish op
 5. Select a role (Owner / Admin / Member)
 6. Confirm to add
 
+**Invite with a link**:
+
+1. An Owner or Admin opens the Members page of an ACTIVE team space and selects "Invite member".
+2. Share the copied link securely. It expires after 24 hours and can be redeemed once by one person who is not already a member.
+3. The recipient must first pass the usual SkillHub login and account access rules. The page shows the space, current account, and MEMBER permissions. Joining happens only after explicit confirmation.
+4. "Revoke invitation" invalidates the link immediately. Creating a new link asks for confirmation before replacing a still usable one; existing members remain members.
+
+Anyone who obtains the link can use it after normal account admission. Do not post it in a public channel. The login return URL does not contain the invitation token; the current browser tab stores it temporarily until joining or terminal invalidation.
+
 **Manage Permissions**:
 
 1. Find the target user in the member list
