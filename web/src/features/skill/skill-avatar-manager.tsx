@@ -54,12 +54,15 @@ export function SkillAvatarManager({ namespace, slug }: { namespace: string; slu
     } finally { setBusy(false) }
   }
   const candidate = status.data
+  const retryCoolingDown = !!candidate?.machineNextRetryAt && Date.parse(candidate.machineNextRetryAt) > Date.now()
   return (
     <Card className="space-y-3 p-4">
       <h2 className="font-semibold">{t('skillAvatar.title')}</h2>
       <p className="text-sm text-muted-foreground">{t('skillAvatar.ownerHelp')}</p>
       {candidate?.candidateStatus && <p role="status" className="text-sm">{t('skillAvatar.status')}: {t(`skillAvatar.states.${candidate.candidateStatus}`)} · {t(`skillAvatar.machine.${candidate.machineStatus ?? 'SKIPPED'}`)}</p>}
       {candidate?.reviewReason && <p className="text-sm">{candidate.reviewReason}</p>}
+      {candidate?.machineStatus === 'ERROR' && retryCoolingDown && <p className="text-sm text-muted-foreground">{t('skillAvatar.retryAfter', { time: new Date(candidate.machineNextRetryAt!).toLocaleString() })}</p>}
+      {candidate?.machineStatus === 'ERROR' && candidate.automaticRetryExhausted && <p className="text-sm text-muted-foreground">{t('skillAvatar.automaticRetryStopped')}</p>}
       {candidate?.candidateUrl && <img src={buildApiUrl(candidate.candidateUrl)} alt={t('skillAvatar.candidatePreview')} className="h-24 w-24 rounded-lg object-cover" />}
       <Input type="file" accept="image/png,image/jpeg" aria-label={t('skillAvatar.choose')} onChange={(event) => {
         const file = event.target.files?.[0]
@@ -77,8 +80,10 @@ export function SkillAvatarManager({ namespace, slug }: { namespace: string; slu
       </div>}
       <div className="flex flex-wrap gap-2">
         {(candidate?.avatarUrl || candidate?.candidateStatus === 'PENDING') && <Button variant="outline" disabled={mutation.isPending} onClick={() => void mutation.mutateAsync({ kind: 'remove' })}>{t('skillAvatar.remove')}</Button>}
-        {candidate?.candidateStatus === 'REJECTED' && candidate.candidateId && <Button variant="outline" disabled={mutation.isPending} onClick={() => void mutation.mutateAsync({ kind: 'appeal', id: candidate.candidateId! })}>{t('skillAvatar.appeal')}</Button>}
-        {candidate?.machineStatus === 'ERROR' && candidate.candidateId && <Button variant="outline" disabled={mutation.isPending} onClick={() => void mutation.mutateAsync({ kind: 'retry', id: candidate.candidateId! })}>{t('skillAvatar.retry')}</Button>}
+        {candidate?.candidateStatus === 'PENDING' && candidate.machineStatus === 'BLOCKED'
+          && candidate.reviewStatus === 'NOT_REQUIRED' && candidate.candidateId
+          && <Button variant="outline" disabled={mutation.isPending} onClick={() => void mutation.mutateAsync({ kind: 'appeal', id: candidate.candidateId! })}>{t('skillAvatar.appeal')}</Button>}
+        {candidate?.machineStatus === 'ERROR' && candidate.candidateId && <Button variant="outline" disabled={mutation.isPending || retryCoolingDown} onClick={() => void mutation.mutateAsync({ kind: 'retry', id: candidate.candidateId! })}>{t('skillAvatar.retry')}</Button>}
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </Card>

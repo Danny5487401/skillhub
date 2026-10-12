@@ -130,8 +130,10 @@ public class SkillController extends BaseApiController {
                         .filter(SkillSuiteReferenceResponse::currentSkillEntry)
                         .toList(),
                 memberOfSuites,
-                SkillAvatarUrls.current(detail.activeAvatarId(), detail.activeAvatarAudience(),
-                        SkillVisibility.valueOf(detail.visibility()), namespace, detail.slug())
+                SkillVisibility.PRIVATE == SkillVisibility.valueOf(detail.visibility())
+                        && !detail.ownerId().equals(userId) ? null
+                        : SkillAvatarUrls.current(detail.activeAvatarId(), detail.activeAvatarAudience(),
+                                SkillVisibility.valueOf(detail.visibility()), namespace, detail.slug())
         );
 
         return ok("response.success.read", response);

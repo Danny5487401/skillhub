@@ -2580,6 +2580,8 @@
     "remove": "删除当前头像",
     "appeal": "申请复核",
     "retry": "重试机器审核",
+    "retryAfter": "机器审核暂时失败，可在 {{time}} 后手动重试。",
+    "automaticRetryStopped": "自动重试已停止；冷却结束后可手动重试或提交新头像。",
     "failed": "操作失败，请稍后重试",
     "invalid": "请选择不超过 2 MB 的 PNG 或 JPEG 图片",
     "reviewTitle": "头像审核",
@@ -2592,6 +2594,7 @@
     "settingsHelp": "机器审核服务在部署时指定；这里只控制是否启用机器与人工审核。",
     "machineEnabled": "启用机器审核",
     "manualEnabled": "启用人工审核",
+    "noReviewRisk": "机器和人工审核均已关闭，新头像将直接展示，请确认风险后保存。",
     "save": "保存设置",
     "saved": "已保存",
     "states": {
@@ -2604,6 +2607,7 @@
     "machine": {
       "SKIPPED": "未启用机器审核",
       "PENDING": "机器审核中",
+      "PROCESSING": "机器审核中",
       "PASSED": "机器审核通过",
       "BLOCKED": "机器审核阻止",
       "ERROR": "机器审核失败"

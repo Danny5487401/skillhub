@@ -2581,6 +2581,8 @@
     "remove": "Remove current avatar",
     "appeal": "Request review",
     "retry": "Retry machine review",
+    "retryAfter": "Machine review failed. You can retry after {{time}}.",
+    "automaticRetryStopped": "Automatic retries have stopped. Retry manually after the cooldown or submit a new avatar.",
     "failed": "Action failed. Please try again.",
     "invalid": "Choose a PNG or JPEG image under 2 MB.",
     "reviewTitle": "Avatar review",
@@ -2593,6 +2595,7 @@
     "settingsHelp": "The machine provider is set at deployment; these switches control machine and manual review.",
     "machineEnabled": "Enable machine review",
     "manualEnabled": "Enable manual review",
+    "noReviewRisk": "Both reviews are off. New avatars will appear immediately. Confirm the risk before saving.",
     "save": "Save settings",
     "saved": "Saved",
     "states": {
@@ -2605,6 +2608,7 @@
     "machine": {
       "SKIPPED": "Machine review off",
       "PENDING": "Machine review pending",
+      "PROCESSING": "Machine review in progress",
       "PASSED": "Machine review passed",
       "BLOCKED": "Machine review blocked",
       "ERROR": "Machine review failed"

@@ -67,6 +67,8 @@ vi.mock('@/features/namespace/namespace-header', () => ({
   NamespaceHeader: () => null,
 }))
 
+vi.mock('@/features/skill/skill-avatar-review', () => ({ SkillAvatarReviewQueue: () => null }))
+
 import { NamespaceReviewsPage } from './namespace-reviews'
 
 describe('NamespaceReviewsPage', () => {

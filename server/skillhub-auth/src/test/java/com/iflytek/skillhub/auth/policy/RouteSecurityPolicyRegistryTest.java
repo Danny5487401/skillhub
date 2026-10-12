@@ -35,6 +35,20 @@ class RouteSecurityPolicyRegistryTest {
     }
 
     @Test
+    void currentAvatarMayBePublicButCandidateAndReviewRoutesRequireAuthentication() {
+        assertEquals(RouteSecurityPolicyRegistry.AccessLevel.PERMIT_ALL,
+                registry.accessLevel("GET", "/api/v1/skills/global/demo/avatar"));
+        assertEquals(RouteSecurityPolicyRegistry.AccessLevel.PERMIT_ALL,
+                registry.accessLevel("GET", "/api/web/skills/global/demo/avatar"));
+        assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
+                registry.accessLevel("GET", "/api/v1/skills/global/demo/avatar/candidates/1/image"));
+        assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
+                registry.accessLevel("GET", "/api/v1/skills/avatar-review/queue"));
+        assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
+                registry.accessLevel("GET", "/api/web/skills/avatar-review/queue"));
+    }
+
+    @Test
     void reviewRoutesExposePublicListingButProtectCurrentUserMutations() {
         assertEquals(RouteSecurityPolicyRegistry.AccessLevel.PERMIT_ALL,
                 registry.accessLevel("GET", "/api/v1/skills/10/reviews"));

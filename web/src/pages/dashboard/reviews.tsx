@@ -266,7 +266,7 @@ export function ReviewsPage() {
     <div className="space-y-8 animate-fade-up">
       <DashboardPageHeader title={t('reviews.title')} subtitle={t('reviews.subtitle')} />
 
-      {isSkillAdmin && <SkillAvatarReviewQueue />}
+      {isSkillAdmin && <SkillAvatarReviewQueue namespace="global" />}
 
       {showTypeTabs ? (
         <Tabs value={activeType} onValueChange={handleTypeChange}>

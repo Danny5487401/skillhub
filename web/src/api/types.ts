@@ -47,7 +47,9 @@ export interface SkillAvatarStatus {
   avatarUrl: string | null
   candidateId: number | null
   candidateStatus: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUPERSEDED' | 'REMOVED' | null
-  machineStatus: 'SKIPPED' | 'PENDING' | 'PASSED' | 'BLOCKED' | 'ERROR' | null
+  machineStatus: 'SKIPPED' | 'PENDING' | 'PROCESSING' | 'PASSED' | 'BLOCKED' | 'ERROR' | null
+  machineNextRetryAt: string | null
+  automaticRetryExhausted: boolean
   reviewStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'APPEAL_PENDING' | null
   reviewReason: string | null
   candidateUrl: string | null
@@ -363,7 +365,7 @@ export type SkillDetail = Omit<
     | 'entryForSuites'
     | 'memberOfSuites'
   >,
-  'labels' | 'headlineVersion' | 'publishedVersion' | 'ownerPreviewVersion' | 'entryForSuites' | 'memberOfSuites'
+  'avatarUrl' | 'labels' | 'headlineVersion' | 'publishedVersion' | 'ownerPreviewVersion' | 'entryForSuites' | 'memberOfSuites'
 > & {
   avatarUrl?: string | null
   labels?: LabelItem[]

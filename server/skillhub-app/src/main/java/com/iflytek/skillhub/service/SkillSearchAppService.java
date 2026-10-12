@@ -187,7 +187,7 @@ public class SkillSearchAppService {
                 normalizeLabelSlugs(labelSlugs),
                 requireInstallableLatest
         ));
-        List<SkillSummaryResponse> pageItems = mapVisibleSkillSummaries(result.skillIds());
+        List<SkillSummaryResponse> pageItems = mapVisibleSkillSummaries(result.skillIds(), scope.userId());
         return new SearchResponse(pageItems, result.total(), page, size);
     }
 
@@ -202,7 +202,7 @@ public class SkillSearchAppService {
                 .toList();
     }
 
-    private List<SkillSummaryResponse> mapVisibleSkillSummaries(List<Long> skillIds) {
+    private List<SkillSummaryResponse> mapVisibleSkillSummaries(List<Long> skillIds, String userId) {
         if (skillIds.isEmpty()) {
             return List.of();
         }
@@ -235,7 +235,8 @@ public class SkillSearchAppService {
                         skill,
                         namespaceSlugsById,
                         ownersById,
-                        projectionsBySkillId.get(skill.getId())
+                        projectionsBySkillId.get(skill.getId()),
+                        userId
                 ))
                 .toList();
     }
@@ -244,7 +245,8 @@ public class SkillSearchAppService {
             Skill skill,
             Map<Long, String> namespaceSlugsById,
             Map<String, UserAccount> ownersById,
-            SkillLifecycleProjectionService.Projection projection) {
+            SkillLifecycleProjectionService.Projection projection,
+            String userId) {
         String namespaceSlug = namespaceSlugsById.get(skill.getNamespaceId());
         UserAccount owner = ownersById.get(skill.getOwnerId());
         SkillLifecycleProjectionService.VersionProjection headlineVersion = projection.headlineVersion();
@@ -275,7 +277,8 @@ public class SkillSearchAppService {
                         ? complianceSnapshotProjectionService.fromParsedMetadataJson(headlineVersion.parsedMetadataJson())
                         : null,
                 null,
-                SkillAvatarUrls.current(skill, namespaceSlug)
+                skill.getVisibility() == com.iflytek.skillhub.domain.skill.SkillVisibility.PRIVATE
+                        && !skill.getOwnerId().equals(userId) ? null : SkillAvatarUrls.current(skill, namespaceSlug)
         );
     }
 

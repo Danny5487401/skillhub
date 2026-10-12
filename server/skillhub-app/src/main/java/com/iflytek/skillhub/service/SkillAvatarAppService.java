@@ -38,6 +38,10 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -55,13 +59,14 @@ public class SkillAvatarAppService {
     private final AuditLogService audit;
     private final RequestIdAccessor requestIds;
     private final EntityManager entityManager;
+    private final TransactionTemplate machineTransactions;
 
     public SkillAvatarAppService(SkillJpaRepository skills, NamespaceRepository namespaces,
                                  SkillAvatarCandidateJpaRepository candidates, ObjectStorageService storage,
                                  SkillAvatarImageProcessor imageProcessor, AvatarReviewSettingsService settings,
                                  AvatarModerationGateway moderation, VisibilityChecker visibility,
                                  SkillQueryService skillQueries, AuditLogService audit, RequestIdAccessor requestIds,
-                                 EntityManager entityManager) {
+                                 EntityManager entityManager, PlatformTransactionManager transactionManager) {
         this.skills = skills;
         this.namespaces = namespaces;
         this.candidates = candidates;
@@ -74,6 +79,8 @@ public class SkillAvatarAppService {
         this.audit = audit;
         this.requestIds = requestIds;
         this.entityManager = entityManager;
+        this.machineTransactions = new TransactionTemplate(transactionManager);
+        this.machineTransactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     @Transactional
@@ -82,6 +89,52 @@ public class SkillAvatarAppService {
         Skill skill = lockedSkill(namespaceSlug, slug);
         requireOwner(skill, actor);
         byte[] normalized = imageProcessor.normalize(image);
+        return createCandidate(skill, namespaceSlug, actor, actor, "SKILL_AVATAR_SUBMIT", normalized, context);
+    }
+
+    /** Reassesses the existing image when publication expands its audience. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public SkillAvatarStatusResponse prepareScopeReview(Long skillId, String publisher) {
+        Skill skill = skills.findLockedById(skillId).orElseThrow(() -> notFound());
+        if (skill.getActiveAvatarId() == null || skill.getActiveAvatarAudience() == null
+                || SkillAvatarUrls.current(skill, namespaceSlug(skill)) != null) {
+            return null;
+        }
+        if (skill.getPendingAvatarId() != null) {
+            SkillAvatarCandidate pending = candidates.findById(skill.getPendingAvatarId()).orElse(null);
+            if (pending != null && pending.getStatus() == SkillAvatarCandidate.Status.PENDING
+                    && pending.getAudience() == skill.getVisibility()) {
+                Instant now = Instant.now();
+                boolean abandonedBeforeClaim = pending.getMachineStatus() == SkillAvatarCandidate.MachineStatus.PENDING
+                        && pending.getCreatedAt() != null
+                        && !pending.getCreatedAt().plusSeconds(600).isAfter(now);
+                return ((pending.canRetryMachine(now) && pending.getMachineAttemptCount() < 3) || abandonedBeforeClaim)
+                        ? status(skill, pending, namespaceSlug(skill)) : null;
+            }
+        }
+        if (candidates.existsBySkillIdAndAudienceAndScopeReviewVersionIdAndStatus(skill.getId(),
+                skill.getVisibility(), skill.getLatestVersionId(), SkillAvatarCandidate.Status.REJECTED)) {
+            return null;
+        }
+        SkillAvatarCandidate active = findCandidate(skill.getActiveAvatarId());
+        if (active.getStatus() != SkillAvatarCandidate.Status.ACTIVE || active.getObjectKey() == null) {
+            return null;
+        }
+        byte[] image;
+        try (InputStream input = storage.getObject(active.getObjectKey())) {
+            image = input.readAllBytes();
+        } catch (IOException failure) {
+            throw new IllegalStateException("Cannot read private avatar candidate", failure);
+        }
+        // A fresh object key keeps 30-day candidate cleanup from deleting the active image.
+        return createCandidate(skill, namespaceSlug(skill), skill.getOwnerId(),
+                publisher == null ? skill.getOwnerId() : publisher, "SKILL_AVATAR_SCOPE_REVIEW", image,
+                new AuditRequestContext(null, null));
+    }
+
+    private SkillAvatarStatusResponse createCandidate(Skill skill, String namespaceSlug, String submittedBy,
+                                                      String auditActor, String action, byte[] normalized,
+                                                      AuditRequestContext context) {
         AvatarReviewSettingsResponse policy = settings.current();
         boolean privateOnly = skill.getVisibility() == SkillVisibility.PRIVATE;
         boolean machineEnabled = !privateOnly && policy.machineEnabled();
@@ -101,8 +154,11 @@ public class SkillAvatarAppService {
         if (skill.getPendingAvatarId() != null) {
             candidates.findById(skill.getPendingAvatarId()).ifPresent(SkillAvatarCandidate::supersede);
         }
-        SkillAvatarCandidate candidate = new SkillAvatarCandidate(skill.getId(), actor, key, sha256,
+        SkillAvatarCandidate candidate = new SkillAvatarCandidate(skill.getId(), submittedBy, key, sha256,
                 skill.getVisibility(), machineEnabled, manualEnabled, provider);
+        if ("SKILL_AVATAR_SCOPE_REVIEW".equals(action)) {
+            candidate.markScopeReviewVersion(skill.getLatestVersionId());
+        }
         if (machineEnabled) {
             // Only the machine verdict is reusable. Every new audience has its own human decision.
             boolean reusedPass = !candidates.findByContentSha256AndMachineProviderAndMachineEnabledTrueAndManualEnabledAndMachineStatus(
@@ -123,45 +179,55 @@ public class SkillAvatarAppService {
                 || candidate.getMachineStatus() == SkillAvatarCandidate.MachineStatus.PASSED && !manualEnabled) {
             activate(skill, candidate);
         }
-        log(actor, "SKILL_AVATAR_SUBMIT", candidate.getId(), context,
+        log(auditActor, action, candidate.getId(), context,
                 AuditDetail.builder().put("skillId", skill.getId()).put("audience", candidate.getAudience().name()).build());
         return status(skill, candidate, namespaceSlug);
     }
 
-    /** Runs outside submit's transaction; result application locks the Skill before changing pointers. */
-    @Transactional
+    /** Claims and finishes in short transactions; the external call holds no database lock. */
     public SkillAvatarStatusResponse processMachine(long candidateId, AuditRequestContext context) {
-        SkillAvatarCandidate candidate = findCandidate(candidateId);
-        if (candidate.getStatus() != SkillAvatarCandidate.Status.PENDING
-                || candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PENDING
-                && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.ERROR) {
-            throw new DomainConflictException("error.skill.avatar.notPending");
-        }
-        byte[] bytes;
-        try (InputStream input = storage.getObject(candidate.getObjectKey())) {
-            bytes = input.readAllBytes();
-        } catch (IOException failure) {
-            throw new IllegalStateException("Cannot read private avatar candidate", failure);
-        }
-        AvatarModerationProvider.Verdict verdict = moderation.moderate(candidate.getMachineProvider(), bytes);
-        Skill skill = skills.findLockedById(candidate.getSkillId()).orElseThrow(() -> notFound());
-        entityManager.refresh(candidate);
-        if (!Objects.equals(skill.getPendingAvatarId(), candidateId)
-                || candidate.getStatus() != SkillAvatarCandidate.Status.PENDING) {
-            return status(skill, candidate, namespaceSlug(skill));
-        }
-        candidate.machineResult(switch (verdict) {
-            case PASS -> SkillAvatarCandidate.MachineStatus.PASSED;
-            case BLOCK -> SkillAvatarCandidate.MachineStatus.BLOCKED;
-            case ERROR -> SkillAvatarCandidate.MachineStatus.ERROR;
+        MachineClaim claim = machineTransactions.execute(ignored -> {
+            SkillAvatarCandidate candidate = findCandidate(candidateId);
+            Skill skill = skills.findLockedById(candidate.getSkillId()).orElseThrow(() -> notFound());
+            entityManager.refresh(candidate);
+            String attemptId = UUID.randomUUID().toString();
+            Instant now = Instant.now();
+            if (!Objects.equals(skill.getPendingAvatarId(), candidateId)
+                    || !candidate.claimMachineAttempt(attemptId, now, now.plusSeconds(600))) {
+                throw new DomainConflictException("error.skill.avatar.notPending");
+            }
+            return new MachineClaim(candidate.getObjectKey(), candidate.getMachineProvider(), attemptId);
         });
-        if (verdict == AvatarModerationProvider.Verdict.PASS && !candidate.isManualEnabled()) {
-            activate(skill, candidate);
+        AvatarModerationProvider.Verdict verdict;
+        try (InputStream input = storage.getObject(claim.objectKey())) {
+            verdict = moderation.moderate(claim.provider(), input.readAllBytes());
+        } catch (IOException | RuntimeException failure) {
+            // Leave an explicit retriable state. Storage and provider exceptions can contain secret URLs.
+            verdict = AvatarModerationProvider.Verdict.ERROR;
         }
-        log(candidate.getSubmittedBy(), "SKILL_AVATAR_MACHINE_RESULT", candidate.getId(), context,
-                AuditDetail.of("verdict", verdict.name()));
-        return status(skill, candidate, namespaceSlug(skill));
+        AvatarModerationProvider.Verdict result = verdict;
+        return machineTransactions.execute(ignored -> {
+            SkillAvatarCandidate candidate = findCandidate(candidateId);
+            Skill skill = skills.findLockedById(candidate.getSkillId()).orElseThrow(() -> notFound());
+            entityManager.refresh(candidate);
+            if (!Objects.equals(skill.getPendingAvatarId(), candidateId)
+                    || !candidate.completeMachineAttempt(claim.attemptId(), switch (result) {
+                        case PASS -> SkillAvatarCandidate.MachineStatus.PASSED;
+                        case BLOCK -> SkillAvatarCandidate.MachineStatus.BLOCKED;
+                        case ERROR -> SkillAvatarCandidate.MachineStatus.ERROR;
+                    })) {
+                return status(skill, candidate, namespaceSlug(skill));
+            }
+            if (result == AvatarModerationProvider.Verdict.PASS && !candidate.isManualEnabled()) {
+                activate(skill, candidate);
+            }
+            log(candidate.getSubmittedBy(), "SKILL_AVATAR_MACHINE_RESULT", candidate.getId(), context,
+                    AuditDetail.of("verdict", result.name()));
+            return status(skill, candidate, namespaceSlug(skill));
+        });
     }
+
+    private record MachineClaim(String objectKey, String provider, String attemptId) {}
 
     @Transactional(readOnly = true)
     public SkillAvatarStatusResponse ownerStatus(String namespaceSlug, String slug, String actor) {
@@ -177,6 +243,7 @@ public class SkillAvatarAppService {
         skillQueries.getSkillDetail(namespaceSlug, slug, actor, namespaceRoles == null ? Map.of() : namespaceRoles);
         Skill skill = findSkill(namespaceSlug, slug);
         if (!visibility.canAccess(skill, actor, namespaceRoles, platformRoles)
+                || skill.getVisibility() == SkillVisibility.PRIVATE && !skill.getOwnerId().equals(actor)
                 || SkillAvatarUrls.current(skill, namespaceSlug) == null) {
             throw notFound();
         }
@@ -193,6 +260,7 @@ public class SkillAvatarAppService {
         Skill skill = findSkill(namespaceSlug, slug);
         SkillAvatarCandidate candidate = findCandidate(candidateId);
         if (!skill.getId().equals(candidate.getSkillId()) || candidate.getObjectKey() == null
+                || candidate.getAudience() == SkillVisibility.PRIVATE && !skill.getOwnerId().equals(actor)
                 || !skill.getOwnerId().equals(actor) && !canReview(skill, actor, namespaceRoles, platformRoles)) {
             throw notFound();
         }
@@ -283,6 +351,7 @@ public class SkillAvatarAppService {
                             SkillAvatarCandidate.Status.PENDING, SkillAvatarCandidate.ReviewStatus.APPEAL_PENDING).stream())
                 .filter(candidate -> candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.ERROR)
                 .filter(candidate -> candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PENDING)
+                .filter(candidate -> candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PROCESSING)
                 .filter(candidate -> ((SkillRepository) skills).findById(candidate.getSkillId())
                         .filter(skill -> canReview(skill, actor, namespaceRoles, platformRoles)).isPresent())
                 .map(candidate -> {
@@ -366,7 +435,9 @@ public class SkillAvatarAppService {
                 candidate == null ? null : candidate.getReviewReason(),
                 candidate == null || candidate.getObjectKey() == null ? null
                         : SkillAvatarUrls.candidate(namespaceSlug, skill, candidate.getId()),
-                namespaceSlug, skill.getSlug());
+                namespaceSlug, skill.getSlug(),
+                candidate == null ? null : candidate.getMachineNextRetryAt(),
+                candidate != null && candidate.getMachineAttemptCount() >= 3);
     }
 
     private String sha256(byte[] image) {

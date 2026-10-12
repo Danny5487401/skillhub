@@ -52,7 +52,7 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
     >
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex min-w-0 items-center gap-3 space-y-2">
+          <div className="flex min-w-0 items-center gap-3">
             <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
             <h3 className="font-semibold text-base group-hover:text-primary transition-colors duration-150" style={{ color: 'hsl(var(--foreground))' }}>
               {skill.displayName}

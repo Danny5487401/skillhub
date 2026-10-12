@@ -11,6 +11,8 @@ const api = vi.hoisted(() => ({
   createRoleGrant: vi.fn(),
   updateRoleGrant: vi.fn(),
   disableRoleGrant: vi.fn(),
+  getAvatarReview: vi.fn(),
+  updateAvatarReview: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -35,6 +37,7 @@ describe('SystemConfigPage', () => {
     api.getLocalAuth.mockResolvedValue({ passwordLoginEnabled: true, selfRegistrationEnabled: true, version: 3 })
     api.listRoles.mockResolvedValue([{ code: 'SUPER_ADMIN', name: 'Super Admin' }, { code: 'USER', name: 'User' }])
     api.listRoleGrants.mockResolvedValue(ruleList)
+    api.getAvatarReview.mockResolvedValue({ machineEnabled: false, manualEnabled: true, version: 0 })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><SystemConfigPage /></QueryClientProvider>)
     return client

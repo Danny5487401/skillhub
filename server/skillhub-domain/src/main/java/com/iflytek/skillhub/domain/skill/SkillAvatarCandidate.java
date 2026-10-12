@@ -15,7 +15,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "skill_avatar_candidate")
 public class SkillAvatarCandidate {
-    public enum MachineStatus { SKIPPED, PENDING, PASSED, BLOCKED, ERROR }
+    public enum MachineStatus { SKIPPED, PENDING, PROCESSING, PASSED, BLOCKED, ERROR }
     public enum ReviewStatus { NOT_REQUIRED, PENDING, APPROVED, REJECTED, APPEAL_PENDING }
     public enum Status { PENDING, ACTIVE, REJECTED, SUPERSEDED, REMOVED }
 
@@ -39,6 +39,18 @@ public class SkillAvatarCandidate {
     private boolean manualEnabled;
     @Column(name = "machine_provider", length = 32)
     private String machineProvider;
+    @Column(name = "scope_review_version_id")
+    private Long scopeReviewVersionId;
+    @Column(name = "scope_review", nullable = false)
+    private boolean scopeReview;
+    @Column(name = "machine_attempt_id", length = 36)
+    private String machineAttemptId;
+    @Column(name = "machine_lease_until")
+    private Instant machineLeaseUntil;
+    @Column(name = "machine_next_retry_at")
+    private Instant machineNextRetryAt;
+    @Column(name = "machine_attempt_count", nullable = false)
+    private int machineAttemptCount;
     @Enumerated(EnumType.STRING)
     @Column(name = "machine_status", nullable = false, length = 32)
     private MachineStatus machineStatus;
@@ -93,6 +105,11 @@ public class SkillAvatarCandidate {
     public boolean isMachineEnabled() { return machineEnabled; }
     public boolean isManualEnabled() { return manualEnabled; }
     public String getMachineProvider() { return machineProvider; }
+    public Long getScopeReviewVersionId() { return scopeReviewVersionId; }
+    public boolean isScopeReview() { return scopeReview; }
+    public Instant getMachineLeaseUntil() { return machineLeaseUntil; }
+    public Instant getMachineNextRetryAt() { return machineNextRetryAt; }
+    public int getMachineAttemptCount() { return machineAttemptCount; }
     public MachineStatus getMachineStatus() { return machineStatus; }
     public ReviewStatus getReviewStatus() { return reviewStatus; }
     public Status getStatus() { return status; }
@@ -101,8 +118,46 @@ public class SkillAvatarCandidate {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getDiscardAt() { return discardAt; }
 
+    public void markScopeReviewVersion(Long versionId) { scopeReviewVersionId = versionId; scopeReview = true; }
+
+    public boolean canRetryMachine(Instant now) {
+        return status == Status.PENDING && machineEnabled
+                && (machineStatus == MachineStatus.ERROR
+                        && (machineNextRetryAt == null || !machineNextRetryAt.isAfter(now))
+                    || machineStatus == MachineStatus.PROCESSING
+                        && machineLeaseUntil != null && !machineLeaseUntil.isAfter(now));
+    }
+
+    public boolean claimMachineAttempt(String attemptId, Instant now, Instant leaseUntil) {
+        if (status != Status.PENDING || !machineEnabled
+                || machineStatus != MachineStatus.PENDING && !canRetryMachine(now)) {
+            return false;
+        }
+        machineStatus = MachineStatus.PROCESSING;
+        machineAttemptId = attemptId;
+        machineLeaseUntil = leaseUntil;
+        machineNextRetryAt = null;
+        machineAttemptCount++;
+        return true;
+    }
+
+    public boolean completeMachineAttempt(String attemptId, MachineStatus result) {
+        if (status != Status.PENDING || machineStatus != MachineStatus.PROCESSING
+                || !attemptId.equals(machineAttemptId)
+                || result == MachineStatus.PENDING || result == MachineStatus.PROCESSING
+                || result == MachineStatus.SKIPPED) {
+            return false;
+        }
+        machineStatus = result;
+        machineAttemptId = null;
+        machineLeaseUntil = null;
+        machineNextRetryAt = result == MachineStatus.ERROR ? Instant.now().plusSeconds(3600) : null;
+        return true;
+    }
+
     public void machineResult(MachineStatus result) {
-        if (status != Status.PENDING || !machineEnabled || result == MachineStatus.SKIPPED || result == MachineStatus.PENDING) {
+        if (status != Status.PENDING || !machineEnabled || result == MachineStatus.SKIPPED
+                || result == MachineStatus.PENDING || result == MachineStatus.PROCESSING) {
             throw new IllegalStateException("Avatar candidate cannot accept this machine result");
         }
         machineStatus = result;
