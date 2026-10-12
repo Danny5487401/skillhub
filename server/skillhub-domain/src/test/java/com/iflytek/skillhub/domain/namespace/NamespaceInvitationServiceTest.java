@@ -64,6 +64,48 @@ class NamespaceInvitationServiceTest {
     }
 
     @Test
+    void namespaceAdminCanCreateInvitation() {
+        Optional<UserAccount> active = users.findById("owner");
+        when(members.findByNamespaceIdAndUserId(7L, "admin"))
+                .thenReturn(Optional.of(new NamespaceMember(7L, "admin", NamespaceRole.ADMIN)));
+        when(users.findLockedById("admin")).thenReturn(active);
+        when(users.findById("admin")).thenReturn(active);
+
+        assertThat(service.create("team", "admin").token()).matches("[A-Za-z0-9_-]{43}");
+        verify(invitations).save(any());
+    }
+
+    @Test
+    void platformAdminWithoutNamespaceMembershipCannotCreateInvitation() {
+        Optional<UserAccount> active = users.findById("owner");
+        when(users.findLockedById("platform-admin")).thenReturn(active);
+
+        assertThatThrownBy(() -> service.create("team", "platform-admin"))
+                .isInstanceOf(DomainNotFoundException.class);
+        verify(invitations, never()).save(any());
+    }
+
+    @Test
+    void ownerCanCreateInvitationForPersonalNamespaceRepresentedAsTeam() {
+        Namespace personal = new Namespace("personal", "Personal", "owner");
+        try {
+            var id = Namespace.class.getDeclaredField("id");
+            id.setAccessible(true);
+            id.set(personal, 8L);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        assertThat(personal.getType()).isEqualTo(NamespaceType.TEAM);
+        when(namespaces.findIdBySlug("personal")).thenReturn(Optional.of(8L));
+        when(namespaces.findLockedById(8L)).thenReturn(Optional.of(personal));
+        when(members.findByNamespaceIdAndUserId(8L, "owner"))
+                .thenReturn(Optional.of(new NamespaceMember(8L, "owner", NamespaceRole.OWNER)));
+
+        assertThat(service.create("personal", "owner").token()).matches("[A-Za-z0-9_-]{43}");
+        verify(invitations).save(any());
+    }
+
+    @Test
     void revokedTokenCannotBePreviewed() {
         assertThatThrownBy(() -> service.preview("A".repeat(43), "guest"))
                 .isInstanceOf(DomainNotFoundException.class);
@@ -151,5 +193,60 @@ class NamespaceInvitationServiceTest {
 
         assertThat(renewed.replaced()).isFalse();
         assertThat(renewed.token()).isNotEqualTo(first.token());
+    }
+
+    @Test
+    void nonMemberCannotPreviewOrAcceptAtExactExpiryInstant() {
+        NamespaceInvitationService.Created created = service.create("team", "owner");
+        NamespaceInvitation expired = invitationExpiringNow();
+        when(invitations.findByTokenHash(expired.getTokenHash())).thenReturn(Optional.of(expired));
+        when(invitations.findNamespaceIdByTokenHash(expired.getTokenHash())).thenReturn(Optional.of(7L));
+        when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(expired));
+
+        assertThat(service.hasActiveInvitation("team", "owner")).isFalse();
+        assertThatThrownBy(() -> service.preview(created.token(), "guest"))
+                .isInstanceOf(DomainNotFoundException.class);
+        assertThatThrownBy(() -> service.accept(created.token(), "guest"))
+                .isInstanceOf(DomainNotFoundException.class);
+        verify(members, never()).save(any());
+        assertThat(expired.getConsumedAt()).isNull();
+    }
+
+    @Test
+    void existingMemberCanPreviewAndAcceptCurrentExpiredInvitationWhileNamespaceFrozen() {
+        NamespaceInvitationService.Created created = service.create("team", "owner");
+        NamespaceInvitation expired = invitationExpiringNow();
+        when(invitations.findByTokenHash(expired.getTokenHash())).thenReturn(Optional.of(expired));
+        when(invitations.findNamespaceIdByTokenHash(expired.getTokenHash())).thenReturn(Optional.of(7L));
+        when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(expired));
+        when(members.findByNamespaceIdAndUserId(7L, "guest"))
+                .thenReturn(Optional.of(new NamespaceMember(7L, "guest", NamespaceRole.MEMBER)));
+        namespaces.findById(7L).orElseThrow().setStatus(NamespaceStatus.FROZEN);
+        clearInvocations(invitations, members, audit);
+
+        assertThat(service.preview(created.token(), "guest").alreadyMember()).isTrue();
+        assertThat(service.accept(created.token(), "guest").alreadyMember()).isTrue();
+        verify(members, never()).save(any());
+        verify(invitations, never()).save(any());
+        assertThat(expired.getConsumedAt()).isNull();
+    }
+
+    @Test
+    void renewingAtExactExpiryDoesNotClaimToReplaceUsableLink() {
+        NamespaceInvitationService.Created first = service.create("team", "owner");
+        NamespaceInvitation expired = invitationExpiringNow();
+        when(invitations.findByNamespaceId(7L)).thenReturn(Optional.of(expired));
+
+        NamespaceInvitationService.Created renewed = service.create("team", "owner", false);
+
+        assertThat(renewed.replaced()).isFalse();
+        assertThat(renewed.token()).isNotEqualTo(first.token());
+    }
+
+    private NamespaceInvitation invitationExpiringNow() {
+        ArgumentCaptor<NamespaceInvitation> saved = ArgumentCaptor.forClass(NamespaceInvitation.class);
+        verify(invitations).save(saved.capture());
+        return new NamespaceInvitation(7L, saved.getValue().getTokenHash(), "owner",
+                clock.instant().minusSeconds(86400), clock.instant());
     }
 }
