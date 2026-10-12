@@ -63,7 +63,14 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
         title={t(confirm === 'revoke' ? 'invitation.revokeTitle' : 'invitation.replaceTitle')}
         description={t(confirm === 'revoke' ? 'invitation.revokeDescription' : 'invitation.replaceDescription')}
         confirmText={t('dialog.confirm')}
-        onConfirm={async () => { if (confirm === 'revoke') await revoke.mutateAsync(); else await create.mutateAsync(true) }} />
+        onConfirm={async () => {
+          try {
+            if (confirm === 'revoke') await revoke.mutateAsync()
+            else await create.mutateAsync(true)
+          } catch {
+            setConfirm(null)
+          }
+        }} />
     </div>
   )
 }
