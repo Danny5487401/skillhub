@@ -3,7 +3,9 @@ package com.iflytek.skillhub.domain.namespace;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -30,14 +32,23 @@ class NamespaceGovernanceServiceTest {
 
     @Mock
     private AuditLogService auditLogService;
+    @Mock
+    private UserAccountRepository userAccountRepository;
 
     @InjectMocks
     private NamespaceGovernanceService governanceService;
+
+    @BeforeEach
+    void lockResolvedNamespace() {
+        org.mockito.Mockito.lenient().when(namespaceRepository.findLockedById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> namespaceRepository.findBySlug("team-a"));
+    }
 
     @Test
     void freezeNamespace_allowsAdminOnActiveTeamNamespace() {
         Namespace namespace = namespace(1L, "team-a", NamespaceType.TEAM, NamespaceStatus.ACTIVE);
         when(namespaceRepository.findBySlug("team-a")).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "admin-1"))
                 .thenReturn(Optional.of(new NamespaceMember(1L, "admin-1", NamespaceRole.ADMIN)));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
@@ -54,6 +65,7 @@ class NamespaceGovernanceServiceTest {
     void archiveNamespace_rejectsAdminAndAllowsOnlyOwner() {
         Namespace namespace = namespace(1L, "team-a", NamespaceType.TEAM, NamespaceStatus.ACTIVE);
         when(namespaceRepository.findBySlug("team-a")).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "admin-1"))
                 .thenReturn(Optional.of(new NamespaceMember(1L, "admin-1", NamespaceRole.ADMIN)));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
@@ -67,6 +79,7 @@ class NamespaceGovernanceServiceTest {
     void restoreNamespace_movesArchivedNamespaceBackToActive() {
         Namespace namespace = namespace(1L, "team-a", NamespaceType.TEAM, NamespaceStatus.ARCHIVED);
         when(namespaceRepository.findBySlug("team-a")).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "owner-1"))
                 .thenReturn(Optional.of(new NamespaceMember(1L, "owner-1", NamespaceRole.OWNER)));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
@@ -81,7 +94,8 @@ class NamespaceGovernanceServiceTest {
     @Test
     void freezeNamespace_rejectsGlobalNamespace() {
         Namespace namespace = namespace(1L, "global", NamespaceType.GLOBAL, NamespaceStatus.ACTIVE);
-        when(namespaceRepository.findBySlug("global")).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("global")).thenReturn(Optional.of(1L));
+        when(namespaceRepository.findLockedById(1L)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(true);
 
         assertThrows(DomainBadRequestException.class,
@@ -92,6 +106,7 @@ class NamespaceGovernanceServiceTest {
     void unfreezeNamespace_rejectsIllegalTransition() {
         Namespace namespace = namespace(1L, "team-a", NamespaceType.TEAM, NamespaceStatus.ACTIVE);
         when(namespaceRepository.findBySlug("team-a")).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "owner-1"))
                 .thenReturn(Optional.of(new NamespaceMember(1L, "owner-1", NamespaceRole.OWNER)));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);

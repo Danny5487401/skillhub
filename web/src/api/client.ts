@@ -805,6 +805,37 @@ export const labelApi = {
 }
 
 export const namespaceApi = {
+  async invitationStatus(slug: string): Promise<{ active: boolean }> {
+    return fetchJson<{ active: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`)
+  },
+
+  async createInvitation(slug: string, replace: boolean): Promise<{ token: string; expiresAt: string; replaced: boolean }> {
+    return fetchJson<{ token: string; expiresAt: string; replaced: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ replace }),
+    })
+  },
+
+  async revokeInvitation(slug: string): Promise<void> {
+    await fetchJson<void>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`, {
+      method: 'DELETE', headers: await ensureCsrfHeaders(),
+    })
+  },
+
+  async previewInvitation(token: string): Promise<{ namespaceSlug: string; namespaceDisplayName: string; namespaceAvatarUrl: string | null; outcome: 'CONFIRM_REQUIRED' | 'ALREADY_MEMBER'; expiresAt: string }> {
+    return fetchJson<{ namespaceSlug: string; namespaceDisplayName: string; namespaceAvatarUrl: string | null; outcome: 'CONFIRM_REQUIRED' | 'ALREADY_MEMBER'; expiresAt: string }>(`${WEB_API_PREFIX}/namespace-invitations/preview`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ token }),
+    })
+  },
+
+  async acceptInvitation(token: string): Promise<{ namespaceSlug: string; outcome: 'JOINED' | 'ALREADY_MEMBER' }> {
+    return fetchJson<{ namespaceSlug: string; outcome: 'JOINED' | 'ALREADY_MEMBER' }>(`${WEB_API_PREFIX}/namespace-invitations/accept`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ token }),
+    })
+  },
+
   async create(request: CreateNamespaceRequest): Promise<Namespace> {
     const namespace = await fetchJson<Namespace>('/api/v1/namespaces', {
       method: 'POST',

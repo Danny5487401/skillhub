@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.namespace;
 
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,21 +14,26 @@ public class GlobalNamespaceMembershipService {
 
     private final NamespaceRepository namespaceRepository;
     private final NamespaceMemberRepository namespaceMemberRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public GlobalNamespaceMembershipService(NamespaceRepository namespaceRepository,
-                                            NamespaceMemberRepository namespaceMemberRepository) {
+                                            NamespaceMemberRepository namespaceMemberRepository,
+                                            UserAccountRepository userAccountRepository) {
         this.namespaceRepository = namespaceRepository;
         this.namespaceMemberRepository = namespaceMemberRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Transactional
     public void ensureMember(String userId) {
-        Namespace globalNamespace = namespaceRepository.findBySlug(GLOBAL_NAMESPACE_SLUG)
+        userAccountRepository.findLockedById(userId);
+        Long namespaceId = namespaceRepository.findIdBySlug(GLOBAL_NAMESPACE_SLUG)
                 .orElseThrow(() -> new IllegalStateException("Missing built-in global namespace"));
+        namespaceRepository.findLockedById(namespaceId);
 
-        namespaceMemberRepository.findByNamespaceIdAndUserId(globalNamespace.getId(), userId)
+        namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, userId)
                 .orElseGet(() -> namespaceMemberRepository.save(
-                        new NamespaceMember(globalNamespace.getId(), userId, NamespaceRole.MEMBER)
+                        new NamespaceMember(namespaceId, userId, NamespaceRole.MEMBER)
                 ));
     }
 }

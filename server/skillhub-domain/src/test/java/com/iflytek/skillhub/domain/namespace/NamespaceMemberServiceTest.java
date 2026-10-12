@@ -2,6 +2,7 @@ package com.iflytek.skillhub.domain.namespace;
 
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +23,10 @@ class NamespaceMemberServiceTest {
     private NamespaceService namespaceService;
     @Mock
     private NamespaceAccessPolicy namespaceAccessPolicy;
+    @Mock
+    private NamespaceRepository namespaceRepository;
+    @Mock
+    private UserAccountRepository userAccountRepository;
 
     @InjectMocks
     private NamespaceMemberService namespaceMemberService;

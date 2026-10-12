@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { AddNamespaceMemberDialog } from '@/features/namespace/add-namespace-member-dialog'
 import { BatchImportMembersDialog } from '@/features/namespace/batch-import-members-dialog'
+import { InvitationControls } from '@/features/namespace/invitation-controls'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
 import { TransferOwnershipDialog } from '@/features/namespace/transfer-ownership-dialog'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
@@ -165,6 +166,7 @@ export function NamespaceMembersPage() {
         ) : null}
 
         <div className="flex items-center justify-end gap-2">
+          {canManageMembers ? <InvitationControls slug={slug} /> : null}
           {canTransferOwnership ? (
             <TransferOwnershipDialog namespace={namespace} members={members}>
               <Button variant="outline">{t('members.transferOwnership')}</Button>

@@ -10,6 +10,7 @@ import { Pagination } from '@/shared/components/pagination'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { CreateNamespaceDialog } from '@/features/namespace/create-namespace-dialog'
+import { InvitationControls } from '@/features/namespace/invitation-controls'
 import {
   useArchiveNamespace,
   useDeleteNamespace,
@@ -305,6 +306,10 @@ export function MyNamespacesPage() {
                     >
                       {t('myNamespaces.manageMembers')}
                     </Button>
+                  )}
+                  {namespace.type === 'TEAM' && namespace.status === 'ACTIVE'
+                    && (namespace.currentUserRole === 'OWNER' || namespace.currentUserRole === 'ADMIN') && (
+                    <InvitationControls slug={namespace.slug} compact />
                   )}
                   <Button
                     variant="outline"

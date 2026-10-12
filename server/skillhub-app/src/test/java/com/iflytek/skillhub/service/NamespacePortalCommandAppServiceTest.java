@@ -80,7 +80,7 @@ class NamespacePortalCommandAppServiceTest {
     @Test
     void deleteNamespace_delegatesToDomainService() {
         Namespace namespace = namespace(7L, "team-alpha");
-        when(namespaceService.getNamespaceBySlug("team-alpha")).thenReturn(namespace);
+        when(namespaceRepository.findIdBySlug("team-alpha")).thenReturn(Optional.of(7L));
 
         MessageResponse response = service.deleteNamespace("team-alpha", "owner-1");
 
@@ -102,7 +102,7 @@ class NamespacePortalCommandAppServiceTest {
         ReflectionTestUtils.setField(member, "id", 10L);
         UserAccount user = new UserAccount("user-2", "Alice", "alice@example.com", null);
 
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberService.addMember(1L, "user-2", NamespaceRole.ADMIN, "owner-1"))
                 .thenReturn(member);
         when(userAccountRepository.findById("user-2"))
@@ -122,7 +122,7 @@ class NamespacePortalCommandAppServiceTest {
         NamespaceMember member = new NamespaceMember(1L, "ghost", NamespaceRole.MEMBER);
         ReflectionTestUtils.setField(member, "id", 20L);
 
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberService.addMember(1L, "ghost", NamespaceRole.MEMBER, "owner-1"))
                 .thenReturn(member);
         when(userAccountRepository.findById("ghost"))
@@ -142,7 +142,7 @@ class NamespacePortalCommandAppServiceTest {
         ReflectionTestUtils.setField(member, "id", 10L);
         UserAccount user = new UserAccount("user-2", "Alice", "alice@example.com", null);
 
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberService.updateMemberRole(1L, "user-2", NamespaceRole.OWNER, "owner-1"))
                 .thenReturn(member);
         when(userAccountRepository.findById("user-2"))
@@ -166,7 +166,7 @@ class NamespacePortalCommandAppServiceTest {
         NamespaceMember member = new NamespaceMember(1L, "ghost", NamespaceRole.MEMBER);
         ReflectionTestUtils.setField(member, "id", 20L);
 
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceMemberService.updateMemberRole(1L, "ghost", NamespaceRole.ADMIN, "owner-1"))
                 .thenReturn(member);
         when(userAccountRepository.findById("ghost"))
@@ -186,7 +186,7 @@ class NamespacePortalCommandAppServiceTest {
     @Test
     void transferOwnership_success() {
         Namespace ns = namespace(1L, "team-a");
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
 
         MessageResponse result = service.transferOwnership("team-a", "new-owner", "current-owner");
 
@@ -197,7 +197,7 @@ class NamespacePortalCommandAppServiceTest {
     @Test
     void transferOwnership_nonOwnerFails() {
         Namespace ns = namespace(1L, "team-a");
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         doThrow(new DomainBadRequestException("error.namespace.owner.current.invalid"))
                 .when(namespaceMemberService).transferOwnership(1L, "non-owner", "new-owner");
 
@@ -208,7 +208,7 @@ class NamespacePortalCommandAppServiceTest {
     @Test
     void transferOwnership_targetNotFoundFails() {
         Namespace ns = namespace(1L, "team-a");
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         doThrow(new DomainBadRequestException("error.namespace.owner.new.notFound"))
                 .when(namespaceMemberService).transferOwnership(1L, "owner-1", "non-existent");
 
@@ -220,7 +220,7 @@ class NamespacePortalCommandAppServiceTest {
     void transferOwnership_frozenNamespaceFails() {
         Namespace ns = namespace(1L, "team-a");
         ns.setStatus(NamespaceStatus.FROZEN);
-        when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(ns);
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         doThrow(new DomainBadRequestException("error.namespace.readonly", "team-a"))
                 .when(namespaceMemberService).transferOwnership(1L, "owner-1", "new-owner");
 
