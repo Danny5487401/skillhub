@@ -301,6 +301,8 @@ public class RouteSecurityPolicyRegistry {
             "ANY /api/v1/auth/direct/login",
             "ANY /api/v1/auth/local/**",
             "ANY /api/v1/admin/**",
+            "POST /api/v1/skills/avatar-uploads",
+            "POST /api/web/skills/avatar-uploads",
             "POST /api/v1/suites/reviews/*/approve",
             "POST /api/v1/suites/reviews/*/reject",
             "POST /api/web/suites/reviews/*/approve",

@@ -49,6 +49,18 @@ class RouteSecurityPolicyRegistryTest {
     }
 
     @Test
+    void stagedAvatarUploadRequiresSessionWhilePreviewRequiresAnAuthenticatedUploader() {
+        for (String prefix : List.of("/api/v1", "/api/web")) {
+            String upload = prefix + "/skills/avatar-uploads";
+            assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED, registry.accessLevel("POST", upload));
+            assertTrue(registry.sessionOnlyRoutes().contains("POST " + upload));
+            assertFalse(registry.authorizeApiToken("POST", upload, ALL_SCOPES).allowed());
+            assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
+                    registry.accessLevel("GET", upload + "/upload-id/image"));
+        }
+    }
+
+    @Test
     void reviewRoutesExposePublicListingButProtectCurrentUserMutations() {
         assertEquals(RouteSecurityPolicyRegistry.AccessLevel.PERMIT_ALL,
                 registry.accessLevel("GET", "/api/v1/skills/10/reviews"));
