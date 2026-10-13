@@ -117,4 +117,3 @@ export async function executeNamespaceAction(
     throw error
   }
 }
-
