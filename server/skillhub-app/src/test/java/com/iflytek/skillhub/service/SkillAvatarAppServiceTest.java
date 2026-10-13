@@ -17,6 +17,7 @@ import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
 import com.iflytek.skillhub.dto.AvatarReviewSettingsResponse;
 import com.iflytek.skillhub.domain.skill.Skill;
+import com.iflytek.skillhub.domain.skill.SkillRepository;
 import com.iflytek.skillhub.domain.skill.SkillAvatarCandidate;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.domain.skill.VisibilityChecker;
@@ -73,6 +74,8 @@ class SkillAvatarAppServiceTest {
         ReflectionTestUtils.setField(namespace, "type", NamespaceType.TEAM);
         skill = new Skill(10L, "foo", "owner", SkillVisibility.PUBLIC);
         ReflectionTestUtils.setField(skill, "id", 11L);
+        org.mockito.Mockito.lenient().when(skills.findByNamespaceIdAndSlugAndOwnerId(10L, "foo", "owner"))
+                .thenReturn(Optional.of(skill));
     }
 
     @AfterEach
@@ -86,8 +89,11 @@ class SkillAvatarAppServiceTest {
     void privateAvatarCannotBeReadByNamespaceAdmin() {
         skill.setVisibility(SkillVisibility.PRIVATE);
         skill.activateAvatar(21L, SkillVisibility.PRIVATE);
-        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
-        when(skills.findByNamespaceIdAndSlug(10L, "foo")).thenReturn(List.of(skill));
+        SkillQueryService.SkillDetailDTO detail = new SkillQueryService.SkillDetailDTO(
+                11L, null, null, null, null, null, null, null, null, null, null, null, null,
+                false, null, null, null, false, false, false, false, null, null, null, null, null, null, null);
+        when(skillQueries.getSkillDetail(eq("team"), eq("foo"), eq("admin"), any())).thenReturn(detail);
+        when(((SkillRepository) skills).findById(11L)).thenReturn(Optional.of(skill));
         when(visibility.canAccess(eq(skill), eq("admin"), any(), any())).thenReturn(true);
         assertThatThrownBy(() -> service.readActive("team", "foo", "admin",
                 Map.of(10L, NamespaceRole.ADMIN), Set.of()))
@@ -98,7 +104,7 @@ class SkillAvatarAppServiceTest {
     @Test
     void privateCandidateCannotBeReadByNamespaceAdmin() {
         when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
-        when(skills.findByNamespaceIdAndSlug(10L, "foo")).thenReturn(List.of(skill));
+        when(((SkillRepository) skills).findById(11L)).thenReturn(Optional.of(skill));
         SkillAvatarCandidate candidate = new SkillAvatarCandidate(11L, "owner", "avatar/private.png", "abc",
                 SkillVisibility.PRIVATE, false, false, null);
         ReflectionTestUtils.setField(candidate, "id", 21L);
@@ -319,7 +325,7 @@ class SkillAvatarAppServiceTest {
 
     @Test
     void nonOwnerCannotSubmitBeforeWritingToStorage() {
-        stubSkillLookup();
+        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
         assertThatThrownBy(() -> service.submit("team", "foo", "stranger", new byte[] { 1 },
                 new AuditRequestContext(null, null))).isInstanceOf(DomainForbiddenException.class);
         verifyNoInteractions(storage);
@@ -327,17 +333,28 @@ class SkillAvatarAppServiceTest {
 
     @Test
     void staleApprovalCannotReplaceNewerCandidate() {
-        stubSkillLookup();
+        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
+        when(((SkillRepository) skills).findById(11L)).thenReturn(Optional.of(skill));
+        when(skills.findLockedById(11L)).thenReturn(Optional.of(skill));
+        SkillAvatarCandidate candidate = new SkillAvatarCandidate(11L, "owner", "avatar/old.png", "abc",
+                SkillVisibility.PUBLIC, false, true, null);
+        when(candidates.findById(21L)).thenReturn(Optional.of(candidate));
         when(namespaces.findById(10L)).thenReturn(Optional.of(namespace));
         assertThatThrownBy(() -> service.decide("team", "foo", 21L, true, "fine", "reviewer",
                 Map.of(10L, NamespaceRole.ADMIN), Set.of(), new AuditRequestContext(null, null)))
                 .isInstanceOf(DomainConflictException.class);
-        verifyNoInteractions(candidates);
+        org.assertj.core.api.Assertions.assertThat(candidate.getReviewStatus())
+                .isEqualTo(SkillAvatarCandidate.ReviewStatus.PENDING);
     }
 
     @Test
     void reviewRequiresMatchingNamespaceRole() {
-        stubSkillLookup();
+        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
+        when(((SkillRepository) skills).findById(11L)).thenReturn(Optional.of(skill));
+        when(skills.findLockedById(11L)).thenReturn(Optional.of(skill));
+        SkillAvatarCandidate candidate = new SkillAvatarCandidate(11L, "owner", "avatar/old.png", "abc",
+                SkillVisibility.PUBLIC, false, true, null);
+        when(candidates.findById(21L)).thenReturn(Optional.of(candidate));
         when(namespaces.findById(10L)).thenReturn(Optional.of(namespace));
         assertThatThrownBy(() -> service.decide("team", "foo", 21L, true, "fine", "reviewer",
                 Map.of(), Set.of("SKILL_ADMIN"), new AuditRequestContext(null, null)))
@@ -387,9 +404,4 @@ class SkillAvatarAppServiceTest {
         return candidate;
     }
 
-    private void stubSkillLookup() {
-        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
-        when(skills.findByNamespaceIdAndSlug(10L, "foo")).thenReturn(List.of(skill));
-        when(skills.findLockedById(11L)).thenReturn(Optional.of(skill));
-    }
 }

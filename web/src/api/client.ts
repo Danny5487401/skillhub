@@ -1,6 +1,6 @@
 import createClient from 'openapi-fetch'
 import { BASE_PATH } from '@/shared/lib/base-path'
-import type { paths } from './generated/schema'
+import type { components, paths } from './generated/schema'
 import type {
   ChangePasswordRequest,
   PasswordResetConfirmRequest,
@@ -521,6 +521,19 @@ function avatarPath(namespace: string, slug: string): string {
 }
 
 export const skillAvatarApi = {
+  stage(file: Blob): Promise<components['schemas']['SkillAvatarUploadResponse']> {
+    const body = new FormData()
+    body.append('file', file, 'avatar.png')
+    return fetchJson(`${WEB_API_PREFIX}/skills/avatar-uploads`, {
+      method: 'POST', headers: getCsrfHeaders(), body,
+    })
+  },
+  submit(namespace: string, slug: string, uploadId: string): Promise<SkillAvatarStatus> {
+    return fetchJson(`${WEB_API_PREFIX}/skills/${encodeURIComponent(namespace)}/${encodeURIComponent(slug)}/avatar`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ uploadId }),
+    })
+  },
   status(namespace: string, slug: string): Promise<SkillAvatarStatus> {
     return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/status`)
   },

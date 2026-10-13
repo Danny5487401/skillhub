@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { UploadZone } from '@/features/publish/upload-zone'
@@ -22,13 +23,14 @@ import {
 } from '@/shared/ui/select'
 import { Label } from '@/shared/ui/label'
 import { Card } from '@/shared/ui/card'
+import { SkillAvatarEditor, KEEP_AVATAR, type AvatarEdit } from '@/features/skill/skill-avatar-editor'
 import { usePublishSkill } from '@/shared/hooks/use-skill-queries'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { navigateAfterOverlays } from '@/shared/lib/navigate-after-overlays'
 import { toast } from '@/shared/lib/toast'
-import { ApiError } from '@/api/client'
+import { ApiError, skillAvatarApi } from '@/api/client'
 
 const EMPTY_NAMESPACE_VALUE = '__select_namespace__'
 
@@ -37,6 +39,8 @@ export function PublishPage() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/dashboard/publish' })
   const prefill = normalizePublishPrefill(search)
+  const updateSlug = typeof search.updateSkill === 'string' ? search.updateSkill : prefill.resubmitSkill
+  const [avatarEdit, setAvatarEdit] = useState<AvatarEdit>(KEEP_AVATAR)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [namespaceSlug, setNamespaceSlug] = useState<string>(prefill.namespace)
   const [visibility, setVisibility] = useState<string>(prefill.visibility)
@@ -46,6 +50,8 @@ export function PublishPage() {
 
   const { data: namespaces, isLoading: isLoadingNamespaces } = useMyNamespaces()
   const publishMutation = usePublishSkill()
+  const avatarTarget = useQuery({ queryKey: ['skill-avatar', namespaceSlug, updateSlug], queryFn: () => skillAvatarApi.status(namespaceSlug, updateSlug), enabled: !!namespaceSlug && !!updateSlug })
+  const avatarUnavailable = !!updateSlug && (avatarTarget.isLoading || avatarTarget.isError)
   const selectedNamespace = namespaces?.find((ns) => ns.slug === namespaceSlug)
   const namespaceOnlyLabel = selectedNamespace?.type === 'GLOBAL'
     ? t('publish.visibilityOptions.loggedInUsersOnly')
@@ -54,7 +60,8 @@ export function PublishPage() {
   useEffect(() => {
     setNamespaceSlug(prefill.namespace)
     setVisibility(prefill.visibility)
-  }, [prefill.namespace, prefill.visibility])
+    setAvatarEdit(KEEP_AVATAR)
+  }, [prefill.namespace, prefill.visibility, updateSlug])
 
   const handleRemoveSelectedFile = () => {
     setSelectedFile(null)
@@ -81,7 +88,7 @@ export function PublishPage() {
   }
 
   const publishSkill = async (confirmWarnings = false) => {
-    if (!selectedFile || !namespaceSlug) {
+    if (!selectedFile || !namespaceSlug || !avatarEdit.ready || avatarUnavailable) {
       toast.error(t('publish.selectRequired'))
       return
     }
@@ -92,19 +99,23 @@ export function PublishPage() {
         file: selectedFile,
         visibility,
         confirmWarnings,
+        avatarAction: avatarEdit.action,
+        avatarUploadId: avatarEdit.uploadId,
+        expectedSlug: updateSlug || undefined,
       })
       setPrecheckWarnings([])
       setWarningDialogOpen(false)
+      const avatarNotice = avatarEdit.action === 'REPLACE' ? t('skillAvatar.submittedNotice') : avatarEdit.action === 'REMOVE' ? t('skillAvatar.removedNotice') : ''
       const skillLabel = `${result.namespace}/${result.slug}@${result.version}`
       if (result.status === 'PUBLISHED') {
         toast.success(
           t('publish.publishedTitle'),
-          t('publish.publishedDescription', { skill: skillLabel })
+          [t('publish.publishedDescription', { skill: skillLabel }), avatarNotice].filter(Boolean).join(' ')
         )
       } else {
         toast.success(
           t('publish.pendingReviewTitle'),
-          t('publish.pendingReviewDescription', { skill: skillLabel })
+          [t('publish.pendingReviewDescription', { skill: skillLabel }), avatarNotice].filter(Boolean).join(' ')
         )
       }
       navigateAfterOverlays(() => {
@@ -187,9 +198,11 @@ export function PublishPage() {
             <div className="h-11 animate-shimmer rounded-lg" />
           ) : (
             <Select
+              disabled={!!updateSlug || publishMutation.isPending}
               value={normalizeSelectValue(namespaceSlug) ?? EMPTY_NAMESPACE_VALUE}
               onValueChange={(value) => {
                 setNamespaceSlug(value === EMPTY_NAMESPACE_VALUE ? '' : value)
+                setAvatarEdit(KEEP_AVATAR)
               }}
             >
               <SelectTrigger id="namespace">
@@ -251,11 +264,14 @@ export function PublishPage() {
           )}
         </div>
 
+        <SkillAvatarEditor key={`${namespaceSlug}/${updateSlug}`} name={search.updateName ?? updateSlug} currentUrl={avatarTarget.data?.avatarUrl} canRemove={!!updateSlug} disabled={publishMutation.isPending || avatarUnavailable} onChange={setAvatarEdit} />
+        {avatarTarget.isError && <p role="alert" className="text-sm text-destructive">{t('skillAvatar.failed')}</p>}
+
         <Button
           className="w-full text-primary-foreground disabled:text-primary-foreground"
           size="lg"
           onClick={handlePublish}
-          disabled={!selectedFile || !namespaceSlug || publishMutation.isPending}
+          disabled={!selectedFile || !namespaceSlug || !avatarEdit.ready || avatarUnavailable || publishMutation.isPending}
         >
           {publishMutation.isPending ? t('publish.publishing') : t('publish.confirm')}
         </Button>

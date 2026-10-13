@@ -156,6 +156,8 @@ describe('MySkillsPage', () => {
       to: '/dashboard/publish',
       search: {
         namespace: 'team-ai',
+        updateSkill: 'team-agent',
+        updateName: 'Team Agent',
         visibility: 'PRIVATE',
       },
     })
@@ -219,6 +221,8 @@ describe('MySkillsPage', () => {
       to: '/dashboard/publish',
       search: {
         namespace: 'team-ai',
+        updateSkill: 'default-visibility-agent',
+        updateName: 'Default Visibility Agent',
         visibility: 'PUBLIC',
       },
     })

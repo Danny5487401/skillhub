@@ -10,6 +10,7 @@ import com.iflytek.skillhub.storage.ObjectStorageService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 public class SkillStorageDeletionCompensationService {
@@ -41,6 +42,12 @@ public class SkillStorageDeletionCompensationService {
                 serialize(storageKeys),
                 lastError
         ));
+    }
+
+    /** Persists cleanup after a publication transaction rolled back, including a newly-created Skill. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordRollbackFailure(String namespace, String slug, List<String> storageKeys, String failureType) {
+        recordFailure(null, namespace, slug, storageKeys, failureType);
     }
 
     @Transactional

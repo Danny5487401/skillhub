@@ -1509,7 +1509,7 @@ export interface paths {
         };
         get: operations["current"];
         put?: never;
-        post: operations["submit"];
+        post: operations["submit_2"];
         delete: operations["delete"];
         options?: never;
         head?: never;
@@ -1525,7 +1525,7 @@ export interface paths {
         };
         get: operations["current_1"];
         put?: never;
-        post: operations["submit_1"];
+        post: operations["submit_1_1"];
         delete: operations["delete_1"];
         options?: never;
         head?: never;
@@ -1590,6 +1590,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["publish_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/skills/avatar-uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/avatar-uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1925,7 +1957,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["submit_2"];
+        post: operations["submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1941,7 +1973,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["submit_3"];
+        post: operations["submit_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2115,7 +2147,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status"];
+        get: operations["status_2"];
         put?: never;
         post: operations["create"];
         delete: operations["revoke"];
@@ -2131,7 +2163,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status_1"];
+        get: operations["status_3"];
         put?: never;
         post: operations["create_1"];
         delete: operations["revoke_1"];
@@ -3910,6 +3942,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["deleteSkill"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/skills/avatar-uploads/{uploadId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["uploadPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/skills/avatar-uploads/{uploadId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["uploadPreview_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6298,6 +6362,9 @@ export interface components {
             approved?: boolean;
             reason: string;
         };
+        SkillAvatarSubmitRequest: {
+            uploadId: string;
+        };
         ApiResponsePublishResponse: {
             /** Format: int32 */
             code?: number;
@@ -6318,6 +6385,21 @@ export interface components {
             fileCount?: number;
             /** Format: int64 */
             totalSize?: number;
+        };
+        ApiResponseSkillAvatarUploadResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["SkillAvatarUploadResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        SkillAvatarUploadResponse: {
+            uploadId: string;
+            previewUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         ReviewActionRequest: {
             comment?: string;
@@ -11644,7 +11726,7 @@ export interface operations {
             };
         };
     };
-    submit: {
+    submit_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -11654,12 +11736,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
                 };
+                "application/json": components["schemas"]["SkillAvatarSubmitRequest"];
             };
         };
         responses: {
@@ -11720,7 +11803,7 @@ export interface operations {
             };
         };
     };
-    submit_1: {
+    submit_1_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11730,12 +11813,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
                 };
+                "application/json": components["schemas"]["SkillAvatarSubmitRequest"];
             };
         };
         responses: {
@@ -11832,6 +11916,9 @@ export interface operations {
             query: {
                 visibility: string;
                 confirmWarnings?: boolean;
+                avatarAction?: "KEEP" | "REPLACE" | "REMOVE";
+                avatarUploadId?: string;
+                expectedSlug?: string;
             };
             header?: never;
             path: {
@@ -11864,6 +11951,9 @@ export interface operations {
             query: {
                 visibility: string;
                 confirmWarnings?: boolean;
+                avatarAction?: "KEEP" | "REPLACE" | "REMOVE";
+                avatarUploadId?: string;
+                expectedSlug?: string;
             };
             header?: never;
             path: {
@@ -11887,6 +11977,60 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePublishResponse"];
+                };
+            };
+        };
+    };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSkillAvatarUploadResponse"];
+                };
+            };
+        };
+    };
+    upload_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSkillAvatarUploadResponse"];
                 };
             };
         };
@@ -12499,7 +12643,7 @@ export interface operations {
             };
         };
     };
-    submit_2: {
+    submit: {
         parameters: {
             query?: never;
             header?: never;
@@ -12523,7 +12667,7 @@ export interface operations {
             };
         };
     };
-    submit_3: {
+    submit_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -12839,7 +12983,7 @@ export interface operations {
             };
         };
     };
-    status: {
+    status_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -12909,7 +13053,7 @@ export interface operations {
             };
         };
     };
-    status_1: {
+    status_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -15941,6 +16085,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSkillDeleteResponse"];
+                };
+            };
+        };
+    };
+    uploadPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    uploadPreview_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

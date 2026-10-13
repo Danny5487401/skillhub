@@ -565,6 +565,29 @@ public class SkillPublishService {
 
         // 9. Upload each file to storage and compute SHA-256
         List<SkillFile> skillFiles = new ArrayList<>();
+        List<String> uploadedKeys = new ArrayList<>();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int result) {
+                    if (result != STATUS_COMMITTED && !uploadedKeys.isEmpty()) {
+                        try {
+                            objectStorageService.deleteObjects(List.copyOf(uploadedKeys));
+                        } catch (RuntimeException failure) {
+                            // Keys contain fresh version IDs only. A failed cleanup must never expose provider secrets.
+                            try {
+                                compensationService.recordRollbackFailure(namespaceSlug, skill.getSlug(),
+                                        List.copyOf(uploadedKeys), failure.getClass().getSimpleName());
+                            } catch (RuntimeException compensationFailure) {
+                                log.warn("Failed to record rolled-back publication cleanup, failureType={}",
+                                        compensationFailure.getClass().getSimpleName());
+                            }
+                            log.warn("Failed to clean rolled-back publication objects, failureType={}",
+                                    failure.getClass().getSimpleName());
+                        }
+                    }
+                }
+            });
+        }
         long totalSize = 0;
 
         Path bundleZip = null;
@@ -615,6 +638,7 @@ public class SkillPublishService {
                 zipOutput.finish();
             }
             for (StagedPackageFile staged : stagedFiles) {
+                uploadedKeys.add(staged.storageKey());
                 try (InputStream stagedInput = Files.newInputStream(staged.path())) {
                     objectStorageService.putObject(
                             staged.storageKey(), stagedInput, staged.size(), staged.contentType());
@@ -626,6 +650,7 @@ public class SkillPublishService {
             }
             String bundleKey = String.format("packages/%d/%d/bundle.zip", skill.getId(), version.getId());
             long bundleSize = Files.size(bundleZip);
+            uploadedKeys.add(bundleKey);
             try (InputStream bundleInput = Files.newInputStream(bundleZip)) {
                 objectStorageService.putObject(
                         bundleKey, bundleInput, bundleSize, "application/zip");

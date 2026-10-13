@@ -381,11 +381,15 @@ const dashboardPublishRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): {
     namespace?: string
     visibility?: string
+    updateName?: string
+    updateSkill?: string
     resubmitSkill?: string
     resubmitVersion?: string
   } => ({
     namespace: typeof search.namespace === 'string' && search.namespace ? search.namespace : undefined,
     visibility: typeof search.visibility === 'string' && search.visibility ? search.visibility : undefined,
+    updateName: typeof search.updateName === 'string' && search.updateName ? search.updateName : undefined,
+    updateSkill: typeof search.updateSkill === 'string' && search.updateSkill ? search.updateSkill : undefined,
     resubmitSkill: typeof search.resubmitSkill === 'string' && search.resubmitSkill
       ? search.resubmitSkill
       : undefined,

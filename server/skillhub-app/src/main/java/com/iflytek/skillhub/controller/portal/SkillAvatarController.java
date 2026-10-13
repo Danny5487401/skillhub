@@ -11,6 +11,10 @@ import com.iflytek.skillhub.dto.SkillAvatarReasonRequest;
 import com.iflytek.skillhub.dto.SkillAvatarStatusResponse;
 import com.iflytek.skillhub.service.AuditRequestContext;
 import com.iflytek.skillhub.service.SkillAvatarAppService;
+import com.iflytek.skillhub.service.SkillAvatarUploadService;
+import com.iflytek.skillhub.dto.SkillAvatarUploadResponse;
+import com.iflytek.skillhub.dto.SkillAvatarSubmitRequest;
+import com.iflytek.skillhub.ratelimit.RateLimit;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -38,10 +42,36 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping({"/api/v1/skills", "/api/web/skills"})
 public class SkillAvatarController extends BaseApiController {
     private final SkillAvatarAppService service;
+    private final SkillAvatarUploadService uploads;
 
-    public SkillAvatarController(SkillAvatarAppService service, ApiResponseFactory responses) {
+    public SkillAvatarController(SkillAvatarAppService service, SkillAvatarUploadService uploads, ApiResponseFactory responses) {
         super(responses);
         this.service = service;
+        this.uploads = uploads;
+    }
+
+    @PostMapping(value = "/avatar-uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimit(category = "publish", authenticated = 10, anonymous = 0)
+    public ApiResponse<SkillAvatarUploadResponse> upload(@RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal PlatformPrincipal principal) throws IOException {
+        if (file.getSize() < 1 || file.getSize() > com.iflytek.skillhub.service.SkillAvatarImageProcessor.MAX_BYTES) {
+            throw new DomainBadRequestException("error.skill.avatar.invalidImage");
+        }
+        return ok("response.success.created", uploads.upload(userId(principal), file.getBytes()));
+    }
+
+    @GetMapping("/avatar-uploads/{uploadId}/image")
+    public ResponseEntity<InputStreamResource> uploadPreview(@PathVariable String uploadId,
+            @AuthenticationPrincipal PlatformPrincipal principal) {
+        return png(uploads.preview(uploadId, userId(principal)));
+    }
+
+    @PostMapping(value = "/{namespace}/{slug}/avatar", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ApiResponse<SkillAvatarStatusResponse> submitUpload(@PathVariable String namespace, @PathVariable String slug,
+            @Valid @RequestBody SkillAvatarSubmitRequest input, @AuthenticationPrincipal PlatformPrincipal principal,
+            HttpServletRequest request) {
+        return ok("response.success.created", uploads.submit(namespace, slug, userId(principal), input.uploadId(),
+                AuditRequestContext.from(request)));
     }
 
     @GetMapping("/{namespace}/{slug}/avatar")

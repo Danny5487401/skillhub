@@ -2595,6 +2595,24 @@
     }
   },
   "skillAvatar": {
+    "submittedNotice": "头像修改已单独提交，可在“我的技能 → 管理头像”查看结果。",
+    "removedNotice": "头像已移除，恢复首字母。",
+    "detailHelp": "头像与技能内容分别审核。如需修改、申诉或重试，请在“我的技能”选择“管理头像”。",
+    "optionalTitle": "技能头像（选填）",
+    "stagedHelp": "选择 2 MB 以下的 PNG 或 JPEG，裁剪后先上传。提交成功后才应用修改，头像审核与技能内容审核分别进行。",
+    "cropUpload": "上传裁剪图片",
+    "uploadRetry": "重试上传",
+    "discardChange": "取消头像修改",
+    "saveChanges": "保存头像修改",
+    "manage": "管理头像",
+    "uploadStates": {
+      "KEEP": "保留当前头像；未设置时显示名称首字母。",
+      "SELECTED": "请先裁剪并上传，成功后才能提交。",
+      "UPLOADING": "图片上传中…",
+      "READY": "已上传至私有存储，提交后才应用并进入头像审核。",
+      "ERROR": "上传失败，请重试或取消头像修改后再提交。",
+      "REMOVE": "提交成功后移除头像，恢复首字母。"
+    },
     "title": "技能头像",
     "ownerHelp": "上传并裁剪方形图片。新头像通过审核后才会替换当前头像。",
     "status": "状态",

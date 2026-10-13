@@ -2596,6 +2596,24 @@
     }
   },
   "skillAvatar": {
+    "submittedNotice": "Avatar submitted separately. Check its review status under My skills → Manage avatar.",
+    "removedNotice": "Avatar removed; the first letter is shown.",
+    "detailHelp": "Avatar and skill content are reviewed separately. To change, appeal or retry, select Manage avatar in My skills.",
+    "optionalTitle": "Skill avatar (optional)",
+    "stagedHelp": "Choose a PNG or JPEG under 2 MB, crop and upload it first. Changes take effect only after submission succeeds. Avatar review is separate from skill review.",
+    "cropUpload": "Upload cropped image",
+    "uploadRetry": "Retry upload",
+    "discardChange": "Cancel avatar change",
+    "saveChanges": "Save avatar changes",
+    "manage": "Manage avatar",
+    "uploadStates": {
+      "KEEP": "Current avatar will be kept. No avatar uses the first letter.",
+      "SELECTED": "Crop and upload before submitting.",
+      "UPLOADING": "Uploading image…",
+      "READY": "Uploaded privately. Submit to apply and start avatar review.",
+      "ERROR": "Upload failed. Retry or cancel this change before submitting.",
+      "REMOVE": "Avatar will be removed after successful submission."
+    },
     "title": "Skill avatar",
     "ownerHelp": "Upload and crop a square image. The current avatar stays visible until the new one is approved.",
     "status": "Status",

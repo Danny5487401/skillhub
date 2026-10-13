@@ -86,7 +86,7 @@ public class SkillAvatarAppService {
     @Transactional
     public SkillAvatarStatusResponse submit(String namespaceSlug, String slug, String actor, byte[] image,
                                             AuditRequestContext context) {
-        Skill skill = lockedSkill(namespaceSlug, slug);
+        Skill skill = lockedOwnedSkill(namespaceSlug, slug, actor);
         requireOwner(skill, actor);
         byte[] normalized = imageProcessor.normalize(image);
         return createCandidate(skill, namespaceSlug, actor, actor, "SKILL_AVATAR_SUBMIT", normalized, context);
@@ -102,13 +102,12 @@ public class SkillAvatarAppService {
         }
         if (skill.getPendingAvatarId() != null) {
             SkillAvatarCandidate pending = candidates.findById(skill.getPendingAvatarId()).orElse(null);
-            if (pending != null && pending.getStatus() == SkillAvatarCandidate.Status.PENDING
-                    && pending.getAudience() == skill.getVisibility()) {
+            if (pending != null && pending.getStatus() == SkillAvatarCandidate.Status.PENDING) {
                 Instant now = Instant.now();
                 boolean abandonedBeforeClaim = pending.getMachineStatus() == SkillAvatarCandidate.MachineStatus.PENDING
                         && pending.getCreatedAt() != null
                         && !pending.getCreatedAt().plusSeconds(600).isAfter(now);
-                return ((pending.canRetryMachine(now) && pending.getMachineAttemptCount() < 3) || abandonedBeforeClaim)
+                return pending.getAudience() == skill.getVisibility() && ((pending.canRetryMachine(now) && pending.getMachineAttemptCount() < 3) || abandonedBeforeClaim)
                         ? status(skill, pending, namespaceSlug(skill)) : null;
             }
         }
@@ -135,11 +134,6 @@ public class SkillAvatarAppService {
     private SkillAvatarStatusResponse createCandidate(Skill skill, String namespaceSlug, String submittedBy,
                                                       String auditActor, String action, byte[] normalized,
                                                       AuditRequestContext context) {
-        AvatarReviewSettingsResponse policy = settings.current();
-        boolean privateOnly = skill.getVisibility() == SkillVisibility.PRIVATE;
-        boolean machineEnabled = !privateOnly && policy.machineEnabled();
-        boolean manualEnabled = !privateOnly && policy.manualEnabled();
-        String provider = machineEnabled ? moderation.requireConfiguredProvider() : null;
         String sha256 = sha256(normalized);
         String key = "skill-avatars/" + skill.getId() + "/" + UUID.randomUUID() + ".png";
         storage.putObject(key, new ByteArrayInputStream(normalized), normalized.length, "image/png");
@@ -151,11 +145,35 @@ public class SkillAvatarAppService {
             }
         });
 
+        return createStoredCandidate(skill, namespaceSlug, submittedBy, auditActor, action, key, sha256, skill.getVisibility(), context);
+    }
+
+    @Transactional
+    public void lockOwnedSkill(String namespaceSlug, String slug, String actor) {
+        requireOwner(lockedOwnedSkill(namespaceSlug, slug, actor), actor);
+    }
+
+    @Transactional
+    public SkillAvatarStatusResponse submitStored(String namespaceSlug, String slug, String actor,
+                                                 String objectKey, String sha256, SkillVisibility audience, AuditRequestContext context) {
+        Skill skill = lockedOwnedSkill(namespaceSlug, slug, actor);
+        requireOwner(skill, actor);
+        return createStoredCandidate(skill, namespaceSlug, actor, actor, "SKILL_AVATAR_SUBMIT", objectKey, sha256,
+                audience == null ? skill.getVisibility() : audience, context);
+    }
+
+    private SkillAvatarStatusResponse createStoredCandidate(Skill skill, String namespaceSlug, String submittedBy,
+            String auditActor, String action, String key, String sha256, SkillVisibility audience, AuditRequestContext context) {
+        AvatarReviewSettingsResponse policy = settings.current();
+        boolean privateOnly = audience == SkillVisibility.PRIVATE;
+        boolean machineEnabled = !privateOnly && policy.machineEnabled();
+        boolean manualEnabled = !privateOnly && policy.manualEnabled();
+        String provider = machineEnabled ? moderation.requireConfiguredProvider() : null;
         if (skill.getPendingAvatarId() != null) {
             candidates.findById(skill.getPendingAvatarId()).ifPresent(SkillAvatarCandidate::supersede);
         }
         SkillAvatarCandidate candidate = new SkillAvatarCandidate(skill.getId(), submittedBy, key, sha256,
-                skill.getVisibility(), machineEnabled, manualEnabled, provider);
+                audience, machineEnabled, manualEnabled, provider);
         if ("SKILL_AVATAR_SCOPE_REVIEW".equals(action)) {
             candidate.markScopeReviewVersion(skill.getLatestVersionId());
         }
@@ -181,6 +199,17 @@ public class SkillAvatarAppService {
         }
         log(auditActor, action, candidate.getId(), context,
                 AuditDetail.builder().put("skillId", skill.getId()).put("audience", candidate.getAudience().name()).build());
+        return status(skill, candidate, namespaceSlug);
+    }
+
+    @Transactional(readOnly = true)
+    public SkillAvatarStatusResponse submittedStatus(String namespaceSlug, String slug, String actor, long candidateId) {
+        Skill skill = findOwnedSkill(namespaceSlug, slug, actor);
+        requireOwner(skill, actor);
+        SkillAvatarCandidate candidate = findCandidate(candidateId);
+        if (!skill.getId().equals(candidate.getSkillId())) {
+            throw notFound();
+        }
         return status(skill, candidate, namespaceSlug);
     }
 
@@ -231,7 +260,7 @@ public class SkillAvatarAppService {
 
     @Transactional(readOnly = true)
     public SkillAvatarStatusResponse ownerStatus(String namespaceSlug, String slug, String actor) {
-        Skill skill = findSkill(namespaceSlug, slug);
+        Skill skill = findOwnedSkill(namespaceSlug, slug, actor);
         requireOwner(skill, actor);
         return status(skill, candidates.findBySkillIdOrderByCreatedAtDesc(skill.getId()).stream().findFirst().orElse(null),
                 namespaceSlug);
@@ -240,8 +269,12 @@ public class SkillAvatarAppService {
     @Transactional(readOnly = true)
     public InputStream readActive(String namespaceSlug, String slug, String actor,
                                   Map<Long, NamespaceRole> namespaceRoles, Set<String> platformRoles) {
-        skillQueries.getSkillDetail(namespaceSlug, slug, actor, namespaceRoles == null ? Map.of() : namespaceRoles);
-        Skill skill = findSkill(namespaceSlug, slug);
+        SkillQueryService.SkillDetailDTO detail = skillQueries.getSkillDetail(namespaceSlug, slug, actor,
+                namespaceRoles == null ? Map.of() : namespaceRoles);
+        Skill skill = ((SkillRepository) skills).findById(detail.id()).orElseThrow(() -> notFound());
+        if (skill.getStatus() != SkillStatus.ACTIVE) {
+            throw notFound();
+        }
         if (!visibility.canAccess(skill, actor, namespaceRoles, platformRoles)
                 || skill.getVisibility() == SkillVisibility.PRIVATE && !skill.getOwnerId().equals(actor)
                 || SkillAvatarUrls.current(skill, namespaceSlug) == null) {
@@ -257,8 +290,8 @@ public class SkillAvatarAppService {
     @Transactional(readOnly = true)
     public InputStream readCandidate(String namespaceSlug, String slug, long candidateId, String actor,
                                      Map<Long, NamespaceRole> namespaceRoles, Set<String> platformRoles) {
-        Skill skill = findSkill(namespaceSlug, slug);
         SkillAvatarCandidate candidate = findCandidate(candidateId);
+        Skill skill = findCandidateSkill(namespaceSlug, slug, candidate);
         if (!skill.getId().equals(candidate.getSkillId()) || candidate.getObjectKey() == null
                 || candidate.getAudience() == SkillVisibility.PRIVATE && !skill.getOwnerId().equals(actor)
                 || !skill.getOwnerId().equals(actor) && !canReview(skill, actor, namespaceRoles, platformRoles)) {
@@ -270,7 +303,7 @@ public class SkillAvatarAppService {
     @Transactional
     public SkillAvatarStatusResponse appeal(String namespaceSlug, String slug, long candidateId, String actor,
                                             AuditRequestContext context) {
-        Skill skill = lockedSkill(namespaceSlug, slug);
+        Skill skill = lockedOwnedSkill(namespaceSlug, slug, actor);
         requireOwner(skill, actor);
         SkillAvatarCandidate candidate = currentPending(skill, candidateId);
         candidate.appeal();
@@ -280,7 +313,7 @@ public class SkillAvatarAppService {
 
     @Transactional(readOnly = true)
     public void requireCurrentOwnerCandidate(String namespaceSlug, String slug, long candidateId, String actor) {
-        Skill skill = findSkill(namespaceSlug, slug);
+        Skill skill = findOwnedSkill(namespaceSlug, slug, actor);
         requireOwner(skill, actor);
         if (!Objects.equals(skill.getPendingAvatarId(), candidateId)) {
             throw new DomainConflictException("error.skill.avatar.notPending");
@@ -291,7 +324,7 @@ public class SkillAvatarAppService {
     public SkillAvatarStatusResponse decide(String namespaceSlug, String slug, long candidateId, boolean approved,
                                             String reason, String actor, Map<Long, NamespaceRole> namespaceRoles,
                                             Set<String> platformRoles, AuditRequestContext context) {
-        Skill skill = lockedSkill(namespaceSlug, slug);
+        Skill skill = lockAndRefresh(findCandidateSkill(namespaceSlug, slug, findCandidate(candidateId)));
         requireReviewer(skill, actor, namespaceRoles, platformRoles);
         SkillAvatarCandidate candidate = currentPending(skill, candidateId);
         if (candidate.isMachineEnabled() && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PASSED
@@ -317,7 +350,7 @@ public class SkillAvatarAppService {
     public void remove(String namespaceSlug, String slug, String actor, boolean byAdmin, String reason,
                        Map<Long, NamespaceRole> namespaceRoles, Set<String> platformRoles,
                        AuditRequestContext context) {
-        Skill skill = lockedSkill(namespaceSlug, slug);
+        Skill skill = byAdmin ? lockedSkill(namespaceSlug, slug) : lockedOwnedSkill(namespaceSlug, slug, actor);
         if (byAdmin) {
             requireReviewer(skill, actor, namespaceRoles, platformRoles);
             if (reason == null || reason.isBlank()) {
@@ -387,9 +420,40 @@ public class SkillAvatarAppService {
                 .orElseThrow(() -> notFound());
     }
 
+    private Skill findCandidateSkill(String namespaceSlug, String slug, SkillAvatarCandidate candidate) {
+        Namespace namespace = namespaces.findBySlug(namespaceSlug).orElseThrow(() -> notFound());
+        Skill skill = ((SkillRepository) skills).findById(candidate.getSkillId()).orElseThrow(() -> notFound());
+        if (!skill.getNamespaceId().equals(namespace.getId()) || !skill.getSlug().equals(slug)
+                || skill.getStatus() != SkillStatus.ACTIVE) {
+            throw notFound();
+        }
+        return skill;
+    }
+
+    private Skill findOwnedSkill(String namespaceSlug, String slug, String actor) {
+        if (actor == null) {
+            throw new DomainForbiddenException("error.skill.avatar.ownerOnly");
+        }
+        Namespace namespace = namespaces.findBySlug(namespaceSlug).orElseThrow(() -> notFound());
+        return skills.findByNamespaceIdAndSlugAndOwnerId(namespace.getId(), slug, actor)
+                .filter(skill -> skill.getStatus() == SkillStatus.ACTIVE)
+                .orElseThrow(() -> new DomainForbiddenException("error.skill.avatar.ownerOnly"));
+    }
+
+    private Skill lockedOwnedSkill(String namespaceSlug, String slug, String actor) {
+        return lockAndRefresh(findOwnedSkill(namespaceSlug, slug, actor));
+    }
+
     private Skill lockedSkill(String namespaceSlug, String slug) {
-        Skill skill = findSkill(namespaceSlug, slug);
-        return skills.findLockedById(skill.getId()).orElseThrow(() -> notFound());
+        return lockAndRefresh(findSkill(namespaceSlug, slug));
+    }
+
+    private Skill lockAndRefresh(Skill skill) {
+        Skill locked = skills.findLockedById(skill.getId()).orElseThrow(() -> notFound());
+        // Publication may have local changes; flush them before refreshing a previously loaded row after the lock.
+        skills.flush();
+        entityManager.refresh(locked);
+        return locked;
     }
 
     private SkillAvatarCandidate findCandidate(Long candidateId) {

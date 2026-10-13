@@ -443,6 +443,10 @@ class SkillAvatarRecoveryPostgresTest {
             privateSkill.setVisibility(SkillVisibility.PRIVATE);
         });
         var uploaded = avatars.submit(namespaceSlug(skillId), "skill", "owner", new byte[] {8}, new AuditRequestContext(null, null));
+        SkillQueryService.SkillDetailDTO detail = new SkillQueryService.SkillDetailDTO(
+                skillId, null, null, null, null, null, null, null, null, null, null, null, null,
+                false, null, null, null, false, false, false, false, null, null, null, null, null, null, null);
+        when(skillQueries.getSkillDetail(anyString(), eq("skill"), eq("admin"), any())).thenReturn(detail);
         when(visibility.canAccess(any(), eq("admin"), any(), any())).thenReturn(true);
         assertThatThrownBy(() -> avatars.readActive(namespaceSlug(skillId), "skill", "admin", adminRole, java.util.Set.of()))
                 .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException.class);
