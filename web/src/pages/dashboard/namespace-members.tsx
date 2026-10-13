@@ -5,10 +5,11 @@ import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { AddNamespaceMemberDialog } from '@/features/namespace/add-namespace-member-dialog'
 import { BatchImportMembersDialog } from '@/features/namespace/batch-import-members-dialog'
 import { InvitationControls } from '@/features/namespace/invitation-controls'
+import { NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/shared/ui/dialog'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
 import { TransferOwnershipDialog } from '@/features/namespace/transfer-ownership-dialog'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
-import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
 import { Button } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
@@ -152,11 +153,8 @@ export function NamespaceMembersPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      <DashboardPageHeader
-        title={t('members.title')}
-        subtitle={namespace ? `@${namespace.slug}` : undefined}
-      />
       <NamespaceHeader namespace={namespace} canEdit={canEditNamespace} />
+      <NamespaceManagementNav slug={slug} active="members" />
 
       <div className="space-y-6">
         {readOnlyMessage ? (
@@ -165,8 +163,17 @@ export function NamespaceMembersPage() {
           </Card>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
-          {canManageMembers ? <InvitationControls slug={slug} /> : null}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canManageMembers ? (
+            <Dialog>
+              <DialogTrigger asChild><Button variant="outline">{t('namespaceManagement.invite')}</Button></DialogTrigger>
+              <DialogContent>
+                <DialogTitle>{t('namespaceManagement.invite')}</DialogTitle>
+                <DialogDescription>{t('invitation.linkHint')}</DialogDescription>
+                <InvitationControls slug={slug} />
+              </DialogContent>
+            </Dialog>
+          ) : null}
           {canTransferOwnership ? (
             <TransferOwnershipDialog namespace={namespace} members={members}>
               <Button variant="outline">{t('members.transferOwnership')}</Button>

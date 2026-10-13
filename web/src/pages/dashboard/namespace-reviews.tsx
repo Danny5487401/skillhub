@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { useNamespaceDetail } from '@/shared/hooks/use-namespace-queries'
 import { useReviewList } from '@/features/review/use-review-list'
-import { SkillAvatarReviewQueue } from '@/features/skill/skill-avatar-review'
+import { NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
@@ -81,7 +81,7 @@ function ReviewListSection({ namespaceId, slug }: { namespaceId?: number; slug: 
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="font-semibold font-heading">{review.namespace}/{review.skillSlug}</div>
-                <div className="text-sm text-muted-foreground">{t('nsReviews.version', { version: review.version })}</div>
+                <div className="text-sm text-muted-foreground">{review.subjectType === 'SKILL_METADATA' ? t(review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : t('nsReviews.version', { version: review.version })}</div>
               </div>
               <div className="text-sm text-muted-foreground">
                 {formatLocalDateTime(
@@ -162,7 +162,7 @@ export function NamespaceReviewsPage() {
           {readOnlyMessage}
         </Card>
       ) : null}
-      <SkillAvatarReviewQueue namespace={slug} />
+      <NamespaceManagementNav slug={slug} active="reviews" />
       <ReviewListSection namespaceId={namespace?.id} slug={slug} />
     </div>
   )

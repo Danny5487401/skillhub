@@ -1436,38 +1436,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/web/skills/{namespace}/{slug}/avatar/candidates/{candidateId}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["decide"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/skills/{namespace}/{slug}/avatar/candidates/{candidateId}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["decide_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/web/skills/{namespace}/{slug}/avatar/candidates/{candidateId}/appeal": {
         parameters: {
             query?: never;
@@ -3979,38 +3947,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/web/skills/avatar-review/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["queue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/skills/avatar-review/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["queue_1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/web/reviews/{id}/skill-detail": {
         parameters: {
             query?: never;
@@ -6358,10 +6294,6 @@ export interface components {
             machineNextRetryAt?: string;
             automaticRetryExhausted?: boolean;
         };
-        SkillAvatarDecisionRequest: {
-            approved?: boolean;
-            reason: string;
-        };
         SkillAvatarSubmitRequest: {
             uploadId: string;
         };
@@ -6437,6 +6369,9 @@ export interface components {
             /** Format: int64 */
             subjectVersionId?: number;
             subjectSlug?: string;
+            /** Format: int64 */
+            avatarCandidateId?: number;
+            avatarRemoval?: boolean;
         };
         ReviewTaskRequest: {
             /** Format: int64 */
@@ -7544,15 +7479,6 @@ export interface components {
             memberOfSuites?: components["schemas"]["PageResponseSkillSuiteReferenceResponse"];
             avatarUrl?: string;
         };
-        ApiResponseListSkillAvatarStatusResponse: {
-            /** Format: int32 */
-            code?: number;
-            msg?: string;
-            data?: components["schemas"]["SkillAvatarStatusResponse"][];
-            /** Format: date-time */
-            timestamp?: string;
-            requestId?: string;
-        };
         ApiResponseReviewSkillDetailResponse: {
             /** Format: int32 */
             code?: number;
@@ -7562,6 +7488,16 @@ export interface components {
             timestamp?: string;
             requestId?: string;
         };
+        AvatarChange: {
+            /** Format: int64 */
+            candidateId?: number;
+            currentAvatarUrl?: string;
+            candidatePreviewUrl?: string;
+            machineStatus?: string;
+            reviewStatus?: string;
+            readyForApproval?: boolean;
+            removal?: boolean;
+        };
         ReviewSkillDetailResponse: {
             skill?: components["schemas"]["SkillDetailResponse"];
             versions?: components["schemas"]["SkillVersionResponse"][];
@@ -7570,6 +7506,7 @@ export interface components {
             documentationContent?: string;
             downloadUrl?: string;
             activeVersion?: string;
+            avatarChange?: components["schemas"]["AvatarChange"];
         };
         ApiResponseListReviewTaskResponse: {
             /** Format: int32 */
@@ -11587,62 +11524,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseSkillAvatarStatusResponse"];
-                };
-            };
-        };
-    };
-    decide: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                slug: string;
-                candidateId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SkillAvatarDecisionRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseSkillAvatarStatusResponse"];
-                };
-            };
-        };
-    };
-    decide_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                slug: string;
-                candidateId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SkillAvatarDecisionRequest"];
-            };
-        };
         responses: {
             /** @description OK */
             200: {
@@ -16129,46 +16010,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": string;
-                };
-            };
-        };
-    };
-    queue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListSkillAvatarStatusResponse"];
-                };
-            };
-        };
-    };
-    queue_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListSkillAvatarStatusResponse"];
                 };
             };
         };

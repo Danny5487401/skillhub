@@ -15,9 +15,6 @@ public interface SkillAvatarCandidateJpaRepository extends JpaRepository<SkillAv
     boolean existsBySkillIdAndAudienceAndScopeReviewVersionIdAndStatus(Long skillId,
             SkillVisibility audience, Long versionId,
             SkillAvatarCandidate.Status status);
-    List<SkillAvatarCandidate> findByContentSha256AndMachineProviderAndMachineEnabledTrueAndManualEnabledAndMachineStatus(
-            String contentSha256, String machineProvider, boolean manualEnabled,
-            SkillAvatarCandidate.MachineStatus machineStatus);
     List<SkillAvatarCandidate> findByStatusAndReviewStatusOrderByCreatedAtAsc(
             SkillAvatarCandidate.Status status, SkillAvatarCandidate.ReviewStatus reviewStatus);
     List<SkillAvatarCandidate> findTop100ByDiscardAtBeforeAndObjectKeyIsNotNull(Instant before);

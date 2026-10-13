@@ -137,7 +137,9 @@ public class ReviewPortalAppService {
                     reviewTaskId, suiteContext(userId, userNsRoles, auditContext));
             return;
         }
-        reviewService.withdrawReview(task.getSkillVersionId(), userId);
+        if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+            reviewService.withdrawMetadata(task, userId);
+        } else { reviewService.withdrawReview(task.getSkillVersionId(), userId); }
         recordAudit(
                 "REVIEW_WITHDRAW",
                 userId,
@@ -272,10 +274,10 @@ public class ReviewPortalAppService {
             throw new DomainForbiddenException("review.no_permission");
         }
 
-        List<ReviewTask> attempts = anchor.getSubjectType() == ReviewSubjectType.SUITE_VERSION
+        List<ReviewTask> attempts = anchor.getSubjectType() != null && anchor.getSubjectType() != ReviewSubjectType.SKILL_VERSION
                 ? reviewTaskRepository
                 .findBySubmittedByAndSubjectTypeAndSubjectIdAndSubjectVersionOrderBySubmittedAtDescIdDesc(
-                        userId, ReviewSubjectType.SUITE_VERSION,
+                        userId, anchor.getSubjectType(),
                         anchor.getSubjectId(), anchor.getSubjectVersion())
                 : reviewTaskRepository
                 .findBySubmittedByAndSkillIdAndSkillVersionOrderBySubmittedAtDescIdDesc(
@@ -301,10 +303,10 @@ public class ReviewPortalAppService {
             throw new DomainForbiddenException("review.no_permission");
         }
 
-        List<ReviewTask> attempts = anchor.getSubjectType() == ReviewSubjectType.SUITE_VERSION
+        List<ReviewTask> attempts = anchor.getSubjectType() != null && anchor.getSubjectType() != ReviewSubjectType.SKILL_VERSION
                 ? reviewTaskRepository
                 .findBySubjectTypeAndSubjectIdAndSubjectVersionOrderBySubmittedAtDescIdDesc(
-                        ReviewSubjectType.SUITE_VERSION,
+                        anchor.getSubjectType(),
                         anchor.getSubjectId(), anchor.getSubjectVersion())
                 : reviewTaskRepository
                 .findBySkillIdAndSkillVersionOrderBySubmittedAtDescIdDesc(

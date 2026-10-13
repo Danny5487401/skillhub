@@ -1,5 +1,9 @@
 package com.iflytek.skillhub.service;
 
+import com.iflytek.skillhub.domain.review.ReviewTask;
+import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
+import com.iflytek.skillhub.domain.shared.exception.DomainConflictException;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
@@ -29,6 +33,11 @@ public class SkillAvatarUploadService {
     private final ObjectStorageService storage;
     private final SkillAvatarAppService avatars;
     private final ApplicationEventPublisher events;
+    private ReviewTaskRepository reviews;
+
+    @Autowired
+    public void setReviews(ReviewTaskRepository reviews) { this.reviews = reviews; }
+
 
     public SkillAvatarUploadService(SkillAvatarUploadJpaRepository uploads, SkillAvatarImageProcessor images,
             ObjectStorageService storage, SkillAvatarAppService avatars, ApplicationEventPublisher events) {
@@ -90,11 +99,21 @@ public class SkillAvatarUploadService {
     @Transactional
     public SkillAvatarStatusResponse submitForAudience(String namespace, String slug, String actor, String id,
             SkillVisibility audience, AuditRequestContext context) {
+        return submitForReview(namespace, slug, actor, id, audience, context, null);
+    }
+
+    @Transactional
+    public SkillAvatarStatusResponse submitForReview(String namespace, String slug, String actor, String id,
+            SkillVisibility audience, AuditRequestContext context, ReviewTask review) {
         // Publication already holds this Skill lock; standalone submission follows the same lock order.
         avatars.lockOwnedSkill(namespace, slug, actor);
         SkillAvatarUpload upload = uploads.findLockedById(id).orElseThrow(() -> notFound());
         requireUploader(upload, actor);
         if (upload.getCandidateId() != null) {
+            if (review != null && reviews.findByAvatarCandidateIdAndStatus(upload.getCandidateId(), review.getStatus())
+                    .stream().noneMatch(bound -> bound.getId().equals(review.getId()))) {
+                throw new DomainConflictException("error.skill.avatar.invalidUpload");
+            }
             // Owner and exact Skill binding are rechecked even for a repeated successful submission.
             return avatars.submittedStatus(namespace, slug, actor, upload.getCandidateId());
         }
@@ -104,8 +123,9 @@ public class SkillAvatarUploadService {
         if (!storage.exists(upload.getObjectKey())) {
             throw new DomainBadRequestException("error.skill.avatar.invalidUpload");
         }
-        SkillAvatarStatusResponse status = avatars.submitStored(namespace, slug, actor,
-                upload.getObjectKey(), upload.getContentSha256(), audience, context);
+        SkillAvatarStatusResponse status = review == null
+                ? avatars.submitStored(namespace, slug, actor, upload.getObjectKey(), upload.getContentSha256(), audience, context)
+                : avatars.submitStoredForReview(namespace, slug, actor, upload.getObjectKey(), upload.getContentSha256(), audience, context, review);
         upload.consume(status.candidateId());
         if ("PENDING".equals(status.machineStatus()) && "PENDING".equals(status.candidateStatus())) {
             events.publishEvent(new AvatarSubmittedEvent(status.candidateId(), context));

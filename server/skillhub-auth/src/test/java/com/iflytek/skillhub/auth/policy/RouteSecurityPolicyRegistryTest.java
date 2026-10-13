@@ -43,9 +43,9 @@ class RouteSecurityPolicyRegistryTest {
         assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
                 registry.accessLevel("GET", "/api/v1/skills/global/demo/avatar/candidates/1/image"));
         assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
-                registry.accessLevel("GET", "/api/v1/skills/avatar-review/queue"));
+                registry.accessLevel("GET", "/api/v1/reviews"));
         assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
-                registry.accessLevel("GET", "/api/web/skills/avatar-review/queue"));
+                registry.accessLevel("GET", "/api/web/reviews"));
     }
 
     @Test

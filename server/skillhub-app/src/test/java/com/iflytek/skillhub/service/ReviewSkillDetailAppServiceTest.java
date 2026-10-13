@@ -51,6 +51,8 @@ class ReviewSkillDetailAppServiceTest {
     @Mock
     private SkillDownloadService skillDownloadService;
 
+    @Mock private com.iflytek.skillhub.domain.skill.SkillRepository skills;
+    @Mock private com.iflytek.skillhub.infra.jpa.SkillAvatarCandidateJpaRepository candidates;
     private ReviewSkillDetailAppService service;
 
     @BeforeEach
@@ -190,6 +192,28 @@ class ReviewSkillDetailAppServiceTest {
 
         assertThatThrownBy(() -> service.getReviewSkillDetail(42L, "user-9", Map.of()))
                 .isInstanceOf(DomainForbiddenException.class);
+    }
+
+    @Test
+    void removalReadinessBecomesFalseWhenAvatarChangesAfterSubmission() {
+        service.configureAvatars(skills, candidates);
+        var task = new ReviewTask(205L, 101L, 20L, "1.0.1", "owner-1");
+        setField(task, "id", 42L);
+        task.prepareAvatarRemoval(21L, null);
+        var namespace = createNamespace(20L, "team-a");
+        var skill = createSkill(101L, 20L, "skill-a");
+        skill.activateAvatar(21L, SkillVisibility.PUBLIC);
+        var version = createVersion(205L, 101L, "1.0.1", SkillVersionStatus.PENDING_REVIEW);
+        given(reviewTaskRepository.findById(42L)).willReturn(Optional.of(task));
+        given(namespaceRepository.findById(20L)).willReturn(Optional.of(namespace));
+        given(rbacService.getUserRoleCodes("admin")).willReturn(Set.of("SKILL_ADMIN"));
+        given(reviewService.canViewReview(task, "admin", namespace.getType(), Map.of(), Set.of("SKILL_ADMIN"))).willReturn(true);
+        given(skills.findById(101L)).willReturn(Optional.of(skill));
+        given(skillQueryService.getReviewSkillSnapshot(205L)).willReturn(new SkillQueryService.ReviewSkillSnapshotDTO(
+                skill, "Owner", version, null, List.of(version), List.of(), null, null));
+        assertThat(service.getReviewSkillDetail(42L, "admin", Map.of()).avatarChange().readyForApproval()).isTrue();
+        skill.activateAvatar(22L, SkillVisibility.PUBLIC);
+        assertThat(service.getReviewSkillDetail(42L, "admin", Map.of()).avatarChange().readyForApproval()).isFalse();
     }
 
     private ReviewTask createReviewTask(Long reviewId, Long versionId, Long namespaceId, String submittedBy) {

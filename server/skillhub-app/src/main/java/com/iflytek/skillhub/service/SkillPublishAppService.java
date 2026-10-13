@@ -1,5 +1,8 @@
 package com.iflytek.skillhub.service;
 
+import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
+import com.iflytek.skillhub.domain.review.ReviewTaskStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.domain.skill.metadata.SkillMetadataParser;
@@ -21,6 +24,10 @@ public class SkillPublishAppService {
     private final SkillAvatarUploadService uploads;
     private final SkillAvatarAppService avatars;
     private final SkillMetadataParser metadata;
+    private ReviewTaskRepository reviews;
+    @Autowired
+    public void setReviews(ReviewTaskRepository reviews) { this.reviews = reviews; }
+
 
     public SkillPublishAppService(SkillPublishService publications, SkillAvatarUploadService uploads,
                                   SkillAvatarAppService avatars, SkillMetadataParser metadata) {
@@ -51,10 +58,17 @@ public class SkillPublishAppService {
         }
         SkillPublishService.PublishResult result = publications.publishFromEntries(
                 namespace, entries, actor, visibility, roles, confirmWarnings);
+        var review = reviews.findBySkillVersionIdAndStatus(
+                result.version().getId(), ReviewTaskStatus.PENDING).orElse(null);
         if (action == AvatarAction.REPLACE) {
-            uploads.submitForAudience(namespace, result.slug(), actor, uploadId, visibility, context);
+            uploads.submitForReview(namespace, result.slug(), actor, uploadId, visibility, context, review);
+        } else if (action == AvatarAction.REMOVE && review != null) {
+            avatars.prepareRemoval(review, namespace, result.slug(), actor);
         } else if (action == AvatarAction.REMOVE) {
             avatars.remove(namespace, result.slug(), actor, false, null, Map.of(), roles, context);
+        }
+        if (action == AvatarAction.KEEP && review != null) {
+            avatars.attachScopeToReview(review.getSkillId(), visibility, review, actor, context);
         }
         return result;
     }

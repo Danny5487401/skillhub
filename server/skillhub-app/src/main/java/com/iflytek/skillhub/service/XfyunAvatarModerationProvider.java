@@ -47,6 +47,10 @@ public class XfyunAvatarModerationProvider implements AvatarModerationProvider {
         this.mapper = mapper;
     }
 
+    @Override public Context context() {
+        return new Context("image", "v2", "xfyun-image/1:code=000000;pass=PASS;block=BLOCK;other=ERROR", null);
+    }
+
     @Override public String code() { return "xfyun"; }
 
     @Override public boolean configured() {

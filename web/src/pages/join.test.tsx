@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -25,6 +25,7 @@ vi.mock('@/shared/lib/api-error', () => ({
 
 import { ApiError } from '@/shared/lib/api-error'
 import { JoinPage } from './join'
+import { captureInvitationFragment, storedInvitationToken } from '@/shared/lib/namespace-invitation'
 
 const token = 'A'.repeat(43)
 
@@ -44,8 +45,8 @@ describe('JoinPage', () => {
 
   afterEach(cleanup)
 
-  it('clears the token and navigates once with replace when preview finds an existing member', async () => {
-    window.history.replaceState(null, '', `/join#${token}`)
+  it.each([token, `invite=${token}`])('clears fragment %s and navigates once for an existing member', async fragment => {
+    window.history.replaceState(null, '', `/join#${fragment}`)
     mocks.preview.mockResolvedValue({
       namespaceSlug: 'team', namespaceDisplayName: 'Team', namespaceAvatarUrl: null,
       outcome: 'ALREADY_MEMBER', expiresAt: '2026-10-13T00:00:00Z',
@@ -56,6 +57,8 @@ describe('JoinPage', () => {
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith({
       to: '/space/$namespace', params: { namespace: 'team' }, replace: true,
     }))
+    expect(mocks.preview).toHaveBeenCalledWith(token)
+    expect(mocks.accept).not.toHaveBeenCalled()
     expect(window.sessionStorage.length).toBe(0)
     expect(window.location.hash).toBe('')
     view.rerender(<QueryClientProvider client={view.client}><JoinPage /></QueryClientProvider>)
@@ -81,4 +84,38 @@ describe('JoinPage', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('invitation.invalid')
     expect(window.sessionStorage.length).toBe(0)
   })
+
+  it('uses the named token for preview and only joins after explicit confirmation', async () => {
+    window.history.replaceState(null, '', `/join#invite=${token}`)
+    mocks.preview.mockResolvedValue({
+      namespaceSlug: 'team', namespaceDisplayName: 'Team', namespaceAvatarUrl: null,
+      outcome: 'CONFIRM_REQUIRED', expiresAt: '2026-10-13T00:00:00Z',
+    })
+    mocks.accept.mockResolvedValue({ namespaceSlug: 'team' })
+    renderJoin()
+    const confirm = await screen.findByRole('button', { name: 'invitation.confirm' })
+    expect(window.location.hash).toBe('')
+    expect(storedInvitationToken()).toBe(token)
+    expect(mocks.preview).toHaveBeenCalledWith(token)
+    expect(mocks.accept).not.toHaveBeenCalled()
+    fireEvent.click(confirm)
+    await waitFor(() => expect(mocks.accept).toHaveBeenCalledWith(token))
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/space/$namespace', params: { namespace: 'team' }, replace: true,
+    }))
+    expect(storedInvitationToken()).toBeNull()
+  })
+
+  it('rejects a new malformed named fragment instead of joining with a stored older token', () => {
+    window.history.replaceState(null, '', `/join#invite=${token}`)
+    captureInvitationFragment()
+    window.history.replaceState(null, '', '/join#invite=invalid')
+    renderJoin()
+    expect(screen.getByRole('alert').textContent).toBe('invitation.invalid')
+    expect(storedInvitationToken()).toBeNull()
+    expect(window.location.hash).toBe('')
+    expect(mocks.preview).not.toHaveBeenCalled()
+    expect(mocks.accept).not.toHaveBeenCalled()
+  })
+
 })

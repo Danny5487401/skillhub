@@ -79,7 +79,7 @@ export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId
 
   const documentation = getReviewSkillDocumentation(detail)
   const pendingVersion = detail.versions.find((version) => version.version === detail.activeVersion) ?? null
-  const baseVersion = pickBaseVersion(detail.versions, detail.activeVersion)
+  const baseVersion = pickBaseVersion(detail.versions, detail.activeVersion ?? '')
 
   return (
     <Card className="p-6 space-y-4">
@@ -96,7 +96,7 @@ export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId
               {t('review.activeReviewVersion')}
             </span>
             <span className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium font-mono text-foreground">
-              {detail.activeVersion}
+              {detail.activeVersion ?? '—'}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -112,11 +112,11 @@ export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId
 
       {isExpanded ? (
         <div data-review-skill-detail-panel className="space-y-6 border-t border-border/60 pt-4">
-          <div className="flex justify-start">
-            <a className={buttonVariants()} href={buildApiUrl(getReviewDownloadHref(detail))}>
+          {detail.downloadUrl && <div className="flex justify-start">
+            <a className={buttonVariants()} href={buildApiUrl(getReviewDownloadHref(detail)!)}>
               {t('review.downloadSkillZip')}
             </a>
-          </div>
+          </div>}
 
           <ReviewComplianceDiffPanel
             baseVersion={baseVersion}

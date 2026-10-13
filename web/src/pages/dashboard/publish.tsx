@@ -111,7 +111,6 @@ export function PublishPage() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['skills'], refetchType: avatarEdit.action === 'REMOVE' ? 'all' : 'active' }),
           queryClient.invalidateQueries({ queryKey: ['skill-avatar', namespaceSlug, updateSlug] }),
-          queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
           queryClient.invalidateQueries({ queryKey: ['reviews'] }),
         ])
         toast.success(t('publish.avatarSaved'), t(avatarEdit.action === 'REMOVE' ? 'skillAvatar.removedNotice' : 'skillAvatar.submittedNotice'))

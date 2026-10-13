@@ -16,7 +16,7 @@ export function SkillAvatarManager({ namespace, slug, disabled = false }: { name
       : skillAvatarApi.retry(namespace, slug, action.id),
     onSuccess: async () => {
       setError('')
-      await Promise.all([queryClient.invalidateQueries({ queryKey: key }), queryClient.invalidateQueries({ queryKey: ['skill'] }), queryClient.invalidateQueries({ queryKey: ['skills'] }), queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] })])
+      await Promise.all([queryClient.invalidateQueries({ queryKey: key }), queryClient.invalidateQueries({ queryKey: ['skill'] }), queryClient.invalidateQueries({ queryKey: ['skills'] }), queryClient.invalidateQueries({ queryKey: ['reviews'] })])
     },
     onError: (cause) => setError(cause instanceof Error ? cause.message : t('skillAvatar.failed')),
   })

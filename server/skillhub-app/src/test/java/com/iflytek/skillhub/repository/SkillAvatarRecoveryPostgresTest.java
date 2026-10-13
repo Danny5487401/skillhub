@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Testcontainers
-@Import({SkillAvatarAppService.class, SkillAvatarMachineRecoveryTask.class,
+@Import({SkillAvatarRecoveryPostgresTest.ReviewConfiguration.class, com.iflytek.skillhub.domain.review.ReviewService.class, com.iflytek.skillhub.domain.review.ReviewPermissionChecker.class, SkillAvatarAppService.class, SkillAvatarMachineRecoveryTask.class,
         SkillAvatarScopeReviewListener.class, SkillAvatarScopeReviewRecoveryTask.class,
         com.iflytek.skillhub.task.SkillAvatarCleanupTask.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -99,6 +99,27 @@ class SkillAvatarRecoveryPostgresTest {
     @MockBean private SkillQueryService skillQueries;
     @MockBean private AuditLogService audit;
     @MockBean private RequestIdAccessor requestIds;
+    @MockBean private com.iflytek.skillhub.domain.skill.service.SkillGovernanceService governance;
+    @MockBean private com.iflytek.skillhub.domain.governance.GovernanceNotificationService notifications;
+    @Autowired private com.iflytek.skillhub.domain.review.ReviewService reviews;
+    @Autowired private com.iflytek.skillhub.infra.jpa.ReviewTaskJpaRepository reviewRows;
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class ReviewConfiguration {
+        @org.springframework.context.annotation.Bean java.time.Clock clock() { return java.time.Clock.systemUTC(); }
+        @org.springframework.context.annotation.Bean com.fasterxml.jackson.databind.ObjectMapper mapper() { return new com.fasterxml.jackson.databind.ObjectMapper(); }
+    }
+
+    private com.iflytek.skillhub.dto.SkillAvatarStatusResponse unifiedDecision(String ns, String slug, long candidateId,
+            boolean approved, String reason, String actor, java.util.Map<Long, com.iflytek.skillhub.domain.namespace.NamespaceRole> roles,
+            java.util.Set<String> platformRoles, AuditRequestContext context) {
+        var tasks = reviewRows.findByAvatarCandidateIdAndStatus(candidateId, com.iflytek.skillhub.domain.review.ReviewTaskStatus.PENDING);
+        if (tasks.isEmpty()) { return avatars.decide(ns, slug, candidateId, approved, reason, actor, roles, platformRoles, context); }
+        if (approved) { reviews.approveReview(tasks.getFirst().getId(), actor, reason, roles, platformRoles); }
+        else { reviews.rejectReview(tasks.getFirst().getId(), actor, reason, roles, platformRoles); }
+        return avatars.submittedStatus(ns, slug, "owner", candidateId);
+    }
+
 
     @BeforeEach
     void providerAndStorage() {
@@ -108,6 +129,8 @@ class SkillAvatarRecoveryPostgresTest {
         byte[] image = UUID.randomUUID().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         when(storage.getObject(anyString())).thenAnswer(ignored -> new ByteArrayInputStream(image));
         when(moderation.requireConfiguredProvider()).thenReturn("xfyun");
+        org.mockito.Mockito.lenient().when(moderation.context(anyString())).thenReturn(
+                new AvatarModerationProvider.Context("fixture-image", "test-v1", "fixture-policy-v1", null));
         when(moderation.moderate(eq("xfyun"), any(byte[].class))).thenReturn(AvatarModerationProvider.Verdict.PASS);
         when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(true, false, 1, null));
     }
@@ -259,34 +282,81 @@ class SkillAvatarRecoveryPostgresTest {
         }
     }
 
-    @Test
-    void identicalImageReusesOnlyMatchingProviderAndManualPolicy() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = AvatarModerationProvider.Verdict.class, names = {"PASS", "BLOCK"})
+    void changedPolicyDoesNotReuseEitherPassOrBlockFromIdenticalImage(AvatarModerationProvider.Verdict previousVerdict) throws Exception {
         byte[] image = UUID.randomUUID().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         when(imageProcessor.normalize(any())).thenAnswer(call -> call.getArgument(0));
-        Long sourceId = skill(false);
-        String sourceNamespace = namespaceSlug(sourceId);
-        Long sourceCandidate = avatars.submit(sourceNamespace, "skill", "owner", image, new AuditRequestContext(null, null)).candidateId();
-        avatars.processMachine(sourceCandidate, new AuditRequestContext(null, null));
-
-        Long sameId = skill(false);
-        var same = avatars.submit(namespaceSlug(sameId), "skill", "owner", image, new AuditRequestContext(null, null));
-        assertThat(same.machineStatus()).isEqualTo("PASSED");
-        assertThat(same.avatarUrl()).isNotNull();
         when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(true, true, 1, null));
-        Long manualId = skill(false);
-        var manual = avatars.submit(namespaceSlug(manualId), "skill", "owner", image, new AuditRequestContext(null, null));
-        assertThat(manual.machineStatus()).isEqualTo("PENDING");
-        assertThat(manual.avatarUrl()).isNull();
-        when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(true, false, 1, null));
-        when(moderation.requireConfiguredProvider()).thenReturn("aliyun");
-        Long otherProviderId = skill(false);
-        var other = avatars.submit(namespaceSlug(otherProviderId), "skill", "owner", image, new AuditRequestContext(null, null));
-        assertThat(other.machineStatus()).isEqualTo("PENDING");
-        assertThat(other.avatarUrl()).isNull();
-        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.times(1))
-                .moderate(eq("xfyun"), any(byte[].class));
-        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.never())
-                .moderate(eq("aliyun"), any(byte[].class));
+        var policyA = new AvatarModerationProvider.Context("image", "v2", "test-policy-A", null);
+        var policyB = new AvatarModerationProvider.Context("image", "v2", "test-policy-B", null);
+        when(moderation.context("xfyun")).thenReturn(policyA);
+        when(moderation.moderate(eq("xfyun"), any(byte[].class))).thenReturn(previousVerdict);
+        Long sourceId = skill(false);
+        Long sourceCandidate = avatars.submit(namespaceSlug(sourceId), "skill", "owner", image,
+                new AuditRequestContext(null, null)).candidateId();
+        avatars.processMachine(sourceCandidate, new AuditRequestContext(null, null));
+        assertThat(candidates.findById(sourceCandidate).orElseThrow().getMachinePolicyRevision()).isEqualTo("test-policy-A");
+
+        when(moderation.context("xfyun")).thenReturn(policyB);
+        Long nextId = skill(false);
+        var next = avatars.submit(namespaceSlug(nextId), "skill", "owner", image, new AuditRequestContext(null, null));
+        assertThat(next.machineStatus()).isEqualTo("PENDING");
+        assertThat(next.avatarUrl()).isNull();
+        var nextVerdict = previousVerdict == AvatarModerationProvider.Verdict.PASS
+                ? AvatarModerationProvider.Verdict.BLOCK : AvatarModerationProvider.Verdict.PASS;
+        when(moderation.moderate(eq("xfyun"), any(byte[].class))).thenReturn(nextVerdict);
+        var result = avatars.processMachine(next.candidateId(), new AuditRequestContext(null, null));
+        assertThat(result.machineStatus()).isEqualTo(nextVerdict == AvatarModerationProvider.Verdict.PASS ? "PASSED" : "BLOCKED");
+        var persisted = candidates.findById(next.candidateId()).orElseThrow();
+        assertThat(persisted.getMachineServiceId()).isEqualTo("image");
+        assertThat(persisted.getMachineApiVersion()).isEqualTo("v2");
+        assertThat(persisted.getMachinePolicyRevision()).isEqualTo("test-policy-B");
+        assertThat(persisted.getMachineModelVersion()).isNull();
+        assertThat(candidates.findById(sourceCandidate).orElseThrow().getMachinePolicyRevision()).isEqualTo("test-policy-A");
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.times(2)).moderate(eq("xfyun"), any(byte[].class));
+        var details = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.times(2)).record(eq("owner"), eq("SKILL_AVATAR_MACHINE_RESULT"),
+                eq("SKILL_AVATAR"), any(), any(), any(), any(), details.capture());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(details.getAllValues().stream().map(detail -> {
+            try { return mapper.readTree(detail).path("policyRevision").asText(); }
+            catch (Exception failure) { throw new IllegalStateException(failure); }
+        }).toList()).containsExactly("test-policy-A", "test-policy-B");
+        assertThat(mapper.readTree(details.getValue()).path("attemptId").asText()).isNotBlank();
+        assertThat(mapper.readTree(details.getValue()).path("modelVersion").asText()).isEqualTo("UNKNOWN");
+    }
+
+    @Test
+    void changedContextBeforeCallFailsClosedAndRetryRecordsItsActualPolicy() throws Exception {
+        when(imageProcessor.normalize(any())).thenAnswer(call -> call.getArgument(0));
+        when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(true, true, 1, null));
+        Long skillId = skill(false);
+        Long candidateId = avatars.submit(namespaceSlug(skillId), "skill", "owner", new byte[]{1},
+                new AuditRequestContext(null, null)).candidateId();
+        var policyA = new AvatarModerationProvider.Context("image", "v2", "test-policy-A", null);
+        var policyB = new AvatarModerationProvider.Context("image", "v2", "test-policy-B", null);
+        when(moderation.context("xfyun")).thenReturn(policyA, policyB);
+        var failed = avatars.processMachine(candidateId, new AuditRequestContext(null, null));
+        assertThat(failed.machineStatus()).isEqualTo("ERROR");
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.never()).moderate(anyString(), any(byte[].class));
+        assertThat(candidates.findById(candidateId).orElseThrow().getMachinePolicyRevision()).isEqualTo("test-policy-A");
+        jdbc.update("UPDATE skill_avatar_candidate SET machine_next_retry_at = TIMESTAMP '2000-01-01 00:00:00' WHERE id = ?", candidateId);
+        when(moderation.context("xfyun")).thenReturn(policyB);
+        var retried = avatars.processMachine(candidateId, new AuditRequestContext(null, null));
+        assertThat(retried.machineStatus()).isEqualTo("PASSED");
+        assertThat(candidates.findById(candidateId).orElseThrow().getMachinePolicyRevision()).isEqualTo("test-policy-B");
+        var details = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.times(2)).record(eq("owner"), eq("SKILL_AVATAR_MACHINE_RESULT"),
+                eq("SKILL_AVATAR"), eq(candidateId), any(), any(), any(), details.capture());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var first = mapper.readTree(details.getAllValues().getFirst());
+        var second = mapper.readTree(details.getAllValues().getLast());
+        assertThat(first.path("policyRevision").asText()).isEqualTo("test-policy-A");
+        assertThat(first.path("contextMatched").asBoolean()).isFalse();
+        assertThat(second.path("policyRevision").asText()).isEqualTo("test-policy-B");
+        assertThat(second.path("contextMatched").asBoolean()).isTrue();
+        assertThat(first.path("attemptId").asText()).isNotEqualTo(second.path("attemptId").asText());
     }
 
     @Test
@@ -320,12 +390,12 @@ class SkillAvatarRecoveryPostgresTest {
         when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(false, true, 1, null));
         when(imageProcessor.normalize(any())).thenReturn(new byte[] {5, 6});
         Long candidateId = avatars.submit(namespaceSlug(skillId), "skill", "owner", new byte[] {5, 6}, new AuditRequestContext(null, null)).candidateId();
-        assertThatThrownBy(() -> avatars.decide(namespaceSlug(skillId), "skill", candidateId, true, "reviewed", "reviewer",
+        assertThatThrownBy(() -> unifiedDecision(namespaceSlug(skillId), "skill", candidateId, true, "reviewed", "reviewer",
                 java.util.Map.of(skill.getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.ADMIN),
                 java.util.Set.of(), new AuditRequestContext(null, null)))
                 .isInstanceOf(com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException.class);
         assertThat(readSkill(skillId).getActiveAvatarId()).isNull();
-        var approved = avatars.decide(namespaceSlug(skillId), "skill", candidateId, true, "reviewed", "owner",
+        var approved = unifiedDecision(namespaceSlug(skillId), "skill", candidateId, true, "reviewed", "owner",
                 java.util.Map.of(), java.util.Set.of("SUPER_ADMIN"), new AuditRequestContext(null, null));
         assertThat(approved.avatarUrl()).isNotNull();
     }
@@ -399,7 +469,7 @@ class SkillAvatarRecoveryPostgresTest {
         if (manualEnabled) {
             assertThat(avatars.reviewQueue("owner", ownerRole, java.util.Set.of()))
                     .extracting(com.iflytek.skillhub.dto.SkillAvatarStatusResponse::candidateId).contains(submitted.candidateId());
-            var reviewed = avatars.decide(namespaceSlug(publicId), "skill", submitted.candidateId(), true, "reviewed", "owner",
+            var reviewed = unifiedDecision(namespaceSlug(publicId), "skill", submitted.candidateId(), true, "reviewed", "owner",
                     ownerRole, java.util.Set.of(), new AuditRequestContext(null, null));
             assertThat(reviewed.avatarUrl()).isNotNull();
         }
@@ -467,7 +537,7 @@ class SkillAvatarRecoveryPostgresTest {
         when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(false, true, 1, null));
         Long rejectedId = avatars.prepareScopeReview(skillId, null).candidateId();
         var roles = java.util.Map.of(readSkill(skillId).getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER);
-        avatars.decide(namespaceSlug(skillId), "skill", rejectedId, false, "rejected for this publication", "owner",
+        unifiedDecision(namespaceSlug(skillId), "skill", rejectedId, false, "rejected for this publication", "owner",
                 roles, java.util.Set.of(), new AuditRequestContext(null, null));
         scopeRecovery.recover();
         scopeRecovery.recover();
@@ -496,7 +566,7 @@ class SkillAvatarRecoveryPostgresTest {
         var appealed = avatars.appeal(namespaceSlug(skillId), "skill", candidateId, "owner", new AuditRequestContext(null, null));
         assertThat(appealed.reviewStatus()).isEqualTo("APPEAL_PENDING");
         assertThat(appealed.avatarUrl()).isNull();
-        var approved = avatars.decide(namespaceSlug(skillId), "skill", candidateId, true, "machine false positive", "owner",
+        var approved = unifiedDecision(namespaceSlug(skillId), "skill", candidateId, true, "machine false positive", "owner",
                 java.util.Map.of(readSkill(skillId).getNamespaceId(), com.iflytek.skillhub.domain.namespace.NamespaceRole.OWNER),
                 java.util.Set.of(), new AuditRequestContext(null, null));
         assertThat(approved.avatarUrl()).isNotNull();

@@ -230,7 +230,7 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                 : require(bundle.versionsById(), task.getSkillVersionId(), "skill_version.not_found").getSkillId();
         Skill skill = require(bundle.skillsById(), skillId, "skill.not_found");
         Namespace namespace = require(bundle.namespacesById(), task.getNamespaceId(), "namespace.not_found");
-        String skillVersion = task.getSkillVersion() != null
+        String skillVersion = task.getSubjectType() == ReviewSubjectType.SKILL_METADATA ? null : task.getSkillVersion() != null
                 ? task.getSkillVersion()
                 : require(bundle.versionsById(), task.getSkillVersionId(), "skill_version.not_found").getVersion();
         UserAccount submittedBy = bundle.usersById().get(task.getSubmittedBy());
@@ -251,7 +251,7 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                 task.getReviewedAt(),
                 subjectType(task), task.getSubjectId() != null ? task.getSubjectId() : skillId,
                 task.getSubjectVersionId() != null ? task.getSubjectVersionId() : task.getSkillVersionId(),
-                skill.getSlug()
+                skill.getSlug(), task.getAvatarCandidateId(), task.isAvatarRemoval()
         );
     }
 
@@ -312,7 +312,7 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                     namespaceSlug, null, "SUITE", suiteSlug);
         }
         SkillVersion version = bundle.versionsById().get(task.getSkillVersionId());
-        Skill skill = version != null ? bundle.skillsById().get(version.getSkillId()) : null;
+        Skill skill = bundle.skillsById().get(task.getSkillId() != null ? task.getSkillId() : version != null ? version.getSkillId() : null);
         Namespace namespace = skill != null ? bundle.namespacesById().get(skill.getNamespaceId()) : null;
         String namespaceSlug = namespace != null ? namespace.getSlug() : null;
         String skillSlug = skill != null ? skill.getSlug() : null;

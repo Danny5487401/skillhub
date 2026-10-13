@@ -65,9 +65,13 @@ export function useApproveReview(callbacks?: { onSuccess?: () => void; onError?:
   return useMutation({
     mutationFn: ({ taskId, comment }: { taskId: number; comment?: string }) =>
       approveReview(taskId, comment),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      queryClient.invalidateQueries({ queryKey: ['governance'] })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+        queryClient.invalidateQueries({ queryKey: ['governance'] }),
+        queryClient.invalidateQueries({ queryKey: ['skills'], refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar'] }),
+      ])
       callbacks?.onSuccess?.()
     },
     onError: callbacks?.onError,
@@ -83,9 +87,13 @@ export function useRejectReview(callbacks?: { onSuccess?: () => void; onError?: 
   return useMutation({
     mutationFn: ({ taskId, comment }: { taskId: number; comment: string }) =>
       rejectReview(taskId, comment),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      queryClient.invalidateQueries({ queryKey: ['governance'] })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+        queryClient.invalidateQueries({ queryKey: ['governance'] }),
+        queryClient.invalidateQueries({ queryKey: ['skills'], refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar'] }),
+      ])
       callbacks?.onSuccess?.()
     },
     onError: callbacks?.onError,

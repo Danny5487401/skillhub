@@ -126,14 +126,14 @@ public class SkillAvatarController extends BaseApiController {
         return ok("response.success.updated", service.processMachine(candidateId, AuditRequestContext.from(request)));
     }
 
-    @GetMapping("/avatar-review/queue")
+    @Deprecated
     public ApiResponse<List<SkillAvatarStatusResponse>> queue(
             @AuthenticationPrincipal PlatformPrincipal principal,
             @RequestAttribute(value = "userNsRoles", required = false) Map<Long, NamespaceRole> roles) {
         return ok("response.success.read", service.reviewQueue(userId(principal), roles, platformRoles(principal)));
     }
 
-    @PostMapping("/{namespace}/{slug}/avatar/candidates/{candidateId}/decision")
+    @Deprecated
     public ApiResponse<SkillAvatarStatusResponse> decide(@PathVariable String namespace, @PathVariable String slug,
             @PathVariable long candidateId, @Valid @RequestBody SkillAvatarDecisionRequest decision,
             @AuthenticationPrincipal PlatformPrincipal principal,

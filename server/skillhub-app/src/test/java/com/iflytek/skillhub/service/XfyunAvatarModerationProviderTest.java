@@ -10,6 +10,14 @@ class XfyunAvatarModerationProviderTest {
             new XfyunAvatarModerationProvider("app", "key", "secret", new ObjectMapper());
 
     @Test
+    void recordsActualServiceAndApiWithoutInventingModelVersion() {
+        assertThat(provider.context().serviceId()).isEqualTo("image");
+        assertThat(provider.context().apiVersion()).isEqualTo("v2");
+        assertThat(provider.context().policyRevision()).contains("PASS", "BLOCK", "ERROR");
+        assertThat(provider.context().modelVersion()).isNull();
+    }
+
+    @Test
     void acceptsOnlyDocumentedPassAndBlockVerdicts() throws Exception {
         assertThat(provider.parse("{\"code\":\"000000\",\"data\":{\"result\":{\"suggest\":\"pass\"}}}"))
                 .isEqualTo(AvatarModerationProvider.Verdict.PASS);

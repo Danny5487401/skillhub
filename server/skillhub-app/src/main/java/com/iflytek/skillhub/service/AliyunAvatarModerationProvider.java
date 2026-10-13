@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class AliyunAvatarModerationProvider implements AvatarModerationProvider {
     private static final String ENDPOINT = "green-cip.cn-shanghai.aliyuncs.com";
+    private static final String SERVICE_ID = "profilePhotoCheck";
     private final String accessKeyId;
     private final String accessKeySecret;
     private final ObjectMapper mapper;
@@ -35,6 +36,11 @@ public class AliyunAvatarModerationProvider implements AvatarModerationProvider 
         this.accessKeyId = accessKeyId;
         this.accessKeySecret = accessKeySecret;
         this.mapper = mapper;
+    }
+
+    @Override public Context context() {
+        return new Context(SERVICE_ID, "2022-03-02",
+                "aliyun-profile-photo/1:none,low=PASS;medium,high=BLOCK;other=ERROR", null);
     }
 
     @Override public String code() { return "aliyun"; }
@@ -74,7 +80,7 @@ public class AliyunAvatarModerationProvider implements AvatarModerationProvider 
                     new ByteArrayInputStream(normalizedPng)));
 
             ImageModerationRequest request = new ImageModerationRequest();
-            request.setService("profilePhotoCheck");
+            request.setService(SERVICE_ID);
             request.setServiceParameters(mapper.writeValueAsString(Map.of(
                     "ossBucketName", token.getBucketName(),
                     "ossObjectName", objectName,

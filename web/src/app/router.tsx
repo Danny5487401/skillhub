@@ -140,6 +140,9 @@ const MyNamespacesPage = createLazyRouteComponent(
   'MyNamespacesPage',
   dashboardRouteOptions,
 )
+const NamespaceManagementPage = createLazyRouteComponent(() => import('@/pages/dashboard/namespace-management'), 'NamespaceManagementPage')
+const NamespaceSettingsPage = createLazyRouteComponent(() => import('@/pages/dashboard/namespace-settings'), 'NamespaceSettingsPage')
+
 const NamespaceMembersPage = createLazyRouteComponent(
   () => import('@/pages/dashboard/namespace-members'),
   'NamespaceMembersPage',
@@ -480,6 +483,20 @@ const dashboardNamespacesRoute = createRoute({
   component: MyNamespacesPage,
 })
 
+const dashboardNamespaceManagementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/namespaces/$slug',
+  beforeLoad: requireAuth,
+  component: NamespaceManagementPage,
+})
+
+const dashboardNamespaceSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/namespaces/$slug/settings',
+  beforeLoad: requireAuth,
+  component: NamespaceSettingsPage,
+})
+
 const dashboardNamespaceMembersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'dashboard/namespaces/$slug/members',
@@ -706,6 +723,8 @@ const routeTree = rootRoute.addChildren([
   dashboardSuiteEditRoute,
   dashboardSuiteVersionCreateRoute,
   dashboardNamespacesRoute,
+  dashboardNamespaceManagementRoute,
+  dashboardNamespaceSettingsRoute,
   dashboardNamespaceMembersRoute,
   dashboardNamespaceReviewsRoute,
   dashboardNamespaceReviewDetailRoute,

@@ -39,6 +39,16 @@ public class SkillAvatarCandidate {
     private boolean manualEnabled;
     @Column(name = "machine_provider", length = 32)
     private String machineProvider;
+    @Column(name = "machine_service_id", length = 128)
+    private String machineServiceId;
+    @Column(name = "machine_api_version", length = 64)
+    private String machineApiVersion;
+    @Column(name = "machine_policy_revision", length = 256)
+    private String machinePolicyRevision;
+    @Column(name = "machine_model_version", length = 128)
+    private String machineModelVersion;
+    @Column(name = "review_bound", nullable = false)
+    private boolean reviewBound;
     @Column(name = "scope_review_version_id")
     private Long scopeReviewVersionId;
     @Column(name = "scope_review", nullable = false)
@@ -95,6 +105,30 @@ public class SkillAvatarCandidate {
     void prePersist() { createdAt = Instant.now(); updatedAt = createdAt; }
     @PreUpdate
     void preUpdate() { updatedAt = Instant.now(); }
+
+    public String getMachineServiceId() { return machineServiceId; }
+    public String getMachineApiVersion() { return machineApiVersion; }
+    public String getMachinePolicyRevision() { return machinePolicyRevision; }
+    public String getMachineModelVersion() { return machineModelVersion; }
+
+    /** Latest actual attempt context; previous attempts remain in the durable audit log. */
+    public void recordMachineContext(String serviceId, String apiVersion, String policyRevision, String modelVersion) {
+        machineServiceId = serviceId;
+        machineApiVersion = apiVersion;
+        machinePolicyRevision = policyRevision;
+        machineModelVersion = modelVersion;
+    }
+
+    public boolean isReviewBound() { return reviewBound; }
+    public void bindReview() { reviewBound = true; }
+    public void unifiedDecision(boolean approved, String actor, String reason) {
+        if (status != Status.PENDING) { throw new IllegalStateException("Avatar candidate is not pending"); }
+        reviewedBy = actor;
+        reviewReason = reason;
+        reviewedAt = Instant.now();
+        reviewStatus = approved ? ReviewStatus.APPROVED : ReviewStatus.REJECTED;
+        if (!approved) { status = Status.REJECTED; discardAt = Instant.now().plusSeconds(30L * 24 * 60 * 60); }
+    }
 
     public Long getId() { return id; }
     public Long getSkillId() { return skillId; }

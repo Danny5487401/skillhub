@@ -59,6 +59,8 @@ class SkillAvatarAppServiceTest {
     @Mock private RequestIdAccessor requestIds;
     @Mock private EntityManager entityManager;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private com.iflytek.skillhub.domain.review.ReviewTaskRepository reviews;
+    @Mock private org.springframework.context.ApplicationEventPublisher events;
     private SkillAvatarAppService service;
     private Namespace namespace;
     private Skill skill;
@@ -67,6 +69,10 @@ class SkillAvatarAppServiceTest {
     void setup() {
         service = new SkillAvatarAppService(skills, namespaces, candidates, storage, imageProcessor,
                 settings, moderation, visibility, skillQueries, audit, requestIds, entityManager, transactionManager);
+        service.configureUnifiedReviews(reviews, new com.iflytek.skillhub.domain.review.ReviewPermissionChecker());
+        service.setEvents(events);
+        org.mockito.Mockito.lenient().when(moderation.context(any())).thenReturn(
+                new AvatarModerationProvider.Context("fixture-image", "test-v1", "fixture-policy-v1", null));
         org.mockito.Mockito.lenient().when(transactionManager.getTransaction(any()))
                 .thenAnswer(ignored -> new SimpleTransactionStatus());
         namespace = new Namespace("team", "Team", "owner");
@@ -83,6 +89,30 @@ class SkillAvatarAppServiceTest {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization();
         }
+    }
+
+    @Test
+    void scopeCandidateUsesExistingAsynchronousSubmissionEvent() {
+        skill.activateAvatar(21L, SkillVisibility.PRIVATE);
+        var active = new SkillAvatarCandidate(11L, "owner", "avatar/private.png", "abc", SkillVisibility.PRIVATE, false, false, null);
+        active.activate();
+        when(skills.findLockedById(11L)).thenReturn(Optional.of(skill));
+        when(namespaces.findById(10L)).thenReturn(Optional.of(namespace));
+        when(candidates.findById(21L)).thenReturn(Optional.of(active));
+        when(storage.getObject("avatar/private.png")).thenReturn(new ByteArrayInputStream(new byte[]{1}));
+        when(settings.current()).thenReturn(new AvatarReviewSettingsResponse(true, true, 1, null));
+        when(moderation.requireConfiguredProvider()).thenReturn("xfyun");
+        when(candidates.saveAndFlush(any())).thenAnswer(call -> {
+            SkillAvatarCandidate candidate = call.getArgument(0);
+            ReflectionTestUtils.setField(candidate, "id", 22L);
+            return candidate;
+        });
+        var task = new com.iflytek.skillhub.domain.review.ReviewTask(99L, 11L, 10L, "1.0.1", "owner");
+        TransactionSynchronizationManager.initSynchronization();
+        service.attachScopeToReview(11L, SkillVisibility.PUBLIC, task, "owner", new AuditRequestContext(null, null));
+        verify(events).publishEvent(new SkillAvatarUploadService.AvatarSubmittedEvent(22L, new AuditRequestContext(null, null)));
+        org.mockito.Mockito.verify(moderation, org.mockito.Mockito.never()).moderate(any(), any());
+        org.assertj.core.api.Assertions.assertThat(task.getAvatarCandidateId()).isEqualTo(22L);
     }
 
     @Test
@@ -357,7 +387,7 @@ class SkillAvatarAppServiceTest {
         when(candidates.findById(21L)).thenReturn(Optional.of(candidate));
         when(namespaces.findById(10L)).thenReturn(Optional.of(namespace));
         assertThatThrownBy(() -> service.decide("team", "foo", 21L, true, "fine", "reviewer",
-                Map.of(), Set.of("SKILL_ADMIN"), new AuditRequestContext(null, null)))
+                Map.of(), Set.of(), new AuditRequestContext(null, null)))
                 .isInstanceOf(DomainForbiddenException.class);
     }
 

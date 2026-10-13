@@ -24,6 +24,14 @@ public class AvatarModerationGateway {
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.avatar.providerUnavailable"));
     }
 
+    public AvatarModerationProvider.Context context(String providerCode) {
+        return providers.stream()
+                .filter(provider -> provider.code().equals(providerCode) && providerCode.equals(selectedProvider)
+                        && provider.configured())
+                .findFirst().map(AvatarModerationProvider::context)
+                .orElse(AvatarModerationProvider.Context.UNKNOWN);
+    }
+
     public AvatarModerationProvider.Verdict moderate(String providerCode, byte[] image) {
         if (!providerCode.equals(selectedProvider)) {
             return AvatarModerationProvider.Verdict.ERROR;

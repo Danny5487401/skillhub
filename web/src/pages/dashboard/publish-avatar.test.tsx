@@ -92,7 +92,7 @@ describe('Publish avatar submission', () => {
     expect(mocks.submit).toHaveBeenCalledWith('team', 'foo', 'private-reference')
     expect(mocks.publish).not.toHaveBeenCalled()
     expect(mocks.refresh.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
-      ['skills'], ['skill-avatar', 'team', 'foo'], ['skill-avatar-review'], ['reviews'],
+      ['skills'], ['skill-avatar', 'team', 'foo'], ['reviews'],
     ])
   })
 

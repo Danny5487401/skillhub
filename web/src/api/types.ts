@@ -606,7 +606,7 @@ export interface ReviewTask {
   skillVersionId: number | null
   namespace: string
   skillSlug?: string | null
-  version: string
+  version: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   submittedBy: string
   submittedByName?: string
@@ -615,10 +615,12 @@ export interface ReviewTask {
   reviewComment?: string
   submittedAt: string
   reviewedAt?: string
-  subjectType?: 'SKILL_VERSION' | 'SUITE_VERSION'
+  subjectType?: 'SKILL_VERSION' | 'SUITE_VERSION' | 'SKILL_METADATA'
   subjectId?: number | null
   subjectVersionId?: number | null
   subjectSlug?: string | null
+  avatarCandidateId?: number | null
+  avatarRemoval?: boolean
 }
 
 export interface ReviewProgress extends Pick<components['schemas']['ReviewProgressResponse'],
@@ -653,10 +655,21 @@ export interface ReviewSkillDetail {
   skill: SkillDetail
   versions: SkillVersion[]
   files: SkillFile[]
-  documentationPath?: string
-  documentationContent?: string
-  downloadUrl: string
-  activeVersion: string
+  documentationPath?: string | null
+  documentationContent?: string | null
+  downloadUrl: string | null
+  activeVersion: string | null
+  avatarChange?: ReviewAvatarChange | null
+}
+
+export interface ReviewAvatarChange {
+  candidateId: number | null
+  currentAvatarUrl: string | null
+  candidatePreviewUrl: string | null
+  machineStatus: string | null
+  reviewStatus: string | null
+  readyForApproval: boolean
+  removal: boolean
 }
 
 export type PromotionStatus = 'PENDING' | 'APPROVED' | 'REJECTED'

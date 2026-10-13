@@ -15,6 +15,14 @@ class AliyunAvatarModerationProviderTest {
             new AliyunAvatarModerationProvider("key", "secret", new ObjectMapper());
 
     @Test
+    void recordsActualServiceAndApiWithoutInventingModelVersion() {
+        assertThat(provider.context().serviceId()).isEqualTo("profilePhotoCheck");
+        assertThat(provider.context().apiVersion()).isEqualTo("2022-03-02");
+        assertThat(provider.context().policyRevision()).contains("PASS", "BLOCK", "ERROR");
+        assertThat(provider.context().modelVersion()).isNull();
+    }
+
+    @Test
     void classifiesDocumentedRiskLevelsAndFailsClosedOnUnknown() {
         assertThat(provider.classify(response("none"))).isEqualTo(AvatarModerationProvider.Verdict.PASS);
         assertThat(provider.classify(response("low"))).isEqualTo(AvatarModerationProvider.Verdict.PASS);

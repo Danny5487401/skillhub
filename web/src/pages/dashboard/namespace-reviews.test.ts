@@ -67,7 +67,7 @@ vi.mock('@/features/namespace/namespace-header', () => ({
   NamespaceHeader: () => null,
 }))
 
-vi.mock('@/features/skill/skill-avatar-review', () => ({ SkillAvatarReviewQueue: () => null }))
+vi.mock('@/features/namespace/namespace-management-nav', () => ({ NamespaceManagementNav: ({ slug, active }: { slug: string; active: string }) => createElement('nav', { 'data-slug': slug, 'data-active': active }) }))
 
 import { NamespaceReviewsPage } from './namespace-reviews'
 
@@ -129,6 +129,8 @@ describe('NamespaceReviewsPage', () => {
   it('renders pagination for namespace review list when totalPages > 1', () => {
     const html = renderToStaticMarkup(createElement(NamespaceReviewsPage))
 
+    expect(html).toContain('data-active="reviews"')
+    expect(html).toContain('data-slug="test-ns"')
     expect(html).toContain('nsReviews.pageSummary')
     expect(html).toContain('/dashboard/namespaces/test-ns/reviews/1')
     expect(html).toContain('nsReviews.openReview')
@@ -173,4 +175,13 @@ describe('NamespaceReviewsPage', () => {
       expect(call[5]).toBe(false)
     }
   })
+
+  it('lists avatar-only tasks in the same queue with their existing review detail link', () => {
+    useReviewListMock.mockReturnValue({ data: { items: [{ ...createReviewItem(9), subjectType: 'SKILL_METADATA', version: null, avatarRemoval: true }], totalElements: 1, totalPages: 1 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(NamespaceReviewsPage))
+    expect(html).toContain('review.avatarRemoval')
+    expect(html).toContain('/dashboard/namespaces/test-ns/reviews/9')
+    expect(html).not.toContain('skillAvatar.reviewTitle')
+  })
+
 })

@@ -37,7 +37,7 @@
 
 Token SHALL 避免出现在日志、持久化明文和登录 URL 中。
 
-Token 使用安全随机数，数据库仅保存哈希；原文只在生成响应中出现一次。分享 URL 使用 `/join#token`，页面立即移入当前标签页 sessionStorage 并清除 fragment；登录回跳只包含应用内 `/join`，不带 Token。创建、预览、兑换、作废响应禁止缓存；日志和审计不得包含原文或哈希。四类操作仅允许浏览器 Session，变更请求遵守 CSRF。
+Token 使用安全随机数，数据库仅保存哈希；原文只在生成响应中出现一次。分享 URL 使用 `/join#invite=<token>`，页面立即移入当前标签页 sessionStorage 并清除 fragment；登录回跳只包含应用内 `/join`，不带 Token。创建、预览、兑换、作废响应禁止缓存；日志和审计不得包含原文或哈希。四类操作仅允许浏览器 Session，变更请求遵守 CSRF。
 Token 原始随机字节不得少于 32 字节，并采用 Base64URL 编码；数据库仅保存 SHA-256 哈希。
 
 #### Scenario: 经过登录回跳
@@ -46,7 +46,7 @@ Token 原始随机字节不得少于 32 字节，并采用 Base64URL 编码；�
 
 #### Scenario: 子路径部署
 - **WHEN** 应用部署在 `/skillhub/`
-- **THEN** 分享链接指向公开基地址下 `/skillhub/join#token`，应用内 returnTo 仍为 `/join`
+- **THEN** 分享链接指向公开基地址下 `/skillhub/join#invite=<token>`，应用内 returnTo 仍为 `/join`
 
 ### Requirement: REQ-INV-04 服务端 SHALL 在接受时重新判断状态
 
@@ -85,7 +85,7 @@ Token 原始随机字节不得少于 32 字节，并采用 Base64URL 编码；�
 
 前端 SHALL 完成链接分享、登录回跳和邀请状态闭环。
 
-空间卡片提供单击创建并复制邀请的入口，有仍可兑换的旧链接时先确认替换；成员管理页也提供生成、替换确认、复制失败后的手动复制以及单独作废；接收页提供加载、确认、已加入和失效状态。成功、已加入或终态失效时清除 sessionStorage 中的 Token；已加入预览一旦成功即清除 Token 并自动使用 replace 导航进入空间，避免重复导航。加载状态使用可访问的 status 提示，终态失效使用 alert 提示。网络错误保留 Token 以重试。生成公开链接必须复用现有公开基地址解析方式，清理 fragment 时保留当前 path 和 query。中文、英文和俄文文案均覆盖。
+空间卡片收拢为进入空间的主要入口；空间管理详情按技能、成员、审核、设置组织，邀请集中在成员页弹窗，提供生成、替换确认、复制失败后的手动复制以及单独作废；冻结、归档及恢复等原有治理动作集中在设置，保留权限及确认。接收页提供加载、确认、已加入和失效状态。成功、已加入或终态失效时清除 sessionStorage 中的 Token；已加入预览一旦成功即清除 Token 并自动使用 replace 导航进入空间，避免重复导航。加载状态使用可访问的 status 提示，终态失效使用 alert 提示。网络错误保留 Token 以重试。生成公开链接必须复用现有公开基地址解析方式，清理 fragment 时保留当前 path 和 query。中文、英文和俄文文案均覆盖。
 
 #### Scenario: 剪贴板写入失败
 - **WHEN** 创建成功但浏览器拒绝写剪贴板
@@ -110,3 +110,9 @@ API SHALL 使用 Issue #911 的路径与响应合同。
 #### Scenario: 接受与已有成员
 - **WHEN** 非成员确认加入，或已有成员访问当前邀请
 - **THEN** 接受分别返回 `JOINED` 或 `ALREADY_MEMBER`，且仅包含 `namespaceSlug` 和 `outcome`
+
+#### Scenario: 旧邀请与无效新邀请
+- **WHEN** 接收者打开旧的 `/join#<token>` 链接
+- **THEN** 按原方式安全捕获并清除片段，保持兼容
+- **WHEN** 新的具名片段格式无效
+- **THEN** 清除先前暂存凭证，不能误用上一条邀请；无片段的登录回跳仍恢复合法暂存邀请

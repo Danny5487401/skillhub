@@ -1,5 +1,12 @@
 package com.iflytek.skillhub.service;
 
+import com.iflytek.skillhub.domain.review.ReviewAvatarParticipant;
+import com.iflytek.skillhub.domain.review.ReviewPermissionChecker;
+import com.iflytek.skillhub.domain.review.ReviewSubjectType;
+import com.iflytek.skillhub.domain.review.ReviewTask;
+import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
+import com.iflytek.skillhub.domain.review.ReviewTaskStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.iflytek.skillhub.domain.audit.AuditDetail;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.namespace.Namespace;
@@ -46,7 +53,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
-public class SkillAvatarAppService {
+public class SkillAvatarAppService implements ReviewAvatarParticipant {
     private final SkillJpaRepository skills;
     private final NamespaceRepository namespaces;
     private final SkillAvatarCandidateJpaRepository candidates;
@@ -60,6 +67,21 @@ public class SkillAvatarAppService {
     private final RequestIdAccessor requestIds;
     private final EntityManager entityManager;
     private final TransactionTemplate machineTransactions;
+    private ReviewTaskRepository reviews;
+    private ReviewPermissionChecker reviewPermissions;
+    private org.springframework.context.ApplicationEventPublisher events;
+
+    @Autowired
+    public void setEvents(org.springframework.context.ApplicationEventPublisher events) { this.events = events; }
+
+
+    @Autowired
+    public void configureUnifiedReviews(ReviewTaskRepository reviews,
+            ReviewPermissionChecker permissions) {
+        this.reviews = reviews;
+        this.reviewPermissions = permissions;
+    }
+
 
     public SkillAvatarAppService(SkillJpaRepository skills, NamespaceRepository namespaces,
                                  SkillAvatarCandidateJpaRepository candidates, ObjectStorageService storage,
@@ -158,19 +180,37 @@ public class SkillAvatarAppService {
                                                  String objectKey, String sha256, SkillVisibility audience, AuditRequestContext context) {
         Skill skill = lockedOwnedSkill(namespaceSlug, slug, actor);
         requireOwner(skill, actor);
+        return submitStoredForReview(namespaceSlug, slug, actor, objectKey, sha256, audience, context, null);
+    }
+
+    @Transactional
+    public SkillAvatarStatusResponse submitStoredForReview(String namespaceSlug, String slug, String actor,
+            String objectKey, String sha256, SkillVisibility audience, AuditRequestContext context,
+            ReviewTask review) {
+        Skill skill = lockedOwnedSkill(namespaceSlug, slug, actor);
+        requireOwner(skill, actor);
         return createStoredCandidate(skill, namespaceSlug, actor, actor, "SKILL_AVATAR_SUBMIT", objectKey, sha256,
-                audience == null ? skill.getVisibility() : audience, context);
+                audience == null ? skill.getVisibility() : audience, context, review);
     }
 
     private SkillAvatarStatusResponse createStoredCandidate(Skill skill, String namespaceSlug, String submittedBy,
             String auditActor, String action, String key, String sha256, SkillVisibility audience, AuditRequestContext context) {
+        return createStoredCandidate(skill, namespaceSlug, submittedBy, auditActor, action, key, sha256, audience, context, null);
+    }
+
+    private SkillAvatarStatusResponse createStoredCandidate(Skill skill, String namespaceSlug, String submittedBy,
+            String auditActor, String action, String key, String sha256, SkillVisibility audience,
+            AuditRequestContext context, ReviewTask review) {
         AvatarReviewSettingsResponse policy = settings.current();
         boolean privateOnly = audience == SkillVisibility.PRIVATE;
         boolean machineEnabled = !privateOnly && policy.machineEnabled();
         boolean manualEnabled = !privateOnly && policy.manualEnabled();
         String provider = machineEnabled ? moderation.requireConfiguredProvider() : null;
         if (skill.getPendingAvatarId() != null) {
-            candidates.findById(skill.getPendingAvatarId()).ifPresent(SkillAvatarCandidate::supersede);
+            candidates.findById(skill.getPendingAvatarId()).ifPresent(old -> {
+                retireMetadataTask(old);
+                old.supersede();
+            });
         }
         SkillAvatarCandidate candidate = new SkillAvatarCandidate(skill.getId(), submittedBy, key, sha256,
                 audience, machineEnabled, manualEnabled, provider);
@@ -178,23 +218,21 @@ public class SkillAvatarAppService {
             candidate.markScopeReviewVersion(skill.getLatestVersionId());
         }
         if (machineEnabled) {
-            // Only the machine verdict is reusable. Every new audience has its own human decision.
-            boolean reusedPass = !candidates.findByContentSha256AndMachineProviderAndMachineEnabledTrueAndManualEnabledAndMachineStatus(
-                    sha256, provider, manualEnabled, SkillAvatarCandidate.MachineStatus.PASSED).stream()
-                    .findFirst().isEmpty();
-            boolean reusedBlock = !candidates.findByContentSha256AndMachineProviderAndMachineEnabledTrueAndManualEnabledAndMachineStatus(
-                    sha256, provider, manualEnabled, SkillAvatarCandidate.MachineStatus.BLOCKED).stream()
-                    .findFirst().isEmpty();
-            if (reusedPass) {
-                candidate.machineResult(SkillAvatarCandidate.MachineStatus.PASSED);
-            } else if (reusedBlock) {
-                candidate.machineResult(SkillAvatarCandidate.MachineStatus.BLOCKED);
-            }
+            // A cloud API version does not pin its model or policy: never reuse another candidate's verdict.
+            recordMachineContext(candidate, moderation.context(provider));
         }
+        if (review != null || manualEnabled) { candidate.bindReview(); }
         candidate = candidates.saveAndFlush(candidate);
+        if (review != null) {
+            review.setAvatarCandidateId(candidate.getId());
+            reviews.save(review);
+        } else if (manualEnabled) {
+            reviews.save(ReviewTask.forSkillMetadata(
+                    skill.getId(), skill.getNamespaceId(), submittedBy, candidate.getId()));
+        }
         skill.setPendingAvatarId(candidate.getId());
-        if (!machineEnabled && !manualEnabled
-                || candidate.getMachineStatus() == SkillAvatarCandidate.MachineStatus.PASSED && !manualEnabled) {
+        if (!candidate.isReviewBound() && (!machineEnabled && !manualEnabled
+                || candidate.getMachineStatus() == SkillAvatarCandidate.MachineStatus.PASSED && !manualEnabled)) {
             activate(skill, candidate);
         }
         log(auditActor, action, candidate.getId(), context,
@@ -225,11 +263,17 @@ public class SkillAvatarAppService {
                     || !candidate.claimMachineAttempt(attemptId, now, now.plusSeconds(600))) {
                 throw new DomainConflictException("error.skill.avatar.notPending");
             }
-            return new MachineClaim(candidate.getObjectKey(), candidate.getMachineProvider(), attemptId);
+            AvatarModerationProvider.Context actualContext = moderation.context(candidate.getMachineProvider());
+            recordMachineContext(candidate, actualContext);
+            log(candidate.getSubmittedBy(), "SKILL_AVATAR_MACHINE_CLAIM", candidate.getId(), context,
+                    machineAudit(attemptId, candidate.getMachineProvider(), actualContext).build());
+            return new MachineClaim(candidate.getObjectKey(), candidate.getMachineProvider(), attemptId, actualContext);
         });
         AvatarModerationProvider.Verdict verdict;
+        boolean contextMatched = claim.moderationContext().equals(moderation.context(claim.provider()));
         try (InputStream input = storage.getObject(claim.objectKey())) {
-            verdict = moderation.moderate(claim.provider(), input.readAllBytes());
+            verdict = contextMatched ? moderation.moderate(claim.provider(), input.readAllBytes())
+                    : AvatarModerationProvider.Verdict.ERROR;
         } catch (IOException | RuntimeException failure) {
             // Leave an explicit retriable state. Storage and provider exceptions can contain secret URLs.
             verdict = AvatarModerationProvider.Verdict.ERROR;
@@ -239,24 +283,36 @@ public class SkillAvatarAppService {
             SkillAvatarCandidate candidate = findCandidate(candidateId);
             Skill skill = skills.findLockedById(candidate.getSkillId()).orElseThrow(() -> notFound());
             entityManager.refresh(candidate);
-            if (!Objects.equals(skill.getPendingAvatarId(), candidateId)
-                    || !candidate.completeMachineAttempt(claim.attemptId(), switch (result) {
+            boolean applied = Objects.equals(skill.getPendingAvatarId(), candidateId)
+                    && candidate.completeMachineAttempt(claim.attemptId(), switch (result) {
                         case PASS -> SkillAvatarCandidate.MachineStatus.PASSED;
                         case BLOCK -> SkillAvatarCandidate.MachineStatus.BLOCKED;
                         case ERROR -> SkillAvatarCandidate.MachineStatus.ERROR;
-                    })) {
-                return status(skill, candidate, namespaceSlug(skill));
-            }
-            if (result == AvatarModerationProvider.Verdict.PASS && !candidate.isManualEnabled()) {
+                    });
+            if (applied && result == AvatarModerationProvider.Verdict.PASS && !candidate.isManualEnabled() && !candidate.isReviewBound()) {
                 activate(skill, candidate);
             }
             log(candidate.getSubmittedBy(), "SKILL_AVATAR_MACHINE_RESULT", candidate.getId(), context,
-                    AuditDetail.of("verdict", result.name()));
+                    machineAudit(claim.attemptId(), claim.provider(), claim.moderationContext())
+                            .put("verdict", result.name()).put("contextMatched", contextMatched).put("applied", applied).build());
             return status(skill, candidate, namespaceSlug(skill));
         });
     }
 
-    private record MachineClaim(String objectKey, String provider, String attemptId) {}
+    private record MachineClaim(String objectKey, String provider, String attemptId,
+                                AvatarModerationProvider.Context moderationContext) {}
+
+    private void recordMachineContext(SkillAvatarCandidate candidate, AvatarModerationProvider.Context context) {
+        if (context == null) { throw new IllegalStateException("Missing machine moderation context"); }
+        candidate.recordMachineContext(context.serviceId(), context.apiVersion(), context.policyRevision(), context.modelVersion());
+    }
+
+    private AuditDetail.Builder machineAudit(String attemptId, String provider, AvatarModerationProvider.Context context) {
+        return AuditDetail.builder().put("attemptId", attemptId).put("provider", provider)
+                .put("serviceId", context.serviceId()).put("apiVersion", context.apiVersion())
+                .put("policyRevision", context.policyRevision())
+                .put("modelVersion", context.modelVersion() == null ? "UNKNOWN" : context.modelVersion());
+    }
 
     @Transactional(readOnly = true)
     public SkillAvatarStatusResponse ownerStatus(String namespaceSlug, String slug, String actor) {
@@ -307,6 +363,11 @@ public class SkillAvatarAppService {
         requireOwner(skill, actor);
         SkillAvatarCandidate candidate = currentPending(skill, candidateId);
         candidate.appeal();
+        if (!candidate.isReviewBound() && reviews != null) {
+            candidate.bindReview();
+            reviews.save(ReviewTask.forSkillMetadata(
+                    skill.getId(), skill.getNamespaceId(), actor, candidateId));
+        }
         log(actor, "SKILL_AVATAR_APPEAL", candidateId, context, AuditDetail.of("skillId", skill.getId()));
         return status(skill, candidate, namespaceSlug);
     }
@@ -327,6 +388,7 @@ public class SkillAvatarAppService {
         Skill skill = lockAndRefresh(findCandidateSkill(namespaceSlug, slug, findCandidate(candidateId)));
         requireReviewer(skill, actor, namespaceRoles, platformRoles);
         SkillAvatarCandidate candidate = currentPending(skill, candidateId);
+        if (candidate.isReviewBound()) { throw new DomainConflictException("error.skill.avatar.unifiedReviewRequired"); }
         if (candidate.isMachineEnabled() && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PASSED
                 && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.BLOCKED) {
             throw new DomainConflictException("error.skill.avatar.machineIncomplete");
@@ -366,7 +428,10 @@ public class SkillAvatarAppService {
             candidates.findById(skill.getActiveAvatarId()).ifPresent(SkillAvatarCandidate::remove);
         }
         if (skill.getPendingAvatarId() != null) {
-            candidates.findById(skill.getPendingAvatarId()).ifPresent(SkillAvatarCandidate::remove);
+            candidates.findById(skill.getPendingAvatarId()).ifPresent(old -> {
+                retireMetadataTask(old);
+                old.remove();
+            });
         }
         skill.clearAvatar();
         skill.setPendingAvatarId(null);
@@ -391,6 +456,127 @@ public class SkillAvatarAppService {
                     Skill skill = ((SkillRepository) skills).findById(candidate.getSkillId()).orElseThrow(() -> notFound());
                     return status(skill, candidate, namespaceSlug(skill));
                 }).toList();
+    }
+
+    private void retireMetadataTask(SkillAvatarCandidate candidate) {
+        if (reviews == null) { return; }
+        for (var task : reviews.findByAvatarCandidateIdAndStatus(candidate.getId(),
+                ReviewTaskStatus.PENDING)) {
+            if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+                log(task.getSubmittedBy(), "SKILL_AVATAR_SUPERSEDE", candidate.getId(), new AuditRequestContext(null, null),
+                        AuditDetail.builder().put("reviewTaskId", task.getId()).put("candidateId", candidate.getId())
+                                .put("reason", "replaced-or-removed").put("submittedBy", task.getSubmittedBy())
+                                .put("submittedAt", task.getSubmittedAt().toString()).build());
+                reviews.delete(task);
+            }
+        }
+    }
+
+    @Override
+    public void lock(ReviewTask task) {
+        Long skillId = task.getSkillId() != null ? task.getSkillId() : task.getSubjectId();
+        if (skillId != null) {
+            Skill skill = skills.findLockedById(skillId).orElseThrow(() -> notFound());
+            skills.flush();
+            entityManager.refresh(skill);
+        }
+    }
+
+    @Override
+    public void validateApproval(ReviewTask task, String comment) {
+        if (task.getAvatarCandidateId() == null && !task.isAvatarRemoval()) { return; }
+        Skill skill = skills.findLockedById(task.getSkillId()).orElseThrow(() -> notFound());
+        if (task.isAvatarRemoval()) {
+            if (!Objects.equals(skill.getActiveAvatarId(), task.getAvatarRemovalActiveId())
+                    || !Objects.equals(skill.getPendingAvatarId(), task.getAvatarRemovalPendingId())) {
+                throw new DomainConflictException("error.skill.avatar.notPending");
+            }
+            return;
+        }
+        if (task.getAvatarCandidateId() == null) { return; }
+        SkillAvatarCandidate candidate = currentPending(skill, task.getAvatarCandidateId());
+        if (!skill.getId().equals(candidate.getSkillId())) { throw notFound(); }
+        if (candidate.isMachineEnabled() && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.PASSED
+                && candidate.getMachineStatus() != SkillAvatarCandidate.MachineStatus.BLOCKED) {
+            throw new DomainConflictException("error.skill.avatar.machineIncomplete");
+        }
+        if (candidate.getMachineStatus() == SkillAvatarCandidate.MachineStatus.BLOCKED
+                && (!candidate.isManualEnabled() && candidate.getReviewStatus() != SkillAvatarCandidate.ReviewStatus.APPEAL_PENDING
+                    || comment == null || comment.isBlank())) {
+            throw new DomainConflictException("error.skill.avatar.reasonRequired");
+        }
+    }
+
+    @Override
+    public void decide(ReviewTask task, boolean approved, String actor, String comment) {
+        if (task.getAvatarCandidateId() == null && !task.isAvatarRemoval()) { return; }
+        Skill skill = skills.findLockedById(task.getSkillId()).orElseThrow(() -> notFound());
+        // Review CAS clears the persistence context; obtain fresh managed instances under the same row lock.
+        skills.flush();
+        entityManager.refresh(skill);
+        if (task.isAvatarRemoval()) {
+            if (approved) {
+                if (skill.getActiveAvatarId() != null) { findCandidate(skill.getActiveAvatarId()).remove(); }
+                if (skill.getPendingAvatarId() != null) { findCandidate(skill.getPendingAvatarId()).remove(); }
+                skill.clearAvatar();
+                skill.setPendingAvatarId(null);
+            }
+        } else {
+            SkillAvatarCandidate candidate = approved ? currentPending(skill, task.getAvatarCandidateId()) : findCandidate(task.getAvatarCandidateId());
+            if (!skill.getId().equals(candidate.getSkillId())) { throw notFound(); }
+            if (candidate.getStatus() == SkillAvatarCandidate.Status.PENDING) {
+                candidate.unifiedDecision(approved, actor, comment);
+                if (approved) { activate(skill, candidate); }
+                else if (Objects.equals(skill.getPendingAvatarId(), candidate.getId())) { skill.setPendingAvatarId(null); }
+            } else if (approved) { throw new DomainConflictException("error.skill.avatar.notPending"); }
+        }
+        ((SkillRepository) skills).save(skill);
+        log(actor, approved ? "SKILL_AVATAR_APPROVE" : "SKILL_AVATAR_REJECT", skill.getId(),
+                new AuditRequestContext(null, null), AuditDetail.of("reviewTaskId", task.getId()));
+    }
+
+    @Override
+    public void withdraw(ReviewTask task) {
+        entityManager.refresh(task);
+        if (task.getStatus() != ReviewTaskStatus.PENDING) {
+            throw new DomainConflictException("error.skill.avatar.notPending");
+        }
+        if (task.getAvatarCandidateId() == null) { return; }
+        Skill skill = skills.findLockedById(task.getSkillId()).orElseThrow(() -> notFound());
+        SkillAvatarCandidate candidate = findCandidate(task.getAvatarCandidateId());
+        candidate.supersede();
+        if (Objects.equals(skill.getPendingAvatarId(), candidate.getId())) { skill.setPendingAvatarId(null); }
+        log(task.getSubmittedBy(), "SKILL_AVATAR_WITHDRAW", candidate.getId(), new AuditRequestContext(null, null),
+                AuditDetail.of("reviewTaskId", task.getId()));
+    }
+
+    @Transactional
+    public void prepareRemoval(ReviewTask task, String namespace, String slug, String actor) {
+        Skill skill = lockedOwnedSkill(namespace, slug, actor);
+        task.prepareAvatarRemoval(skill.getActiveAvatarId(), skill.getPendingAvatarId());
+        reviews.save(task);
+    }
+
+    @Transactional
+    public void attachScopeToReview(Long skillId, SkillVisibility audience, ReviewTask task,
+            String actor, AuditRequestContext context) {
+        Skill skill = skills.findLockedById(skillId).orElseThrow(() -> notFound());
+        if (skill.getActiveAvatarId() == null || skill.getActiveAvatarAudience() == audience) { return; }
+        SkillAvatarCandidate active = findCandidate(skill.getActiveAvatarId());
+        if (active.getObjectKey() == null) { return; }
+        try (InputStream input = storage.getObject(active.getObjectKey())) {
+            byte[] image = input.readAllBytes();
+            String key = "skill-avatars/" + skillId + "/" + UUID.randomUUID() + ".png";
+            storage.putObject(key, new ByteArrayInputStream(image), image.length, "image/png");
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int result) { if (result != STATUS_COMMITTED) { storage.deleteObject(key); } }
+            });
+            SkillAvatarStatusResponse status = createStoredCandidate(skill, namespaceSlug(skill), skill.getOwnerId(), actor,
+                    "SKILL_AVATAR_SCOPE_REVIEW", key, active.getContentSha256(), audience, context, task);
+            if ("PENDING".equals(status.machineStatus())) {
+                events.publishEvent(new SkillAvatarUploadService.AvatarSubmittedEvent(status.candidateId(), context));
+            }
+        } catch (IOException failure) { throw new IllegalStateException("Cannot read private avatar candidate", failure); }
     }
 
     private SkillAvatarCandidate currentPending(Skill skill, long candidateId) {
@@ -483,6 +669,10 @@ public class SkillAvatarAppService {
             return false;
         }
         Namespace namespace = namespaces.findById(skill.getNamespaceId()).orElseThrow(() -> notFound());
+        if (reviewPermissions != null) {
+            return reviewPermissions.canReviewNamespace(skill.getNamespaceId(), namespace.getType(),
+                    roles == null ? Map.of() : roles, platformRoles == null ? Set.of() : platformRoles);
+        }
         if (namespace.getType() == NamespaceType.GLOBAL) {
             return platformRoles != null && (platformRoles.contains("SKILL_ADMIN") || platformRoles.contains("SUPER_ADMIN"));
         }

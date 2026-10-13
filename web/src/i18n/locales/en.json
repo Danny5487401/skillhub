@@ -1854,6 +1854,22 @@
     "close": "Close"
   },
   "review": {
+    "avatarUpdate": "Avatar update",
+    "avatarRemoval": "Remove avatar",
+    "metadataChange": "Avatar change",
+    "avatarUnifiedDecision": "The avatar shares this application’s decision. Approval applies the change; rejection keeps the current avatar.",
+    "currentAvatar": "Current avatar",
+    "requestedAvatar": "Requested avatar",
+    "avatarPreviewUnavailable": "Preview unavailable",
+    "approveDisabledAvatar": "Avatar moderation is not ready for approval.",
+    "avatarOverrideReason": "Machine moderation blocked this image. Enter a review comment to override it.",
+    "avatarReviewStatus": {
+      "NOT_REQUIRED": "Manual review not required",
+      "PENDING": "Awaiting manual review",
+      "APPROVED": "Manual review approved",
+      "REJECTED": "Manual review rejected",
+      "APPEAL_PENDING": "Awaiting manual appeal"
+    },
     "detail": "Review Detail",
     "id": "Review ID",
     "backToList": "Back to List",
@@ -2602,10 +2618,10 @@
   },
   "skillAvatar": {
     "submittedNotice": "Avatar changes submitted. View the review status under My skills → Update.",
-    "removedNotice": "Avatar removed; the first letter is shown.",
-    "detailHelp": "Avatar and skill content are reviewed separately. To change, appeal or retry, select Manage avatar in My skills.",
+    "removedNotice": "Avatar removal submitted. View the review status under My skills → Update.",
+    "detailHelp": "The avatar shares this application’s review. To change, appeal or retry, select Update in My skills.",
     "optionalTitle": "Skill avatar (optional)",
-    "stagedHelp": "Choose a PNG or JPEG under 2 MB, crop and upload it first. Changes take effect only after submission succeeds. Avatar review is separate from skill review.",
+    "stagedHelp": "Choose a PNG or JPEG under 2 MB, crop and upload it. After submission, the avatar and skill package share one review decision.",
     "cropUpload": "Upload cropped image",
     "uploadRetry": "Retry upload",
     "discardChange": "Cancel avatar change",
@@ -2676,7 +2692,25 @@
     "cropTitle": "Crop avatar",
     "cropConfirm": "Confirm and upload",
     "change": "Change image",
-    "stagedReady": "Uploaded; applied after submission",
-    "removedDraft": "Removed after submission"
+    "stagedReady": "Image uploaded; ready to submit",
+    "removedDraft": "Pending change: remove avatar"
+  },
+  "namespaceManagement": {
+    "back": "Back to my spaces",
+    "enter": "Enter space",
+    "navigation": "Space management",
+    "skills": "Skills",
+    "members": "Members",
+    "reviews": "Reviews",
+    "settings": "Settings",
+    "invite": "Invite members",
+    "lifecycle": "Space lifecycle",
+    "globalReadOnly": "The global space cannot be frozen, archived or deleted. Skill reviews remain available.",
+    "lifecycleHint": "Check the impact on members, reviews and skill access before changing the status.",
+    "freezeHint": "Pause member management, publishing and reviews. Published skills remain visible.",
+    "unfreezeHint": "Resume member management, publishing and reviews.",
+    "archiveHint": "Stop normal access to the space and its skills. Archiving can be reversed.",
+    "restoreHint": "Restore the archived space.",
+    "deleteHint": "Permanently delete the space. Handle its skills and members first."
   }
 }

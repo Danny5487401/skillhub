@@ -91,7 +91,6 @@ vi.mock('./profile-review-table', () => ({
   ProfileReviewTable: () => null,
 }))
 
-vi.mock('@/features/skill/skill-avatar-review', () => ({ SkillAvatarReviewQueue: () => null }))
 
 import { ReviewsPage } from './reviews'
 

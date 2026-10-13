@@ -1,5 +1,7 @@
 package com.iflytek.skillhub.domain.skill.service;
 
+import com.iflytek.skillhub.domain.review.ReviewAvatarParticipant;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.event.ReviewSubmittedEvent;
 import com.iflytek.skillhub.domain.event.SkillPublishedEvent;
@@ -76,6 +78,18 @@ public class SkillPublishService {
             SkillVersionStatus.REJECTED
     );
     private static final Logger log = LoggerFactory.getLogger(SkillPublishService.class);
+
+    private ReviewAvatarParticipant avatarParticipant;
+
+    @Autowired
+    public void setAvatarParticipant(ReviewAvatarParticipant participant) {
+        this.avatarParticipant = participant;
+    }
+
+    private void withdrawTask(ReviewTask task) {
+        if (avatarParticipant != null) { avatarParticipant.lock(task); avatarParticipant.withdraw(task); }
+        reviewTaskRepository.delete(task);
+    }
 
     public record PublishResult(
             Long skillId,
@@ -508,7 +522,7 @@ public class SkillPublishService {
         if (bundleTarget == null) {
             for (SkillVersion pending : pendingVersions) {
                 reviewTaskRepository.findBySkillVersionIdAndStatus(pending.getId(), ReviewTaskStatus.PENDING)
-                        .ifPresent(reviewTaskRepository::delete);
+                        .ifPresent(this::withdrawTask);
                 pending.setStatus(SkillVersionStatus.UPLOADED);
                 skillVersionRepository.save(pending);
             }
@@ -787,7 +801,7 @@ public class SkillPublishService {
         // durable governance history. The database detaches those settled attempts from the
         // replaced version while retaining their skill/version snapshot.
         reviewTaskRepository.findBySkillVersionIdAndStatus(version.getId(), ReviewTaskStatus.PENDING)
-                .ifPresent(reviewTaskRepository::delete);
+                .ifPresent(this::withdrawTask);
 
         List<SkillFile> files = skillFileRepository.findByVersionId(version.getId());
         List<String> storageKeys = new ArrayList<>();
