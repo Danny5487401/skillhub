@@ -58,6 +58,7 @@
     "react-dom": "^19.0.0",
     "react-dropzone": "^15.0.0",
     "react-i18next": "^16.5.8",
+    "react-image-crop": "11.1.2",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "rehype-sanitize": "^6.0.0",

@@ -6,8 +6,10 @@ vi.mock('@/api/client', () => ({ skillAvatarApi: api, buildApiUrl: (url: string)
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 import { SkillAvatarEditor } from './skill-avatar-editor'
 
-function selectImage() {
+async function selectImage() {
   fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File(['image'], 'avatar.png', { type: 'image/png' })] } })
+  const image = await screen.findByAltText('skillAvatar.cropPreview')
+  fireEvent.load(image)
 }
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -19,19 +21,100 @@ const uploaded = { uploadId: 'private-upload-1', previewUrl: '/private/preview',
 describe('SkillAvatarEditor staged uploads', () => {
   beforeEach(() => {
     api.stage.mockReset()
-    vi.stubGlobal('Image', class { src = ''; naturalWidth = 1024; naturalHeight = 768; decode() { return Promise.resolve() } })
+    vi.stubGlobal('PointerEvent', MouseEvent)
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1024)
+    vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(768)
+    vi.spyOn(HTMLImageElement.prototype, 'width', 'get').mockReturnValue(256)
+    vi.spyOn(HTMLImageElement.prototype, 'height', 'get').mockReturnValue(192)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, width: 256, height: 192, top: 0, left: 0, right: 256, bottom: 192, toJSON: () => ({}) })
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:chosen'), revokeObjectURL: vi.fn() })
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), scale: vi.fn(), save: vi.fn(), translate: vi.fn(), rotate: vi.fn(), restore: vi.fn() } as unknown as CanvasRenderingContext2D)
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(callback => callback(new Blob(['cropped'], { type: 'image/png' })))
   })
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+  it('exports the moved library selection rather than always cropping the image center', async () => {
+    api.stage.mockResolvedValue(uploaded)
+    render(<SkillAvatarEditor name="Foo" onChange={vi.fn()} />)
+    await selectImage()
+    const area = screen.getByRole('group', { name: 'skillAvatar.cropArea' })
+    const initialLeft = area.style.left
+    fireEvent.keyDown(area, { key: 'ArrowRight', shiftKey: true })
+    expect(area.style.left).not.toBe(initialLeft)
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
+    await waitFor(() => expect(api.stage).toHaveBeenCalledOnce())
+    const context = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.results[0].value as unknown as { translate: ReturnType<typeof vi.fn>; drawImage: ReturnType<typeof vi.fn> }
+    // Initial square is 576px at x=224. Library Shift+Right moves 10 display px = 40 source px.
+    expect(context.translate).toHaveBeenCalledWith(-264, -96)
+    expect(context.drawImage.mock.calls.some(args => args.length === 5 && args.slice(1).join(',') === '0,0,512,512')).toBe(true)
+    expect(api.stage.mock.calls[0][0].type).toBe('image/png')
+  })
+
+  it('exports a dragged selection with the library pointer handlers', async () => {
+    api.stage.mockResolvedValue(uploaded)
+    render(<SkillAvatarEditor name="Foo" onChange={vi.fn()} />)
+    await selectImage()
+    const area = screen.getByRole('group', { name: 'skillAvatar.cropArea' })
+    fireEvent.pointerDown(area, { clientX: 128, clientY: 96 })
+    fireEvent.pointerMove(document, { clientX: 148, clientY: 106 })
+    fireEvent.pointerUp(document)
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
+    await waitFor(() => expect(api.stage).toHaveBeenCalledOnce())
+    const context = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.results[0].value as unknown as { translate: ReturnType<typeof vi.fn> }
+    expect(context.translate.mock.calls[0][0]).toBeCloseTo(-304)
+    expect(context.translate.mock.calls[0][1]).toBeCloseTo(-136)
+  })
+
+  it('does not upload if canceled while the PNG conversion is still in progress', async () => {
+    const change = vi.fn()
+    let finish!: BlobCallback
+    vi.mocked(HTMLCanvasElement.prototype.toBlob).mockImplementation(callback => { finish = callback })
+    render(<SkillAvatarEditor name="Foo" onChange={change} />)
+    await selectImage()
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
+    await waitFor(() => expect(finish).toBeTypeOf('function'))
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.discardChange' }))
+    finish(new Blob(['cropped'], { type: 'image/png' }))
+    await waitFor(() => expect(change).toHaveBeenLastCalledWith({ action: 'KEEP', ready: true }))
+    expect(api.stage).not.toHaveBeenCalled()
+  })
+
+  it('keeps the file chooser keyboard accessible and disables it during an upload', async () => {
+    api.stage.mockReturnValue(new Promise(() => {}))
+    render(<SkillAvatarEditor name="Foo" onChange={vi.fn()} />)
+    const input = screen.getByLabelText('skillAvatar.choose') as HTMLInputElement
+    expect(input.tabIndex).toBe(0)
+    expect(input.disabled).toBe(false)
+    await selectImage()
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
+    expect(input.disabled).toBe(true)
+  })
+
+  it('rejects images above 2MB before attempting an upload', async () => {
+    const change = vi.fn()
+    render(<SkillAvatarEditor name="Foo" onChange={change} />)
+    fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'avatar.png', { type: 'image/png' })] } })
+    expect((await screen.findByRole('alert')).textContent).toBe('skillAvatar.invalid')
+    expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', ready: false })
+    expect(api.stage).not.toHaveBeenCalled()
+  })
+
+  it('requires the selected image to load before cropping and reports decode errors', async () => {
+    render(<SkillAvatarEditor name="Foo" onChange={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File(['image'], 'avatar.png', { type: 'image/png' })] } })
+    const image = await screen.findByAltText('skillAvatar.cropPreview')
+    expect((screen.getByRole('button', { name: 'skillAvatar.cropUpload' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.error(image)
+    expect(screen.getByRole('alert').textContent).toBe('skillAvatar.invalid')
+    expect(api.stage).not.toHaveBeenCalled()
+  })
 
   it('requires upload before submit and stages the cropped file without associating a skill', async () => {
     const change = vi.fn()
     const task = deferred<typeof uploaded>()
     api.stage.mockReturnValue(task.promise)
     render(<SkillAvatarEditor name="Foo" currentUrl="/active" onChange={change} />)
-    selectImage()
+    await selectImage()
     expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', ready: false })
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
     await waitFor(() => expect(api.stage).toHaveBeenCalledOnce())
@@ -42,11 +125,11 @@ describe('SkillAvatarEditor staged uploads', () => {
     expect(screen.getByAltText('skillAvatar.cropPreview').getAttribute('src')).toBe(uploaded.previewUrl)
   })
 
-  it('blocks invalid selections until canceled without touching the active avatar', () => {
+  it.each([['bad.svg', 'image/svg+xml'], ['bad.png', 'image/gif']])('blocks invalid selection %s until canceled without touching the active avatar', async (filename, mime) => {
     const change = vi.fn()
     render(<SkillAvatarEditor name="Foo" currentUrl="/active" onChange={change} />)
-    fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File(['bad'], 'bad.svg', { type: 'image/svg+xml' })] } })
-    expect(screen.getByRole('alert').textContent).toBe('skillAvatar.invalid')
+    fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File(['bad'], filename, { type: mime })] } })
+    expect((await screen.findByRole('alert')).textContent).toBe('skillAvatar.invalid')
     expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', ready: false })
     expect(api.stage).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.discardChange' }))
@@ -58,7 +141,7 @@ describe('SkillAvatarEditor staged uploads', () => {
     const change = vi.fn()
     api.stage.mockRejectedValueOnce(new Error('storage unavailable')).mockResolvedValueOnce(uploaded)
     render(<SkillAvatarEditor name="Foo" onChange={change} />)
-    selectImage()
+    await selectImage()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
     expect((await screen.findByRole('alert')).textContent).toBe('storage unavailable')
     expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', ready: false })
@@ -71,7 +154,7 @@ describe('SkillAvatarEditor staged uploads', () => {
     const task = deferred<typeof uploaded>()
     api.stage.mockReturnValue(task.promise)
     render(<SkillAvatarEditor name="Foo" currentUrl="/active" canRemove onChange={change} />)
-    selectImage()
+    await selectImage()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
     await waitFor(() => expect(api.stage).toHaveBeenCalledOnce())
     fireEvent.click(screen.getByRole('button', { name: `skillAvatar.${action}` }))
@@ -85,10 +168,10 @@ describe('SkillAvatarEditor staged uploads', () => {
     const change = vi.fn()
     api.stage.mockResolvedValue(uploaded)
     render(<SkillAvatarEditor name="Foo" onChange={change} />)
-    selectImage()
+    await selectImage()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropUpload' }))
     await waitFor(() => expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', uploadId: uploaded.uploadId, ready: true }))
-    selectImage()
+    await selectImage()
     expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', ready: false })
     expect(screen.getByRole('status').textContent).toBe('skillAvatar.uploadStates.SELECTED')
   })
