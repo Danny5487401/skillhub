@@ -5,7 +5,7 @@ import 'react-image-crop/dist/ReactCrop.css'
 import { useTranslation } from 'react-i18next'
 import { buildApiUrl, skillAvatarApi } from '@/api/client'
 import { Button } from '@/shared/ui/button'
-import { Input } from '@/shared/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog'
 import { SkillAvatar } from './skill-avatar'
 
 export type AvatarEdit = { action: 'KEEP' | 'REPLACE' | 'REMOVE'; uploadId?: string; ready: boolean }
@@ -32,6 +32,10 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [state, setState] = useState<'KEEP' | 'SELECTED' | 'UPLOADING' | 'READY' | 'ERROR' | 'REMOVE'>('KEEP')
   const [error, setError] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const edit = useRef<AvatarEdit>(KEEP_AVATAR)
+  const beforeSelection = useRef({ edit: KEEP_AVATAR, previewUrl: null as string | null, state: 'KEEP' as typeof state })
+  const chooseButton = useRef<HTMLButtonElement>(null)
   const generation = useRef(0)
   const image = useRef<HTMLImageElement>(null)
   useEffect(() => () => { generation.current += 1 }, [])
@@ -45,7 +49,22 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
     setState(remove ? 'REMOVE' : 'KEEP')
     setCrop(undefined)
     if (inputRef.current) inputRef.current.value = ''
-    onChange(remove ? { action: 'REMOVE', ready: true } : KEEP_AVATAR)
+    setDialogOpen(false)
+    edit.current = remove ? { action: 'REMOVE', ready: true } : KEEP_AVATAR
+    onChange(edit.current)
+  }
+
+  function cancelSelection() {
+    generation.current += 1
+    setDialogOpen(false)
+    setSourceUrl(null)
+    setCrop(undefined)
+    setError('')
+    setPreviewUrl(beforeSelection.current.previewUrl)
+    setState(beforeSelection.current.state)
+    edit.current = beforeSelection.current.edit
+    onChange(edit.current)
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   async function upload() {
@@ -61,7 +80,12 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
       if (attempt !== generation.current) return
       setPreviewUrl(staged.previewUrl)
       setState('READY')
-      onChange({ action: 'REPLACE', uploadId: staged.uploadId, ready: true })
+      edit.current = { action: 'REPLACE', uploadId: staged.uploadId, ready: true }
+      onChange(edit.current)
+      setDialogOpen(false)
+      setSourceUrl(null)
+      setCrop(undefined)
+      if (inputRef.current) inputRef.current.value = ''
     } catch (cause) {
       if (attempt !== generation.current) return
       setState('ERROR')
@@ -69,7 +93,7 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
     }
   }
 
-  const { getRootProps, getInputProps, inputRef } = useDropzone({
+  const { getRootProps, getInputProps, inputRef, open } = useDropzone({
     accept: { 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] },
     maxSize: 2 * 1024 * 1024,
     maxFiles: 1,
@@ -78,6 +102,9 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
     noClick: true,
     noKeyboard: true,
     onDrop: (accepted, rejected) => {
+      if (state === 'KEEP' || state === 'READY' || state === 'REMOVE') {
+        beforeSelection.current = { edit: edit.current, previewUrl, state }
+      }
       generation.current += 1
       setPreviewUrl(null)
       setSourceUrl(null)
@@ -88,45 +115,60 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
         setState('ERROR'); setError(t('skillAvatar.invalid')); return
       }
       setSourceUrl(URL.createObjectURL(file))
-      setError(''); setState('SELECTED')
+      setError(''); setState('SELECTED'); setDialogOpen(true)
     },
   })
 
-  return <section className="space-y-3" aria-label={t('skillAvatar.title')}>
-    <h2 className="font-semibold">{t('skillAvatar.optionalTitle')}</h2>
-    <p className="text-sm text-muted-foreground">{t('skillAvatar.stagedHelp')}</p>
-    <div className="flex items-center gap-3">
-      {state === 'READY' && previewUrl ? <img src={buildApiUrl(previewUrl)} alt={t('skillAvatar.cropPreview')} className="h-20 w-20 rounded-lg object-cover" />
-        : <SkillAvatar name={name} url={state === 'REMOVE' ? null : currentUrl} size="h-20 w-20 text-2xl" />}
-      <p role="status" className="text-sm text-muted-foreground">{t(`skillAvatar.uploadStates.${state}`)}</p>
+  return <section className="space-y-2" aria-label={t('skillAvatar.title')}>
+    <h2 className="text-sm font-medium">{t('skillAvatar.optionalTitle')}</h2>
+    <div {...getRootProps()} className="flex items-center gap-3">
+      {state === 'READY' && previewUrl ? <img src={buildApiUrl(previewUrl)} alt={t('skillAvatar.cropPreview')} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+        : <SkillAvatar name={name} url={state === 'REMOVE' ? null : currentUrl} size="h-16 w-16 shrink-0 text-xl" />}
+      <input {...getInputProps({ 'aria-label': t('skillAvatar.choose'), className: 'sr-only', style: undefined, disabled: disabled || state === 'UPLOADING' })} />
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap gap-1">
+          <Button ref={chooseButton} type="button" size="sm" variant="outline" disabled={disabled || state === 'UPLOADING'} onClick={open}>{t(currentUrl || state === 'READY' ? 'skillAvatar.change' : 'skillAvatar.choose')}</Button>
+          {(canRemove || state === 'READY') && state !== 'REMOVE' && <Button type="button" size="sm" variant="ghost" disabled={disabled || dialogOpen} onClick={() => reset(canRemove)}>{t('skillAvatar.remove')}</Button>}
+          {state !== 'KEEP' && !dialogOpen && <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => reset()}>{t('skillAvatar.discardChange')}</Button>}
+        </div>
+        {state !== 'KEEP' && !dialogOpen && <p role="status" className="text-xs text-muted-foreground">{t(state === 'READY' ? 'skillAvatar.stagedReady' : state === 'REMOVE' ? 'skillAvatar.removedDraft' : `skillAvatar.uploadStates.${state}`)}</p>}
+      </div>
     </div>
-    <div {...getRootProps()}>
-      <Input {...getInputProps({ 'aria-label': t('skillAvatar.choose'), style: undefined, tabIndex: 0, disabled: disabled || state === 'UPLOADING' })} />
-    </div>
-    {sourceUrl && state !== 'READY' && <div className="space-y-2">
-      <ReactCrop crop={crop} aspect={1} keepSelection minWidth={16} minHeight={16}
-        disabled={disabled || state === 'UPLOADING'}
-        onChange={(_, percentCrop) => setCrop(percentCrop)}
-        ariaLabels={{
-          cropArea: t('skillAvatar.cropArea'),
-          nwDragHandle: t('skillAvatar.cropHandles.nw'), nDragHandle: t('skillAvatar.cropHandles.n'),
-          neDragHandle: t('skillAvatar.cropHandles.ne'), eDragHandle: t('skillAvatar.cropHandles.e'),
-          seDragHandle: t('skillAvatar.cropHandles.se'), sDragHandle: t('skillAvatar.cropHandles.s'),
-          swDragHandle: t('skillAvatar.cropHandles.sw'), wDragHandle: t('skillAvatar.cropHandles.w'),
-        }}>
-        <img ref={image} src={sourceUrl} alt={t('skillAvatar.cropPreview')} className="max-h-80 max-w-full"
-          onLoad={event => {
-            const { naturalWidth, naturalHeight } = event.currentTarget
-            setCrop(centerCrop(makeAspectCrop({ unit: '%', width: Math.min(75, 75 * naturalHeight / naturalWidth) }, 1, naturalWidth, naturalHeight), naturalWidth, naturalHeight))
-          }} onError={() => { setState('ERROR'); setError(t('skillAvatar.invalid')); setCrop(undefined) }} />
-      </ReactCrop>
-      <p className="text-sm text-muted-foreground">{t('skillAvatar.cropHelp')}</p>
-      <Button type="button" disabled={disabled || state === 'UPLOADING' || !crop?.width || !crop.height} onClick={() => void upload()}>{t(state === 'ERROR' ? 'skillAvatar.uploadRetry' : 'skillAvatar.cropUpload')}</Button>
-    </div>}
-    <div className="flex flex-wrap gap-2">
-      {state !== 'KEEP' && <Button type="button" variant="outline" disabled={disabled} onClick={() => reset()}>{t('skillAvatar.discardChange')}</Button>}
-      {canRemove && state !== 'REMOVE' && <Button type="button" variant="outline" disabled={disabled} onClick={() => reset(true)}>{t('skillAvatar.remove')}</Button>}
-    </div>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    {!dialogOpen && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <Dialog open={dialogOpen} onOpenChange={value => { if (!value) cancelSelection() }}>
+      <DialogContent className="w-[min(calc(100vw-2rem),26rem)] gap-4 p-4 sm:p-6"
+        onCloseAutoFocus={event => { event.preventDefault(); chooseButton.current?.focus() }}>
+        <DialogHeader>
+          <DialogTitle>{t('skillAvatar.cropTitle')}</DialogTitle>
+          <DialogDescription>{t('skillAvatar.cropHelp')}</DialogDescription>
+        </DialogHeader>
+        {sourceUrl && <div className="flex h-80 max-h-[min(320px,45vh)] min-w-0 items-center justify-center overflow-hidden rounded-lg bg-muted/40">
+          <ReactCrop crop={crop} aspect={1} keepSelection minWidth={16} minHeight={16}
+            className="max-h-full max-w-full"
+            disabled={disabled || state === 'UPLOADING'}
+            onChange={(_, percentCrop) => setCrop(percentCrop)}
+            ariaLabels={{
+              cropArea: t('skillAvatar.cropArea'),
+              nwDragHandle: t('skillAvatar.cropHandles.nw'), nDragHandle: t('skillAvatar.cropHandles.n'),
+              neDragHandle: t('skillAvatar.cropHandles.ne'), eDragHandle: t('skillAvatar.cropHandles.e'),
+              seDragHandle: t('skillAvatar.cropHandles.se'), sDragHandle: t('skillAvatar.cropHandles.s'),
+              swDragHandle: t('skillAvatar.cropHandles.sw'), wDragHandle: t('skillAvatar.cropHandles.w'),
+            }}>
+            <img ref={image} src={sourceUrl} alt={t('skillAvatar.cropPreview')}
+              className="block max-h-[min(320px,45vh)] max-w-full object-contain"
+              onLoad={event => {
+                const { naturalWidth, naturalHeight } = event.currentTarget
+                setCrop(centerCrop(makeAspectCrop({ unit: '%', width: Math.min(75, 75 * naturalHeight / naturalWidth) }, 1, naturalWidth, naturalHeight), naturalWidth, naturalHeight))
+              }} onError={() => { setState('ERROR'); setError(t('skillAvatar.invalid')); setCrop(undefined) }} />
+          </ReactCrop>
+        </div>}
+        {state === 'UPLOADING' && <p role="status" className="text-sm text-muted-foreground">{t('skillAvatar.uploadStates.UPLOADING')}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter className="flex-row justify-end">
+          <Button type="button" variant="outline" onClick={cancelSelection}>{t('common.cancel')}</Button>
+          <Button type="button" disabled={disabled || state === 'UPLOADING' || !crop?.width || !crop.height} onClick={() => void upload()}>{t(state === 'ERROR' ? 'skillAvatar.uploadRetry' : 'skillAvatar.cropConfirm')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </section>
 }

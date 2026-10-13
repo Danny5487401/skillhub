@@ -2,13 +2,9 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-const api = vi.hoisted(() => ({ status: vi.fn(), submit: vi.fn(), queue: vi.fn(), decide: vi.fn() }))
+const api = vi.hoisted(() => ({ status: vi.fn(), appeal: vi.fn(), queue: vi.fn(), decide: vi.fn() }))
 vi.mock('@/api/client', () => ({ skillAvatarApi: api, buildApiUrl: (url: string) => url }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
-vi.mock('./skill-avatar-editor', () => ({
-  KEEP_AVATAR: { action: 'KEEP', ready: true },
-  SkillAvatarEditor: ({ onChange }: { onChange: (value: { action: 'REPLACE'; ready: boolean; uploadId: string }) => void }) => <button onClick={() => onChange({ action: 'REPLACE', ready: true, uploadId: 'staged-image' })}>Use staged image</button>,
-}))
 import { SkillAvatarManager } from './skill-avatar-manager'
 import { SkillAvatarReviewQueue } from './skill-avatar-review'
 
@@ -20,19 +16,18 @@ const active = { ...pending, avatarUrl: '/active', candidateStatus: 'ACTIVE', re
 describe('avatar cache across owner and reviewer flows', () => {
   afterEach(() => { cleanup(); Object.values(api).forEach(fn => fn.mockReset()) })
 
-  it('refreshes a previously empty fresh review queue when the owner submits a staged image', async () => {
+  it('refreshes a previously empty fresh review queue when the owner appeals a blocked candidate', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-    client.setQueryData(ownerKey, { ...active, candidateId: 20 })
+    client.setQueryData(ownerKey, { ...pending, candidateId: 20, machineStatus: 'BLOCKED', reviewStatus: 'NOT_REQUIRED' })
     client.setQueryData(queueKey, [])
     api.status.mockResolvedValue(pending)
-    api.submit.mockResolvedValue(pending)
+    api.appeal.mockResolvedValue(pending)
     api.queue.mockResolvedValue([pending])
     render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" /><SkillAvatarReviewQueue namespace="team" /></QueryClientProvider>)
     expect(screen.getByText('skillAvatar.emptyQueue')).toBeTruthy()
     expect(api.queue).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByText('Use staged image'))
-    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.saveChanges' }))
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.appeal' }))
 
     expect(await screen.findByText('@team/foo')).toBeTruthy()
     expect(client.getQueryData(ownerKey)).toEqual(pending)

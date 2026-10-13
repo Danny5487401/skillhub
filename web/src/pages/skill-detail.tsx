@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpCircle, Boxes, ChevronDown, ChevronUp, Clock, Folder, Globe, Lock, RefreshCw, ShieldCheck, Terminal, User, Users } from 'lucide-react'
 import { MarkdownRenderer } from '@/features/skill/markdown-renderer'
 import { SkillAvatar } from '@/features/skill/skill-avatar'
-import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
 import { SkillAvatarTakedown } from '@/features/skill/skill-avatar-takedown'
 import { resolvePackageRelativeLink } from '@/features/skill/package-relative-link'
 import { FileTree } from '@/features/skill/file-tree'
@@ -903,7 +902,6 @@ export function SkillDetailPage() {
             )}
           </div>
           <div className="flex items-center gap-4"><SkillAvatar name={skill.displayName} url={skill.avatarUrl} size="h-16 w-16 text-2xl" /><h1 className="text-balance break-words text-4xl font-bold font-heading text-foreground [overflow-wrap:anywhere]">{skill.displayName}</h1></div>
-          {user?.userId === skill.ownerId && <SkillAvatarManager namespace={namespace} slug={slug} readOnly />}
           {skill.avatarUrl && user?.userId !== skill.ownerId && (namespace === 'global'
             ? isPromotionAdmin
             : myNamespaces?.some((item) => item.slug === namespace && (item.currentUserRole === 'OWNER' || item.currentUserRole === 'ADMIN')))

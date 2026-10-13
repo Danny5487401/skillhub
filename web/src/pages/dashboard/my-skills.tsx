@@ -18,8 +18,7 @@ import { getHeadlineVersion, getPublishedVersion, getOwnerPreviewVersion, hasPen
 import { formatCompactCount } from '@/shared/lib/number-format'
 import { toast } from '@/shared/lib/toast'
 import { buildReturnTo } from '@/shared/lib/auth-route'
-import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog'
+import { SkillAvatar } from '@/features/skill/skill-avatar'
 import { ApiError } from '@/api/client'
 import { getMySkillEmptyStateKey, getMySkillFilters, type MySkillFilter } from './my-skill-filters'
 
@@ -59,7 +58,6 @@ export function MySkillsPage() {
   // Input remains local until the user explicitly submits the search.
   const [keywordInput, setKeywordInput] = useState(keyword)
 
-  const [avatarTarget, setAvatarTarget] = useState<{ namespace: string; slug: string; name: string } | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<{ namespace: string; slug: string; name: string } | null>(null)
   const [unarchiveTarget, setUnarchiveTarget] = useState<{ namespace: string; slug: string; name: string } | null>(null)
   const [withdrawTarget, setWithdrawTarget] = useState<{ namespace: string; slug: string; name: string; version: string } | null>(null)
@@ -382,11 +380,14 @@ export function MySkillsPage() {
                     className={`p-5 group animate-fade-up delay-${Math.min(idx + 1, 6)} ${filter === 'HIDDEN' ? '' : 'cursor-pointer'}`}
                     onClick={filter === 'HIDDEN' ? undefined : () => handleSkillClick(skill.namespace, skill.slug)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold font-heading text-lg mb-1 group-hover:text-primary transition-colors">
-                          {skill.displayName}
-                        </h3>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-3 flex items-center gap-3">
+                          <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
+                          <h3 className="min-w-0 break-words font-heading text-lg font-semibold group-hover:text-primary transition-colors">
+                            {skill.displayName}
+                          </h3>
+                        </div>
                         {skill.summary && (
                           <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{skill.summary}</p>
                         )}
@@ -423,11 +424,7 @@ export function MySkillsPage() {
                           ) : null}
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 pl-4">
-                        {filter !== 'HIDDEN' && <Button size="sm" variant="outline" onClick={event => {
-                          event.stopPropagation()
-                          setAvatarTarget({ namespace: skill.namespace, slug: skill.slug, name: skill.displayName })
-                        }}>{t('skillAvatar.manage')}</Button>}
+                      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:max-w-[45%] sm:justify-end">
                         {canRestoreHidden ? (
                           <Button
                             size="sm"
@@ -544,13 +541,6 @@ export function MySkillsPage() {
           }
         />
       )}
-
-      <Dialog open={!!avatarTarget} onOpenChange={open => { if (!open) setAvatarTarget(null) }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t('skillAvatar.manage')}</DialogTitle><DialogDescription>{avatarTarget?.name}</DialogDescription></DialogHeader>
-          {avatarTarget && <SkillAvatarManager namespace={avatarTarget.namespace} slug={avatarTarget.slug} name={avatarTarget.name} />}
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={!!restoreHiddenTarget}

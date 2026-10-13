@@ -1833,7 +1833,12 @@
     "frontmatterFailedTitle": "SKILL.md format is invalid",
     "frontmatterFailedDescription": "Please check the YAML frontmatter at the top of SKILL.md. If a field value contains a colon, wrap it in quotes.",
     "selectRequired": "Please select namespace and file",
-    "folderPackagingFailed": "Could not package the selected folder. Make sure it contains files."
+    "folderPackagingFailed": "Could not package the selected folder. Make sure it contains files.",
+    "updateTitle": "Update skill",
+    "updateSubtitle": "Save avatar changes independently, or upload a package to publish a new version.",
+    "optionalPackage": "A package is optional when changing only the avatar.",
+    "saveAvatar": "Save avatar",
+    "avatarSaved": "Avatar changes submitted"
   },
   "toast": {
     "success": "Success",
@@ -2667,6 +2672,11 @@
       "PASSED": "Machine review passed",
       "BLOCKED": "Machine review blocked",
       "ERROR": "Machine review failed"
-    }
+    },
+    "cropTitle": "Crop avatar",
+    "cropConfirm": "Confirm and upload",
+    "change": "Change image",
+    "stagedReady": "Uploaded; applied after submission",
+    "removedDraft": "Removed after submission"
   }
 }

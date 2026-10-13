@@ -334,6 +334,15 @@ describe('SkillDetailPage', () => {
     useSkillFileMock.mockReturnValue({ data: null, isLoading: false, error: null })
   })
 
+  it('shows the avatar once beside the title, without an owner management section', () => {
+    useSkillDetailMock.mockReturnValue({ data: createSkill({ avatarUrl: '/approved-avatar.png' }), isLoading: false, isFetching: false, error: null })
+    const view = render(<SkillDetailPage />)
+    expect(view.container.querySelectorAll('img[src="/approved-avatar.png"]')).toHaveLength(1)
+    expect(screen.queryByText('skillAvatar.detailHelp')).toBeNull()
+    expect(screen.queryByText('skillAvatar.title')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'skillAvatar.manage' })).toBeNull()
+  })
+
   it('offers a published team version for review against the current global version', async () => {
     routeParams.namespace = 'team-ai'
     useSkillDetailMock.mockReturnValue({

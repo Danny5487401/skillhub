@@ -1832,7 +1832,12 @@
     "frontmatterFailedTitle": "SKILL.md 格式有误",
     "frontmatterFailedDescription": "请检查 SKILL.md 顶部 frontmatter 的 YAML 格式。若字段值中包含冒号，请用引号包裹。",
     "selectRequired": "请选择命名空间和文件",
-    "folderPackagingFailed": "无法打包所选文件夹，请确认其中包含文件。"
+    "folderPackagingFailed": "无法打包所选文件夹，请确认其中包含文件。",
+    "updateTitle": "更新技能",
+    "updateSubtitle": "头像可单独保存；上传技能包将发布新版本。",
+    "optionalPackage": "仅更新头像时无需上传技能包。",
+    "saveAvatar": "保存头像",
+    "avatarSaved": "头像修改已提交"
   },
   "toast": {
     "success": "成功",
@@ -2666,6 +2671,11 @@
       "PASSED": "机器审核通过",
       "BLOCKED": "机器审核阻止",
       "ERROR": "机器审核失败"
-    }
+    },
+    "cropTitle": "裁剪头像",
+    "cropConfirm": "确认并上传",
+    "change": "更换图片",
+    "stagedReady": "已上传，提交后生效",
+    "removedDraft": "提交后移除头像"
   }
 }

@@ -101,6 +101,7 @@ vi.mock('@/shared/lib/toast', () => ({
 }))
 
 vi.mock('@/api/client', () => ({
+  buildApiUrl: (url: string) => url,
   ApiError: class ApiError extends Error {
     serverMessageKey?: string
   },
@@ -161,6 +162,14 @@ describe('MySkillsPage', () => {
         visibility: 'PRIVATE',
       },
     })
+  })
+
+  it('displays the active avatar beside the skill name and exposes only the existing update entry', () => {
+    useMySkillsMock.mockReturnValue({ data: { items: [{ id: 1, displayName: 'Team Agent', namespace: 'team-ai', slug: 'team-agent', avatarUrl: '/skill-avatar.png', status: 'PUBLISHED', downloadCount: 0 }], total: 1 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(html).toContain('src="/skill-avatar.png"')
+    expect(buttonRecords.some(button => button.label === 'skillAvatar.manage')).toBe(false)
+    expect(buttonRecords.some(button => button.label === 'mySkills.update')).toBe(true)
   })
 
   it('does not render update action for archived skills', () => {

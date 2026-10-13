@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ publish: vi.fn(), navigate: vi.fn(), search: { namespace: 'team', visibility: 'PUBLIC', updateSkill: 'foo' } }))
-vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: { avatarUrl: '/owner-active' }, isLoading: false, isError: false }) }))
+const mocks = vi.hoisted(() => ({ publish: vi.fn(), navigate: vi.fn(), submit: vi.fn(), remove: vi.fn(), refresh: vi.fn(), search: { namespace: 'team', visibility: 'PUBLIC', updateSkill: 'foo', resubmitSkill: '' } }))
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mocks.refresh }), useQuery: () => ({ data: { avatarUrl: '/owner-active' }, isLoading: false, isError: false }) }))
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => mocks.navigate, useSearch: () => mocks.search }))
 vi.mock('react-i18next', async () => ({ ...await vi.importActual<typeof import('react-i18next')>('react-i18next'), useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@/shared/hooks/use-skill-queries', () => ({
@@ -21,10 +21,12 @@ vi.mock('@/features/skill/skill-avatar-editor', () => ({
 }))
 vi.mock('@/shared/lib/navigate-after-overlays', () => ({ navigateAfterOverlays: (fn: () => void) => fn() }))
 vi.mock('@/shared/lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('@/features/skill/skill-avatar-manager', () => ({ SkillAvatarManager: () => null }))
+vi.mock('@/api/client', async () => ({ ...await vi.importActual<typeof import('@/api/client')>('@/api/client'), skillAvatarApi: { submit: mocks.submit, delete: mocks.remove } }))
 import { PublishPage } from './publish'
 
 describe('Publish avatar submission', () => {
-  beforeEach(() => { mocks.publish.mockReset(); mocks.navigate.mockReset(); mocks.search.updateSkill = 'foo' })
+  beforeEach(() => { mocks.publish.mockReset(); mocks.navigate.mockReset(); mocks.search.updateSkill = 'foo'; mocks.search.resubmitSkill = ''; mocks.submit.mockReset(); mocks.remove.mockReset(); mocks.refresh.mockReset(); mocks.refresh.mockResolvedValue(undefined) })
   afterEach(cleanup)
 
   it('blocks publishing a selected image until staged upload completes', async () => {
@@ -78,6 +80,68 @@ describe('Publish avatar submission', () => {
     view.rerender(<PublishPage />)
     fireEvent.click(screen.getByRole('button', { name: 'publish.confirm' }))
     await waitFor(() => expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({ avatarAction: 'KEEP', avatarUploadId: undefined, expectedSlug: 'bar' })))
+  })
+
+  it('saves only an avatar through the existing API, without publishing a version, then refreshes caches', async () => {
+    mocks.submit.mockResolvedValue({ candidateStatus: 'PENDING' })
+    render(<PublishPage />)
+    expect(screen.getByRole('button', { name: 'publish.saveAvatar' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.click(screen.getByText('image uploaded'))
+    fireEvent.click(screen.getByRole('button', { name: 'publish.saveAvatar' }))
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalled())
+    expect(mocks.submit).toHaveBeenCalledWith('team', 'foo', 'private-reference')
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.refresh.mock.calls.map(([arg]) => arg.queryKey)).toEqual([
+      ['skills'], ['skill-avatar', 'team', 'foo'], ['skill-avatar-review'], ['reviews'],
+    ])
+  })
+
+  it('waits for cache refresh and ignores a second save while the request is pending', async () => {
+    let finish!: () => void
+    mocks.submit.mockReturnValue(new Promise<void>(resolve => { finish = resolve }))
+    let finishRefresh!: () => void
+    mocks.refresh.mockReturnValue(new Promise<void>(resolve => { finishRefresh = resolve }))
+    render(<PublishPage />)
+    fireEvent.click(screen.getByText('image uploaded'))
+    fireEvent.click(screen.getByRole('button', { name: 'publish.saveAvatar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'publish.publishing' }))
+    expect(mocks.submit).toHaveBeenCalledTimes(1)
+    finish()
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
+    expect(mocks.navigate).not.toHaveBeenCalled()
+    finishRefresh()
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalled())
+  })
+
+  it('keeps an avatar-only upload reference after failure so it can be retried', async () => {
+    mocks.submit.mockRejectedValueOnce(new Error('503')).mockResolvedValueOnce({ candidateStatus: 'PENDING' })
+    render(<PublishPage />)
+    fireEvent.click(screen.getByText('image uploaded'))
+    fireEvent.click(screen.getByRole('button', { name: 'publish.saveAvatar' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'publish.publishing' })).toBeNull())
+    expect(mocks.navigate).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'publish.saveAvatar' }))
+    await waitFor(() => expect(mocks.submit).toHaveBeenCalledTimes(2))
+    expect(mocks.submit.mock.calls[1]).toEqual(mocks.submit.mock.calls[0])
+  })
+
+  it('removes only after save and does not create a skill version', async () => {
+    mocks.remove.mockResolvedValue(undefined)
+    render(<PublishPage />)
+    fireEvent.click(screen.getByText('remove draft'))
+    expect(mocks.remove).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'publish.saveAvatar' }))
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith('team', 'foo'))
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
+  it.each(['create', 'resubmit'])('still requires a package for %s', mode => {
+    mocks.search.updateSkill = ''
+    if (mode === 'resubmit') mocks.search.resubmitSkill = 'foo'
+    render(<PublishPage />)
+    fireEvent.click(screen.getByText('image uploaded'))
+    expect(screen.getByRole('button', { name: 'publish.confirm' }).hasAttribute('disabled')).toBe(true)
+    expect(mocks.submit).not.toHaveBeenCalled()
   })
 
 })

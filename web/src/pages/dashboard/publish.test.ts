@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const useSearchMock = vi.fn()
 const selectRecords: Array<{ value?: string }> = []
 
-vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: null, isLoading: false, isError: false }) }))
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }), useQuery: () => ({ data: null, isLoading: false, isError: false }) }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
