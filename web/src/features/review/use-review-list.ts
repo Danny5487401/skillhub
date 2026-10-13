@@ -34,6 +34,7 @@ export function useReviewList(
   return useQuery({
     queryKey: ['reviews', status, namespaceId, page, size, sortDirection],
     queryFn: () => getReviewList(status, namespaceId, page, size, sortDirection),
+    staleTime: 0,
     enabled: enabled && (namespaceId === undefined || namespaceId > 0),
   })
 }
