@@ -34,6 +34,10 @@ describe('InvitationControls', () => {
     api.createInvitation.mockRejectedValue(new Error('unavailable'))
     api.revokeInvitation.mockRejectedValue(new Error('unavailable'))
     const dialog = await openConfirmation(action)
+    if (action === 'replace') {
+      expect(api.invitationStatus).toHaveBeenCalledTimes(2)
+      expect(api.createInvitation).not.toHaveBeenCalled()
+    }
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'dialog.confirm' }))
 
@@ -41,4 +45,37 @@ describe('InvitationControls', () => {
     expect(screen.getByRole('alert').textContent).toBe('invitation.error')
     expect(action === 'replace' ? api.createInvitation : api.revokeInvitation).toHaveBeenCalledTimes(1)
   })
+
+  it.each(['consumed', 'expired'])('creates without a replacement prompt when the cached link was %s', async () => {
+    api.invitationStatus.mockResolvedValueOnce({ active: true }).mockResolvedValue({ active: false })
+    api.createInvitation.mockImplementation(() => new Promise(() => {}))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><InvitationControls slug="team" /></QueryClientProvider>)
+    const createButton = screen.getByRole('button', { name: 'invitation.create' })
+    await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false))
+    expect(screen.getByRole('button', { name: 'invitation.revoke' })).toBeTruthy()
+
+    fireEvent.click(createButton)
+
+    await waitFor(() => expect(api.createInvitation).toHaveBeenCalledWith('team', false))
+    expect(api.invitationStatus).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('does not create or confirm replacement when the fresh status fails despite cached active data', async () => {
+    api.invitationStatus.mockResolvedValueOnce({ active: true }).mockRejectedValue(new Error('unavailable'))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><InvitationControls slug="team" /></QueryClientProvider>)
+    const createButton = screen.getByRole('button', { name: 'invitation.create' })
+    await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false))
+
+    fireEvent.click(createButton)
+
+    await screen.findByRole('alert')
+    expect(api.invitationStatus).toHaveBeenCalledTimes(2)
+    expect(api.createInvitation).not.toHaveBeenCalled()
+    expect(api.revokeInvitation).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
 })

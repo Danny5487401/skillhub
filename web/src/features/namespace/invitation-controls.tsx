@@ -41,9 +41,11 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
     },
   })
   const handleCreate = async () => {
-    const current = compact ? (await status.refetch()).data : status.data
-    if (current?.active) setConfirm('replace')
-    else if (current) create.mutate(false)
+    const result = await status.refetch()
+    if (result.isError || !result.data) return
+    const current = result.data
+    if (current.active) setConfirm('replace')
+    else create.mutate(false)
   }
   return (
     <div id={compact ? undefined : 'invite'} className="space-y-2 scroll-mt-24" onClick={compact ? (event) => event.stopPropagation() : undefined}>
