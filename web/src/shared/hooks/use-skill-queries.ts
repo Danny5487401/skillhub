@@ -150,6 +150,7 @@ export function usePublishSkill() {
         queryClient.invalidateQueries({ queryKey: ['skills'] }),
         queryClient.invalidateQueries({ queryKey: ['skill-avatar', result.namespace, result.slug] }),
         queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews'] }),
       ])
     },
   })

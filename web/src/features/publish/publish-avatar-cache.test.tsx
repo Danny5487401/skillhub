@@ -17,6 +17,9 @@ describe('publishing refreshes owner avatar state', () => {
     client.setQueryData(key, { avatarUrl: '/old-avatar' })
     client.setQueryData(['skill-avatar', 'other-team', 'bar'], { avatarUrl: '/unrelated' })
     client.setQueryData(['skill-avatar-review'], [])
+    const reviewsKey = ['reviews', 'PENDING', 7, 0, 20, 'DESC']
+    client.setQueryData(reviewsKey, { items: [] })
+    const loadReviews = vi.fn().mockResolvedValue({ items: [{ skillSlug: 'foo', version: '1.1.0' }] })
     const loadQueue = vi.fn().mockResolvedValue([{ candidateId: 42 }])
     const loadAvatar = vi.fn().mockResolvedValue({ avatarUrl: null })
     transport.fetchJson.mockResolvedValue({ namespace: 'team', slug: 'foo', version: '1.1.0', status: 'PENDING_REVIEW' })
@@ -24,6 +27,7 @@ describe('publishing refreshes owner avatar state', () => {
     const hook = renderHook(() => {
       useQuery({ queryKey: key, queryFn: loadAvatar, staleTime: Infinity })
       useQuery({ queryKey: ['skill-avatar-review'], queryFn: loadQueue, staleTime: Infinity })
+      useQuery({ queryKey: reviewsKey, queryFn: loadReviews, staleTime: Infinity })
       return usePublishSkill()
     }, { wrapper })
     expect(loadAvatar).not.toHaveBeenCalled()
@@ -33,6 +37,7 @@ describe('publishing refreshes owner avatar state', () => {
     await waitFor(() => expect(client.getQueryData(key)).toEqual({ avatarUrl: null }))
     expect(loadAvatar).toHaveBeenCalledOnce()
     expect(client.getQueryData(['skill-avatar-review'])).toEqual([{ candidateId: 42 }])
+    expect(client.getQueryData(reviewsKey)).toEqual({ items: [{ skillSlug: 'foo', version: '1.1.0' }] })
     expect(client.getQueryData(['skill-avatar', 'other-team', 'bar'])).toEqual({ avatarUrl: '/unrelated' })
     expect(client.getQueryState(['skill-avatar', 'other-team', 'bar'])?.isInvalidated).toBe(false)
   })
