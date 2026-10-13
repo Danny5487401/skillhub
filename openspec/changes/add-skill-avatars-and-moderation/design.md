@@ -51,3 +51,5 @@
 - 弹窗取消／关闭／ESC恢复打开前草稿，上传确认成功后关闭弹窗并展示小预览；成功上传仍需父页面最终提交。更新页仅展示所有者需要处理的待审／失败／驳回信息及原有重试、申诉动作，保持治理闭环。
 
 组件接入方式：仓库已有 `web/components.json`，本地 `shared/ui/Button`、`Dialog` 沿用 shadcn 的源码分发／组件组合方式，底层为 Radix 与 Tailwind。当前为 Tailwind 3 和旧 `default` 风格；本轮复用现有封装与主题，不重新执行 init，也不覆盖已有 Portal／焦点／主题定制。头像选择由本地预览、Button、Dialog 和 React Image Crop 组合，shadcn Avatar 的展示职责与图片裁剪／上传业务分开。
+
+删除头像后的展示闭环：移除成功时，除当前头像状态外，还须等待已缓存但未挂载的技能列表／详情更新，避免返回列表短暂读取已删除的头像地址。本轮仅 REMOVE 使用 `refetchType: all`，KEEP／REPLACE沿用 active 刷新；回归用无 observer 的真实 QueryClient 数据验证刷新完成后再导航。弹窗高度约束设在 ReactCrop 根元素，以使库的图片继承明确的 `min(320px,45vh)`，并用实际浏览器测量验证。

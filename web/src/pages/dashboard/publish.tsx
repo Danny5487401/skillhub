@@ -109,7 +109,7 @@ export function PublishPage() {
         if (avatarEdit.action === 'REMOVE') await skillAvatarApi.delete(namespaceSlug, updateSlug)
         else await skillAvatarApi.submit(namespaceSlug, updateSlug, avatarEdit.uploadId!)
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['skills'] }),
+          queryClient.invalidateQueries({ queryKey: ['skills'], refetchType: avatarEdit.action === 'REMOVE' ? 'all' : 'active' }),
           queryClient.invalidateQueries({ queryKey: ['skill-avatar', namespaceSlug, updateSlug] }),
           queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
           queryClient.invalidateQueries({ queryKey: ['reviews'] }),

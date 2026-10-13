@@ -41,4 +41,24 @@ describe('publishing refreshes owner avatar state', () => {
     expect(client.getQueryData(['skill-avatar', 'other-team', 'bar'])).toEqual({ avatarUrl: '/unrelated' })
     expect(client.getQueryState(['skill-avatar', 'other-team', 'bar'])?.isInvalidated).toBe(false)
   })
+  it.each(['REMOVE', 'KEEP', 'REPLACE'] as const)('uses %s refresh semantics for cached inactive MySkills and detail queries', async (avatarAction) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    const myKey = ['skills', 'my', { q: 'foo' }]
+    const detailKey = ['skills', 'team', 'foo', 'en']
+    const myLoader = vi.fn().mockResolvedValueOnce({ items: [{ slug: 'foo', avatarUrl: '/old-avatar' }] }).mockResolvedValue({ items: [{ slug: 'foo', avatarUrl: null }] })
+    const detailLoader = vi.fn().mockResolvedValueOnce({ slug: 'foo', avatarUrl: '/old-avatar' }).mockResolvedValue({ slug: 'foo', avatarUrl: null })
+    await client.fetchQuery({ queryKey: myKey, queryFn: myLoader })
+    await client.fetchQuery({ queryKey: detailKey, queryFn: detailLoader })
+    expect(client.getQueryCache().find({ queryKey: myKey })?.getObserversCount()).toBe(0)
+    expect(client.getQueryCache().find({ queryKey: detailKey })?.getObserversCount()).toBe(0)
+    transport.fetchJson.mockResolvedValue({ namespace: 'team', slug: 'foo', version: '1.1.0', status: 'PENDING_REVIEW' })
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    const hook = renderHook(() => usePublishSkill(), { wrapper })
+    await act(() => hook.result.current.mutateAsync({ namespace: 'team', file: new File(['zip'], 'skill.zip'), visibility: 'PUBLIC', avatarAction }))
+    expect(client.getQueryData(myKey)).toEqual({ items: [{ slug: 'foo', avatarUrl: avatarAction === 'REMOVE' ? null : '/old-avatar' }] })
+    expect(client.getQueryData(detailKey)).toEqual({ slug: 'foo', avatarUrl: avatarAction === 'REMOVE' ? null : '/old-avatar' })
+    expect(myLoader).toHaveBeenCalledTimes(avatarAction === 'REMOVE' ? 2 : 1)
+    expect(detailLoader).toHaveBeenCalledTimes(avatarAction === 'REMOVE' ? 2 : 1)
+  })
+
 })

@@ -144,7 +144,7 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
         </DialogHeader>
         {sourceUrl && <div className="flex h-80 max-h-[min(320px,45vh)] min-w-0 items-center justify-center overflow-hidden rounded-lg bg-muted/40">
           <ReactCrop crop={crop} aspect={1} keepSelection minWidth={16} minHeight={16}
-            className="max-h-full max-w-full"
+            className="max-h-[min(320px,45vh)] max-w-full"
             disabled={disabled || state === 'UPLOADING'}
             onChange={(_, percentCrop) => setCrop(percentCrop)}
             ariaLabels={{
@@ -165,7 +165,7 @@ export function SkillAvatarEditor({ name, currentUrl, canRemove = false, disable
         {state === 'UPLOADING' && <p role="status" className="text-sm text-muted-foreground">{t('skillAvatar.uploadStates.UPLOADING')}</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter className="flex-row justify-end">
-          <Button type="button" variant="outline" onClick={cancelSelection}>{t('common.cancel')}</Button>
+          <Button type="button" variant="outline" onClick={cancelSelection}>{t('dialog.cancel')}</Button>
           <Button type="button" disabled={disabled || state === 'UPLOADING' || !crop?.width || !crop.height} onClick={() => void upload()}>{t(state === 'ERROR' ? 'skillAvatar.uploadRetry' : 'skillAvatar.cropConfirm')}</Button>
         </DialogFooter>
       </DialogContent>

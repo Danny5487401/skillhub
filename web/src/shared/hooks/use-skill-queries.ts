@@ -145,9 +145,9 @@ export function usePublishSkill() {
     meta: {
       skipGlobalErrorHandler: true,
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, variables) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['skills'] }),
+        queryClient.invalidateQueries({ queryKey: ['skills'], refetchType: variables.avatarAction === 'REMOVE' ? 'all' : 'active' }),
         queryClient.invalidateQueries({ queryKey: ['skill-avatar', result.namespace, result.slug] }),
         queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
         queryClient.invalidateQueries({ queryKey: ['reviews'] }),

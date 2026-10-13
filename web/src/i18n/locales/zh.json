@@ -2600,7 +2600,7 @@
     }
   },
   "skillAvatar": {
-    "submittedNotice": "头像修改已单独提交，可在“我的技能 → 管理头像”查看结果。",
+    "submittedNotice": "头像修改已提交，可在“我的技能 → 更新”查看审核状态。",
     "removedNotice": "头像已移除，恢复首字母。",
     "detailHelp": "头像与技能内容分别审核。如需修改、申诉或重试，请在“我的技能”选择“管理头像”。",
     "optionalTitle": "技能头像（选填）",

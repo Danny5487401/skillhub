@@ -2601,7 +2601,7 @@
     }
   },
   "skillAvatar": {
-    "submittedNotice": "Avatar submitted separately. Check its review status under My skills → Manage avatar.",
+    "submittedNotice": "Avatar changes submitted. View the review status under My skills → Update.",
     "removedNotice": "Avatar removed; the first letter is shown.",
     "detailHelp": "Avatar and skill content are reviewed separately. To change, appeal or retry, select Manage avatar in My skills.",
     "optionalTitle": "Skill avatar (optional)",

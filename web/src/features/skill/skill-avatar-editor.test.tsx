@@ -2,9 +2,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({ stage: vi.fn() }))
+const translation = vi.hoisted(() => ({ t: (key: string) => key }))
 vi.mock('@/api/client', () => ({ skillAvatarApi: api, buildApiUrl: (url: string) => url }))
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translation.t }) }))
 import { SkillAvatarEditor } from './skill-avatar-editor'
+import en from '@/i18n/locales/en.json'
+import zh from '@/i18n/locales/zh.json'
+import ru from '@/i18n/locales/ru.json'
 
 async function selectImage() {
   fireEvent.change(screen.getByLabelText('skillAvatar.choose'), { target: { files: [new File(['image'], 'avatar.png', { type: 'image/png' })] } })
@@ -22,6 +26,7 @@ const uploaded = { uploadId: 'private-upload-1', previewUrl: '/private/preview',
 describe('SkillAvatarEditor staged uploads', () => {
   beforeEach(() => {
     api.stage.mockReset()
+    translation.t = (key: string) => key
     vi.stubGlobal('PointerEvent', MouseEvent)
     vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1024)
     vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(768)
@@ -33,6 +38,21 @@ describe('SkillAvatarEditor staged uploads', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(callback => callback(new Blob(['cropped'], { type: 'image/png' })))
   })
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+  it.each([{ locale: 'en', messages: en }, { locale: 'zh', messages: zh }, { locale: 'ru', messages: ru }])('renders the cancel action from the actual $locale messages', async ({ messages }) => {
+    translation.t = key => {
+      let value: unknown = messages
+      for (const part of key.split('.')) value = value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined
+      return typeof value === 'string' ? value : key
+    }
+    const change = vi.fn()
+    render(<SkillAvatarEditor name="Foo" onChange={change} />)
+    fireEvent.change(screen.getByLabelText(messages.skillAvatar.choose), { target: { files: [new File(['image'], 'avatar.png', { type: 'image/png' })] } })
+    const dialog = await screen.findByRole('dialog', { name: messages.skillAvatar.cropTitle })
+    fireEvent.click(within(dialog).getByRole('button', { name: messages.dialog.cancel }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(change).toHaveBeenLastCalledWith({ action: 'KEEP', ready: true })
+  })
 
   it('exports the moved library selection rather than always cropping the image center', async () => {
     api.stage.mockResolvedValue(uploaded)
@@ -74,7 +94,7 @@ describe('SkillAvatarEditor staged uploads', () => {
     await selectImage()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropConfirm' }))
     await waitFor(() => expect(finish).toBeTypeOf('function'))
-    fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'dialog.cancel' }))
     finish(new Blob(['cropped'], { type: 'image/png' }))
     await waitFor(() => expect(change).toHaveBeenLastCalledWith({ action: 'KEEP', ready: true }))
     expect(api.stage).not.toHaveBeenCalled()
@@ -162,7 +182,7 @@ describe('SkillAvatarEditor staged uploads', () => {
     await selectImage()
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropConfirm' }))
     await waitFor(() => expect(api.stage).toHaveBeenCalledOnce())
-    if (action === 'cancel') fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }))
+    if (action === 'cancel') fireEvent.click(screen.getByRole('button', { name: 'dialog.cancel' }))
     else fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     task.resolve(uploaded)
     await waitFor(() => expect(change).toHaveBeenLastCalledWith({ action: 'KEEP', ready: true }))
@@ -209,7 +229,7 @@ describe('SkillAvatarEditor staged uploads', () => {
     fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.cropConfirm' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await selectImage()
-    fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'dialog.cancel' }))
     expect(change).toHaveBeenLastCalledWith({ action: 'REPLACE', uploadId: uploaded.uploadId, ready: true })
     expect(screen.getByAltText('skillAvatar.cropPreview').getAttribute('src')).toBe(uploaded.previewUrl)
     expect(api.stage).toHaveBeenCalledOnce()
