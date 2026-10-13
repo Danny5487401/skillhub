@@ -145,8 +145,12 @@ export function usePublishSkill() {
     meta: {
       skipGlobalErrorHandler: true,
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills'] })
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['skills'] }),
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar', result.namespace, result.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
+      ])
     },
   })
 }

@@ -27,7 +27,7 @@ export function SkillAvatarManager({ namespace, slug, name = slug, readOnly = fa
         setEdit(KEEP_AVATAR)
         setEditorVersion(value => value + 1)
       }
-      await Promise.all([queryClient.invalidateQueries({ queryKey: key }), queryClient.invalidateQueries({ queryKey: ['skill'] }), queryClient.invalidateQueries({ queryKey: ['skills'] })])
+      await Promise.all([queryClient.invalidateQueries({ queryKey: key }), queryClient.invalidateQueries({ queryKey: ['skill'] }), queryClient.invalidateQueries({ queryKey: ['skills'] }), queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] })])
     },
     onError: (cause) => setError(cause instanceof Error ? cause.message : t('skillAvatar.failed')),
   })

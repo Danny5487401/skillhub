@@ -15,7 +15,14 @@ export function SkillAvatarReviewQueue({ namespace }: { namespace?: string }) {
   const decide = useMutation({
     mutationFn: (input: { namespace: string; slug: string; candidateId: number; approved: boolean; reason: string }) =>
       skillAvatarApi.decide(input.namespace, input.slug, input.candidateId, input.approved, input.reason),
-    onSuccess: async () => { setError(''); await queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }) },
+    onSuccess: async (_data, input) => {
+      setError('')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar-review'] }),
+        queryClient.invalidateQueries({ queryKey: ['skill-avatar', input.namespace, input.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['skills'] }),
+      ])
+    },
     onError: (cause) => setError(cause instanceof Error ? cause.message : t('skillAvatar.failed')),
   })
   const items = queue.data?.filter((item) => !namespace || item.namespace === namespace) ?? []
