@@ -1931,6 +1931,45 @@ class SkillPublishServiceTest {
         verify(skillVersionRepository, never()).save(any());
     }
 
+    @Test
+    void publishesDisplayNameWithoutChangingSlugOrVersionMetadataName() throws Exception {
+        PublishFixture fixture = stubValidPublishInputs("test-ns", "user-100", "test-skill", "test-skill", "1.0.0", false);
+        when(skillMetadataParser.parse(anyString())).thenReturn(new SkillMetadata(
+                "test-skill", "Test", "1.0.0", "Body",
+                Map.of("metadata", Map.of("display-name", "示例技能"))));
+
+        SkillPublishService.PublishResult result = service.publishFromEntries(
+                "test-ns", fixture.entries(), "user-100", SkillVisibility.PUBLIC, Set.of("SUPER_ADMIN"));
+
+        assertEquals("test-skill", result.slug());
+        ArgumentCaptor<Skill> saved = ArgumentCaptor.forClass(Skill.class);
+        verify(skillRepository).save(saved.capture());
+        assertEquals("示例技能", saved.getValue().getDisplayName());
+        JsonNode snapshot = objectMapper.readTree(result.version().getParsedMetadataJson());
+        assertEquals("test-skill", snapshot.path("name").asText());
+        assertEquals("示例技能", snapshot.path("frontmatter").path("metadata").path("display-name").asText());
+    }
+
+    @Test
+    void pendingUpdateKeepsPublishedDisplayNameAndSummary() throws Exception {
+        PublishFixture fixture = stubValidPublishInputs("test-ns", "user-100", "test-skill", "test-skill", "2.0.0", true);
+        Skill skill = skillRepository.findByNamespaceIdAndSlugAndOwnerId(1L, "test-skill", "user-100").orElseThrow();
+        skill.setLatestVersionId(9L);
+        skill.setDisplayName("已审核的标题");
+        skill.setSummary("Published summary");
+        when(skillMetadataParser.parse(anyString())).thenReturn(new SkillMetadata(
+                "test-skill", "Pending summary", "2.0.0", "Body",
+                Map.of("metadata", Map.of("display-name", "待审核的标题"))));
+
+        SkillPublishService.PublishResult result = service.publishFromEntries(
+                "test-ns", fixture.entries(), "user-100", SkillVisibility.PUBLIC, Set.of());
+
+        assertEquals(SkillVersionStatus.PENDING_REVIEW, result.version().getStatus());
+        assertEquals("已审核的标题", skill.getDisplayName());
+        assertEquals("Published summary", skill.getSummary());
+        assertEquals(9L, skill.getLatestVersionId());
+    }
+
     private record PublishFixture(List<PackageEntry> entries) {
     }
 

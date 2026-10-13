@@ -68,6 +68,23 @@ version: 1.0.0
 Summarize the supplied text as numbered steps.
 ```
 
+如需在列表、搜索结果和详情页显示中文或其他易读名称，可添加可选的 `metadata.display-name`：
+
+```yaml
+---
+name: example-skill
+description: 用于演示的示例技能。
+metadata:
+  display-name: 示例技能
+  version: "1.0.0"
+---
+```
+
+`name` 仍用于生成 slug、安装坐标和链接；`metadata.display-name` 仅用于展示。
+展示名必须是字符串，去除首尾空白后最多 200 个字符；未填写、为 null 或空白时回退到 `name`。
+展示名随技能版本发布：已有公开版本的标题在更新审核通过后才改变。
+无需数据库迁移；已有技能可保持原 `name`，增加展示名后发布新版本。
+
 打包已有技能时，应一并保留其所需的脚本、参考文件、`agents/` 元数据和许可证文件。
 下一步发布命令的路径应指向该技能目录（本例为 `./my-skill`）。
 

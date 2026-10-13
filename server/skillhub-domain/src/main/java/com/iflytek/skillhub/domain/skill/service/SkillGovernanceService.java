@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.skill.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.audit.AuditDetail;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.event.SkillStatusChangedEvent;
@@ -17,12 +18,14 @@ import com.iflytek.skillhub.domain.skill.SkillStatus;
 import com.iflytek.skillhub.domain.skill.SkillVersion;
 import com.iflytek.skillhub.domain.skill.SkillVersionRepository;
 import com.iflytek.skillhub.domain.skill.SkillVersionStatus;
+import com.iflytek.skillhub.domain.skill.metadata.SkillMetadata;
 import com.iflytek.skillhub.storage.ObjectStorageService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -49,6 +52,7 @@ public class SkillGovernanceService {
     private final ApplicationEventPublisher eventPublisher;
     private final SecurityScanService securityScanService;
     private final SkillStorageDeletionCompensationService compensationService;
+    private final ObjectMapper objectMapper;
     private final Clock clock;
 
     public SkillGovernanceService(SkillRepository skillRepository,
@@ -60,6 +64,7 @@ public class SkillGovernanceService {
                                   ApplicationEventPublisher eventPublisher,
                                   SecurityScanService securityScanService,
                                   SkillStorageDeletionCompensationService compensationService,
+                                  ObjectMapper objectMapper,
                                   Clock clock) {
         this.skillRepository = skillRepository;
         this.skillVersionRepository = skillVersionRepository;
@@ -70,6 +75,7 @@ public class SkillGovernanceService {
         this.eventPublisher = eventPublisher;
         this.securityScanService = securityScanService;
         this.compensationService = compensationService;
+        this.objectMapper = objectMapper;
         this.clock = clock;
     }
 
@@ -305,7 +311,9 @@ public class SkillGovernanceService {
         SkillVersion saved = skillVersionRepository.save(version);
         skillRepository.findById(version.getSkillId()).ifPresent(skill -> {
             if (versionId.equals(skill.getLatestVersionId())) {
-                skill.setLatestVersionId(findLatestPublishedVersionId(skill.getId()));
+                Optional<SkillVersion> fallback = findLatestPublishedVersion(skill.getId());
+                skill.setLatestVersionId(fallback.map(SkillVersion::getId).orElse(null));
+                fallback.ifPresent(published -> applyPublishedMetadata(skill, published));
                 skill.setUpdatedBy(actorUserId);
                 skillRepository.save(skill);
             }
@@ -317,13 +325,29 @@ public class SkillGovernanceService {
     }
 
     private Long findLatestPublishedVersionId(Long skillId) {
+        return findLatestPublishedVersion(skillId).map(SkillVersion::getId).orElse(null);
+    }
+
+    private Optional<SkillVersion> findLatestPublishedVersion(Long skillId) {
         return skillVersionRepository.findBySkillIdAndStatus(skillId, SkillVersionStatus.PUBLISHED).stream()
                 .max(java.util.Comparator
                         .comparing(SkillVersion::getPublishedAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
                         .thenComparing(SkillVersion::getCreatedAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
-                        .thenComparing(SkillVersion::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
-                .map(SkillVersion::getId)
-                .orElse(null);
+                        .thenComparing(SkillVersion::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+    }
+
+    private void applyPublishedMetadata(Skill skill, SkillVersion version) {
+        String metadataJson = version.getParsedMetadataJson();
+        if (metadataJson == null || metadataJson.isBlank()) {
+            return;
+        }
+        try {
+            SkillMetadata metadata = objectMapper.readValue(metadataJson, SkillMetadata.class);
+            skill.setDisplayName(metadata.displayName());
+            skill.setSummary(metadata.description());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to deserialize skill metadata", e);
+        }
     }
 
     private void assertCanManageLifecycle(Skill skill,

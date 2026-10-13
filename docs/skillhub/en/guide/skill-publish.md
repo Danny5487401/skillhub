@@ -72,6 +72,26 @@ When packaging an existing skill, keep its required scripts, references,
 `agents/` metadata, and license files together. Pass that skill directory
 (`./my-skill` in this example) to the publish command below.
 
+To show a human-readable or localized title in lists, search results, and detail pages,
+add the optional `metadata.display-name` field:
+
+```yaml
+---
+name: example-skill
+description: An example skill for demonstration.
+metadata:
+  display-name: 示例技能
+  version: "1.0.0"
+---
+```
+
+`name` still determines the slug, installation coordinate, and links. The display name
+must be a string of at most 200 characters after trimming surrounding whitespace.
+Missing, null, or blank display names fall back to `name`. Titles follow the version's
+review lifecycle: an update awaiting review does not replace an existing published title.
+No database migration is needed; existing skills can keep their `name` and publish a new
+version with this optional metadata.
+
 2. **Publish via CLI (Recommended)**
 
 ```bash
