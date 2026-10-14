@@ -105,7 +105,7 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
         <div className="rounded-xl border bg-secondary/30 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="flex items-center gap-2 font-medium"><Link2 className="h-4 w-4" aria-hidden="true" />{t('invitation.link')}</span>
-            <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs font-medium">
+            <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-background px-2 py-0.5 text-xs font-medium">
               {status.isFetching ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
               {t(status.isError ? 'invitation.statusError' : status.isFetching ? 'invitation.statusLoading' : status.data?.active ? 'invitation.statusActive' : 'invitation.statusInactive')}
             </span>
@@ -114,8 +114,8 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
             <div className="mt-4 space-y-2">
               <label className="sr-only" htmlFor={linkId}>{t('invitation.link')}</label>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Input id={linkId} className="min-w-0 flex-1 bg-background font-mono text-xs" readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
-                <Button className="shrink-0" onClick={() => void copyLink(link)}><Copy className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.copy')}</Button>
+                <Input id={linkId} className="h-8 min-w-0 flex-1 bg-background font-mono text-xs" readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
+                <Button size="sm" className="shrink-0 gap-1.5 px-2.5" onClick={() => void copyLink(link)}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{t('invitation.copy')}</Button>
               </div>
               {expiresAt ? <p className="text-xs text-muted-foreground">{t('invitation.expiresAtLabel')}: {expiresAt}</p> : null}
               <p className="text-xs leading-relaxed text-muted-foreground">{t(storageUnavailable ? 'invitation.storageUnavailable' : 'invitation.localLinkHint')}</p>
@@ -123,10 +123,10 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
           ) : null}
           {!link && !status.isFetching && !status.isError && status.data?.active ? <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('invitation.activeUnavailable')}</p> : null}
           {!status.isError && !status.data?.active ? (
-            <div className="mt-4"><Button disabled={!user || status.isPending || status.isFetching || create.isPending} onClick={handleCreate}><Link2 className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.create')}</Button></div>
+            <div className="mt-4"><Button size="sm" className="gap-1.5 px-2.5" disabled={!user || status.isPending || status.isFetching || create.isPending} onClick={handleCreate}><Link2 className="h-3.5 w-3.5" aria-hidden="true" />{t('invitation.create')}</Button></div>
           ) : null}
         </div>
-      ) : <Button variant="outline" size="sm" disabled={!user || status.isFetching || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>}
+      ) : <Button variant="outline" size="sm" className="gap-1.5 px-2.5" disabled={!user || status.isFetching || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>}
       {!compact ? (
         <div className="space-y-3 text-sm">
           <p className="font-medium">{t('invitation.detailsTitle')}</p>
@@ -137,15 +137,15 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
       {(create.error || revoke.error || status.error) ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
           <p role="alert" className="text-sm text-destructive">{t('invitation.error')}</p>
-          {status.error ? <Button variant="outline" size="sm" disabled={status.isFetching} onClick={() => void status.refetch()}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.retry')}</Button> : null}
+          {status.error ? <Button variant="outline" size="sm" className="gap-1.5 px-2.5" disabled={status.isFetching} onClick={() => void status.refetch()}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />{t('invitation.retry')}</Button> : null}
         </div>
       ) : null}
       {!compact && !status.isError && status.data?.active ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
           <span className="text-xs text-muted-foreground">{t('invitation.managementTitle')}</span>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={!user || status.isFetching || create.isPending || revoke.isPending} onClick={handleCreate}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.replaceAction')}</Button>
-            <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={status.isFetching || revoke.isPending || create.isPending} onClick={() => setConfirm('revoke')}><Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.revoke')}</Button>
+            <Button variant="outline" size="sm" className="gap-1.5 px-2.5" disabled={!user || status.isFetching || create.isPending || revoke.isPending} onClick={handleCreate}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />{t('invitation.replaceAction')}</Button>
+            <Button variant="ghost" size="sm" className="gap-1.5 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={status.isFetching || revoke.isPending || create.isPending} onClick={() => setConfirm('revoke')}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />{t('invitation.revoke')}</Button>
           </div>
         </div>
       ) : null}
