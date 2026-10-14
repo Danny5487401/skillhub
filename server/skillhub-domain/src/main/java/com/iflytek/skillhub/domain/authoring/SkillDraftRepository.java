@@ -18,6 +18,8 @@ public interface SkillDraftRepository {
 
     List<SkillDraft> findByNamespaceId(Long namespaceId);
 
+    boolean existsByNamespaceId(Long namespaceId);
+
     /** Case-insensitive uniqueness of (owner, name) used at creation time. */
     Optional<SkillDraft> findByOwnerIdAndNameIgnoreCase(String ownerId, String name);
 

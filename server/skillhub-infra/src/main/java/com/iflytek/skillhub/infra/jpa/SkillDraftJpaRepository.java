@@ -23,6 +23,8 @@ public interface SkillDraftJpaRepository extends JpaRepository<SkillDraft, Long>
 
     List<SkillDraft> findByNamespaceId(Long namespaceId);
 
+    boolean existsByNamespaceId(Long namespaceId);
+
     Optional<SkillDraft> findByOwnerIdAndNameIgnoreCase(String ownerId, String name);
 
     boolean existsByIdAndOwnerId(Long id, String ownerId);

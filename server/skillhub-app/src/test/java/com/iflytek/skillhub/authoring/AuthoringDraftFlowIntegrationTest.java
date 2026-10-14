@@ -18,6 +18,8 @@ import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
+import com.iflytek.skillhub.domain.namespace.NamespaceService;
+import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.service.authoring.ValidationRunOrchestrator;
@@ -93,6 +95,7 @@ class AuthoringDraftFlowIntegrationTest {
     @Autowired private ValidationRunService runService;
     @Autowired private ValidationRunOrchestrator orchestrator;
     @Autowired private NamespaceRepository namespaceRepository;
+    @Autowired private NamespaceService namespaceService;
     @Autowired private NamespaceMemberRepository namespaceMemberRepository;
     @Autowired private UserAccountRepository userAccountRepository;
 
@@ -375,6 +378,26 @@ class AuthoringDraftFlowIntegrationTest {
                 storage.releaseRead.countDown();
             }
         }
+    }
+
+    @Test
+    void namespaceWithOnlyDraftRequiresDraftRemovalBeforeDeletion() {
+        Namespace namespace = namespaceService.createNamespace("draft-delete-team", "Draft Delete Team", null, USER);
+        SkillDraft draft = draftService.createDraft(namespace.getSlug(), USER, "namespace-delete-draft", null, null);
+
+        assertThat(namespaceService.canDelete(namespace, NamespaceRole.OWNER)).isFalse();
+        DomainBadRequestException conflict = assertThrows(DomainBadRequestException.class,
+                () -> namespaceService.deleteNamespace(namespace.getId(), USER));
+        assertThat(conflict.messageCode()).isEqualTo("error.namespace.delete.hasDependencies");
+        assertThat(namespaceRepository.findById(namespace.getId())).isPresent();
+        assertThat(draftService.readFile(draft.getId(), USER, "SKILL.md", null).asText())
+                .contains("name: namespace-delete-draft");
+
+        draftService.deleteDraft(draft.getId(), USER, null);
+        assertThat(namespaceService.canDelete(namespace, NamespaceRole.OWNER)).isTrue();
+        namespaceService.deleteNamespace(namespace.getId(), USER);
+        assertThat(namespaceRepository.findById(namespace.getId())).isEmpty();
+        assertThat(namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.getId(), USER)).isEmpty();
     }
 
     private <T> List<T> concurrently(int workers, Callable<T> action) throws Exception {
