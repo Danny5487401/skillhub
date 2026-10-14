@@ -1406,7 +1406,6 @@
     "invalid": "邀请链接无效或已失效，请联系空间管理员获取新链接。",
     "loading": "正在核对邀请…",
     "networkError": "连接失败，请重试。",
-    "retry": "重试",
     "namespace": "目标空间：{{name}}",
     "account": "当前账号：{{name}}",
     "permissions": "确认后，你将以 MEMBER 身份加入，可访问空间资源并发布技能。",
@@ -1416,7 +1415,19 @@
     "activeUnavailable": "当前邀请仍有效，但此标签页没有保存完整链接。可在创建链接的标签页复制，或确认生成新链接使旧链接失效。",
     "localLinkHint": "链接仅保存在当前账号的这个浏览器标签页；24 小时内可供一名新成员使用。",
     "copy": "复制链接",
-    "storageUnavailable": "浏览器未能保存链接，请现在复制；关闭此窗口或刷新后将无法恢复。"
+    "storageUnavailable": "浏览器未能保存链接，请现在复制；关闭此窗口或刷新后将无法恢复。",
+    "statusLoading": "正在获取邀请状态",
+    "statusActive": "邀请有效",
+    "statusInactive": "暂无有效邀请",
+    "detailsTitle": "加入规则",
+    "singleUse": "单次邀请：仅限一名新成员使用，有效期 24 小时。",
+    "memberAccess": "加入后获得成员权限，可访问空间内对成员开放的技能。",
+    "accessPolicy": "对方须先登录并通过平台现有准入，打开链接不会自动加入。",
+    "replaceAction": "替换邀请链接",
+    "managementTitle": "管理邀请",
+    "retry": "重新获取状态",
+    "expiresAtLabel": "到期时间",
+    "statusError": "邀请状态获取失败"
   },
   "members": {
     "title": "成员管理",

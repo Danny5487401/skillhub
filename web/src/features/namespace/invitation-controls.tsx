@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Copy, Link2, Loader2, RefreshCw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { getAppBaseUrl, namespaceApi } from '@/api/client'
 import { useAuth } from '@/features/auth/use-auth'
 import { ApiError } from '@/shared/lib/api-error'
@@ -13,7 +14,7 @@ import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 
 export function InvitationControls({ slug, compact = false }: { slug: string; compact?: boolean }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const linkId = useId()
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -33,27 +34,32 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
       const current = await namespaceApi.invitationStatus(slug)
       if (!current.active) {
         clearStoredToken()
-        return { active: false, token: null }
+        return { active: false, token: null, expiresAt: null }
       }
       let token = inMemoryToken.current?.key === storageKey ? inMemoryToken.current.token : null
       try { token = window.sessionStorage.getItem(storageKey) ?? token } catch { /* Use the current dialog's copy. */ }
-      if (!token) return { active: true, token: null }
+      if (!token) return { active: true, token: null, expiresAt: null }
+      let expiresAt: string | null = null
       try {
         const preview = await namespaceApi.previewInvitation(token)
+        expiresAt = preview.expiresAt
         if (preview.namespaceSlug !== slug || Date.parse(preview.expiresAt) <= Date.now()) {
           clearStoredToken()
-          return { active: true, token: null }
+          return { active: true, token: null, expiresAt: null }
         }
       } catch (error) {
         if (!(error instanceof ApiError) || error.status !== 404) throw error
         clearStoredToken()
-        return { active: true, token: null }
+        return { active: true, token: null, expiresAt: null }
       }
-      return { active: true, token }
+      return { active: true, token, expiresAt }
     },
   })
   const link = !status.isFetching && !status.isError && status.data?.token
     ? invitationUrl(resolvePublicRegistryUrl(getAppBaseUrl(), window.location.origin, BASE_PATH), status.data.token)
+    : null
+  const expiresAt = !status.isFetching && !status.isError && status.data?.expiresAt
+    ? new Intl.DateTimeFormat(i18n?.language ?? 'zh', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(status.data.expiresAt))
     : null
   const copyLink = async (url: string, replaced = false) => {
     try {
@@ -87,23 +93,55 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
     else create.mutate(false)
   }
   return (
-    <div id={compact ? undefined : 'invite'} className="space-y-2 scroll-mt-24" onClick={compact ? (event) => event.stopPropagation() : undefined}>
-      <div className="flex gap-2">
-        <Button variant="outline" size={compact ? 'sm' : 'default'} disabled={!user || (!compact && status.isPending) || status.isFetching || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>
-        {status.data?.active ? <Button variant="outline" disabled={revoke.isPending} onClick={() => setConfirm('revoke')}>{t('invitation.revoke')}</Button> : null}
-      </div>
-      {link ? (
-        <div className="space-y-1">
-          <label className="text-sm" htmlFor={linkId}>{t('invitation.link')}</label>
-          <div className="flex gap-2">
-            <Input id={linkId} readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
-            <Button variant="outline" onClick={() => void copyLink(link)}>{t('invitation.copy')}</Button>
+    <div id={compact ? undefined : 'invite'} className="space-y-5 scroll-mt-24" onClick={compact ? (event) => event.stopPropagation() : undefined}>
+      {!compact ? (
+        <div className="rounded-xl border bg-secondary/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-2 font-medium"><Link2 className="h-4 w-4" aria-hidden="true" />{t('invitation.link')}</span>
+            <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs font-medium">
+              {status.isFetching ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
+              {t(status.isError ? 'invitation.statusError' : status.isFetching ? 'invitation.statusLoading' : status.data?.active ? 'invitation.statusActive' : 'invitation.statusInactive')}
+            </span>
           </div>
-          <p className="text-xs text-muted-foreground">{t(storageUnavailable ? 'invitation.storageUnavailable' : 'invitation.localLinkHint')}</p>
+          {link ? (
+            <div className="mt-4 space-y-2">
+              <label className="sr-only" htmlFor={linkId}>{t('invitation.link')}</label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input id={linkId} className="min-w-0 flex-1 bg-background font-mono text-xs" readOnly value={link} onFocus={(event) => event.currentTarget.select()} />
+                <Button className="shrink-0" onClick={() => void copyLink(link)}><Copy className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.copy')}</Button>
+              </div>
+              {expiresAt ? <p className="text-xs text-muted-foreground">{t('invitation.expiresAtLabel')}: {expiresAt}</p> : null}
+              <p className="text-xs leading-relaxed text-muted-foreground">{t(storageUnavailable ? 'invitation.storageUnavailable' : 'invitation.localLinkHint')}</p>
+            </div>
+          ) : null}
+          {!link && !status.isFetching && !status.isError && status.data?.active ? <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('invitation.activeUnavailable')}</p> : null}
+          {!status.isError && !status.data?.active ? (
+            <div className="mt-4"><Button disabled={!user || status.isPending || status.isFetching || create.isPending} onClick={handleCreate}><Link2 className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.create')}</Button></div>
+          ) : null}
+        </div>
+      ) : <Button variant="outline" size="sm" disabled={!user || status.isFetching || create.isPending} onClick={handleCreate}>{t('invitation.create')}</Button>}
+      {!compact ? (
+        <div className="space-y-3 text-sm">
+          <p className="font-medium">{t('invitation.detailsTitle')}</p>
+          <div className="flex gap-3"><Users className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><p className="leading-relaxed text-muted-foreground">{t('invitation.singleUse')} {t('invitation.memberAccess')}</p></div>
+          <div className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><p className="leading-relaxed text-muted-foreground">{t('invitation.accessPolicy')}</p></div>
         </div>
       ) : null}
-      {!link && !status.isFetching && !status.isError && status.data?.active ? <p className="text-sm text-muted-foreground">{t('invitation.activeUnavailable')}</p> : null}
-      {(create.error || revoke.error || status.error) ? <p role="alert" className="text-sm text-destructive">{t('invitation.error')}</p> : null}
+      {(create.error || revoke.error || status.error) ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+          <p role="alert" className="text-sm text-destructive">{t('invitation.error')}</p>
+          {status.error ? <Button variant="outline" size="sm" disabled={status.isFetching} onClick={() => void status.refetch()}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.retry')}</Button> : null}
+        </div>
+      ) : null}
+      {!compact && !status.isError && status.data?.active ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+          <span className="text-xs text-muted-foreground">{t('invitation.managementTitle')}</span>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={!user || status.isFetching || create.isPending || revoke.isPending} onClick={handleCreate}><RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.replaceAction')}</Button>
+            <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={status.isFetching || revoke.isPending || create.isPending} onClick={() => setConfirm('revoke')}><Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />{t('invitation.revoke')}</Button>
+          </div>
+        </div>
+      ) : null}
       <ConfirmDialog open={confirm !== null} onOpenChange={(open) => { if (!open) setConfirm(null) }}
         title={t(confirm === 'revoke' ? 'invitation.revokeTitle' : 'invitation.replaceTitle')}
         description={t(confirm === 'revoke' ? 'invitation.revokeDescription' : 'invitation.replaceDescription')}

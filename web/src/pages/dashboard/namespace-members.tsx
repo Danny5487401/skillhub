@@ -180,9 +180,9 @@ export function NamespaceMembersPage() {
           {canManageMembers ? (
             <Dialog>
               <DialogTrigger asChild><Button variant="outline">{t('namespaceManagement.invite')}</Button></DialogTrigger>
-              <DialogContent>
+              <DialogContent className="w-[min(calc(100vw-2rem),40rem)] gap-5 p-5 sm:p-6">
                 <DialogTitle>{t('namespaceManagement.invite')}</DialogTitle>
-                <DialogDescription>{t('invitation.linkHint')}</DialogDescription>
+                <DialogDescription className="break-words">{namespace.displayName} <span className="text-muted-foreground">@{slug}</span></DialogDescription>
                 <InvitationControls slug={slug} />
               </DialogContent>
             </Dialog>

@@ -1406,7 +1406,6 @@
     "invalid": "This invitation link is invalid or expired. Ask a space admin for a new link.",
     "loading": "Checking invitation…",
     "networkError": "Connection failed. Try again.",
-    "retry": "Retry",
     "namespace": "Space: {{name}}",
     "account": "Current account: {{name}}",
     "permissions": "Confirm to join as MEMBER. You can access space resources and publish skills.",
@@ -1416,7 +1415,19 @@
     "activeUnavailable": "The invitation is active, but this tab has no saved link. Copy it from the tab that created it, or confirm creating a replacement to invalidate the old link.",
     "localLinkHint": "The link is saved only for this account in this browser tab; one new member can use it within 24 hours.",
     "copy": "Copy link",
-    "storageUnavailable": "Your browser could not save the link. Copy it now; it cannot be restored after closing this dialog or refreshing."
+    "storageUnavailable": "Your browser could not save the link. Copy it now; it cannot be restored after closing this dialog or refreshing.",
+    "statusLoading": "Checking invitation status",
+    "statusActive": "Invitation active",
+    "statusInactive": "No active invitation",
+    "detailsTitle": "How joining works",
+    "singleUse": "One new member can use this invitation within 24 hours.",
+    "memberAccess": "The recipient joins as a member and can access skills shared with this space.",
+    "accessPolicy": "The recipient must sign in and meet existing admission rules. Opening the link does not join automatically.",
+    "replaceAction": "Replace invitation link",
+    "managementTitle": "Manage invitation",
+    "retry": "Refresh status",
+    "expiresAtLabel": "Expires at",
+    "statusError": "Unable to check invitation status"
   },
   "members": {
     "title": "Member Management",
