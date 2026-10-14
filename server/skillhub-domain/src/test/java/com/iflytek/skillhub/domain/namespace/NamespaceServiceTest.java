@@ -301,7 +301,7 @@ class NamespaceServiceTest {
         String owner = "owner-1";
         Namespace namespace = new Namespace("draft-team", "Draft Team", owner);
         setField(namespace, "id", namespaceId);
-        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findLockedById(namespaceId)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.OWNER)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, owner))
                 .thenReturn(Optional.of(new NamespaceMember(namespaceId, owner, NamespaceRole.OWNER)));
