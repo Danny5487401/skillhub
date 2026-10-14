@@ -10,7 +10,7 @@ import {
 
 describe('shared select contract', () => {
   it('keeps the trigger aligned with the existing input styling language', () => {
-    expect(SELECT_TRIGGER_CLASS_NAME).toContain('h-9')
+    expect(SELECT_TRIGGER_CLASS_NAME).toContain('h-[var(--control-height)]')
     expect(SELECT_TRIGGER_CLASS_NAME).toContain('rounded-md')
     expect(SELECT_TRIGGER_CLASS_NAME).toContain('border-border/60')
     expect(SELECT_TRIGGER_CLASS_NAME).toContain('bg-background/40')
