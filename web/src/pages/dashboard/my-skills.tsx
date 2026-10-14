@@ -19,6 +19,7 @@ import { formatCompactCount } from '@/shared/lib/number-format'
 import { toast } from '@/shared/lib/toast'
 import { buildReturnTo } from '@/shared/lib/auth-route'
 import { SkillAvatar } from '@/features/skill/skill-avatar'
+import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
 import { ApiError } from '@/api/client'
 import { getMySkillEmptyStateKey, getMySkillFilters, type MySkillFilter } from './my-skill-filters'
 
@@ -388,6 +389,7 @@ export function MySkillsPage() {
                             {skill.displayName}
                           </h3>
                         </div>
+                        {skill.status === 'ACTIVE' && filter !== 'HIDDEN' && <SkillAvatarManager namespace={skill.namespace} slug={skill.slug} previewOnly />}
                         {skill.summary && (
                           <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{skill.summary}</p>
                         )}

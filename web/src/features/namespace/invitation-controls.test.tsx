@@ -7,16 +7,25 @@ const api = vi.hoisted(() => ({
   invitationStatus: vi.fn(),
   createInvitation: vi.fn(),
   revokeInvitation: vi.fn(),
+  previewInvitation: vi.fn(),
 }))
 
-vi.mock('@/api/client', () => ({ namespaceApi: api }))
+vi.mock('@/api/client', () => ({ namespaceApi: api, getAppBaseUrl: () => undefined }))
+const auth = vi.hoisted(() => ({ user: { userId: 'owner' } }))
+vi.mock('@/features/auth/use-auth', () => ({ useAuth: () => auth }))
+vi.mock('@/shared/lib/toast', () => ({ toast: { success: vi.fn(), info: vi.fn() } }))
+vi.mock('@/i18n/config', () => ({ default: { exists: () => false } }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 
+import { ApiError } from '@/shared/lib/api-error'
 import { InvitationControls } from './invitation-controls'
 
 describe('InvitationControls', () => {
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
+    window.sessionStorage.clear()
+    auth.user = { userId: 'owner' }
     Object.values(api).forEach((mock) => mock.mockReset())
   })
 
@@ -76,6 +85,137 @@ describe('InvitationControls', () => {
     expect(api.createInvitation).not.toHaveBeenCalled()
     expect(api.revokeInvitation).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  const token = 'a'.repeat(43)
+  const storageKey = 'skillhub.namespace.issued-invitation:owner:team'
+  const validPreview = { namespaceSlug: 'team', expiresAt: '2999-01-01T00:00:00Z', outcome: 'ALREADY_MEMBER' }
+
+  function mount(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+    return render(<QueryClientProvider client={client}><InvitationControls slug="team" /></QueryClientProvider>)
+  }
+
+  it('keeps the generated link after dialog reopen and a new QueryClient (tab reload)', async () => {
+    api.invitationStatus.mockResolvedValueOnce({ active: false }).mockResolvedValueOnce({ active: false }).mockResolvedValue({ active: true })
+    api.createInvitation.mockResolvedValue({ token, replaced: false })
+    api.previewInvitation.mockResolvedValue(validPreview)
+    const view = mount()
+    const button = screen.getByRole('button', { name: 'invitation.create' })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(button)
+    await screen.findByRole('textbox')
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token)
+    view.unmount()
+    mount()
+    expect((await screen.findByRole('textbox') as HTMLInputElement).value).toContain(`/join#invite=${token}`)
+    expect(api.createInvitation).toHaveBeenCalledTimes(1)
+    expect(api.previewInvitation).toHaveBeenCalledWith(token)
+    expect(screen.getByRole('button', { name: 'invitation.copy' })).toBeTruthy()
+  })
+
+  it.each(['consumed', 'expired', 'revoked'])('clears the remembered link when server reports %s/inactive', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    api.invitationStatus.mockResolvedValue({ active: false })
+    mount()
+    await waitFor(() => expect(window.sessionStorage.getItem(storageKey)).toBeNull())
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(api.previewInvitation).not.toHaveBeenCalled()
+  })
+
+  it('clears a replaced token and explains why the active link cannot be recovered', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    api.invitationStatus.mockResolvedValue({ active: true })
+    api.previewInvitation.mockRejectedValue(new ApiError('invalid', 404))
+    mount()
+    await screen.findByText('invitation.activeUnavailable')
+    expect(window.sessionStorage.getItem(storageKey)).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(api.createInvitation).not.toHaveBeenCalled()
+  })
+
+  it('hides remembered links on validation network failure but retains them for retry', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    api.invitationStatus.mockResolvedValue({ active: true })
+    api.previewInvitation.mockRejectedValue(new ApiError('network', 0))
+    mount()
+    await screen.findByRole('alert')
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token)
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('does not display a token saved by a different authenticated user', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    auth.user = { userId: 'another-admin' }
+    api.invitationStatus.mockResolvedValue({ active: true })
+    mount()
+    await screen.findByText('invitation.activeUnavailable')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(api.previewInvitation).not.toHaveBeenCalled()
+  })
+
+  it('clears the token after confirmed revoke', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    api.invitationStatus.mockResolvedValue({ active: true })
+    api.previewInvitation.mockResolvedValue(validPreview)
+    api.revokeInvitation.mockImplementation(async () => { api.invitationStatus.mockResolvedValue({ active: false }) })
+    mount()
+    await screen.findByRole('textbox')
+    fireEvent.click(screen.getByRole('button', { name: 'invitation.revoke' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'dialog.confirm' }))
+    await waitFor(() => expect(window.sessionStorage.getItem(storageKey)).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull())
+  })
+
+  it('keeps only an in-memory copy and explains the limitation when storage is unavailable', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('storage unavailable') })
+    api.invitationStatus.mockResolvedValueOnce({ active: false }).mockResolvedValueOnce({ active: false }).mockResolvedValue({ active: true })
+    api.createInvitation.mockResolvedValue({ token, replaced: false })
+    api.previewInvitation.mockResolvedValue(validPreview)
+    mount()
+    const button = screen.getByRole('button', { name: 'invitation.create' })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(button)
+    await screen.findByRole('textbox')
+    expect(screen.getByText('invitation.storageUnavailable')).toBeTruthy()
+    expect(window.sessionStorage.getItem(storageKey)).toBeNull()
+  })
+
+  it('does not show a previously validated cached link while reopening validation fails', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    api.invitationStatus.mockResolvedValue({ active: true })
+    api.previewInvitation.mockResolvedValue(validPreview)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const view = mount(client)
+    await screen.findByRole('textbox')
+    view.unmount()
+    api.previewInvitation.mockRejectedValue(new ApiError('network', 0))
+    mount(client)
+    expect(screen.queryByRole('textbox')).toBeNull()
+    await screen.findByRole('alert')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token)
+  })
+
+  it('replaces the remembered link only after confirmation and restores the new link on reopen', async () => {
+    window.sessionStorage.setItem(storageKey, token)
+    const nextToken = 'b'.repeat(43)
+    api.invitationStatus.mockResolvedValue({ active: true })
+    api.previewInvitation.mockResolvedValue(validPreview)
+    api.createInvitation.mockResolvedValue({ token: nextToken, replaced: true })
+    const view = mount()
+    await screen.findByRole('textbox')
+    fireEvent.click(screen.getByRole('button', { name: 'invitation.create' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(api.createInvitation).not.toHaveBeenCalled()
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'dialog.confirm' }))
+    await waitFor(() => expect(window.sessionStorage.getItem(storageKey)).toBe(nextToken))
+    await waitFor(() => expect((screen.getByRole('textbox') as HTMLInputElement).value).toContain(nextToken))
+    expect(api.createInvitation).toHaveBeenCalledWith('team', true)
+    view.unmount()
+    mount()
+    expect((await screen.findByRole('textbox') as HTMLInputElement).value).toContain(nextToken)
+    expect(api.createInvitation).toHaveBeenCalledTimes(1)
   })
 
 })

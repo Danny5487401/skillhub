@@ -107,6 +107,11 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
+vi.mock('@/features/skill/skill-avatar-manager', () => ({
+  SkillAvatarManager: ({ namespace, slug, previewOnly }: { namespace: string; slug: string; previewOnly?: boolean }) =>
+    createElement('div', { 'data-submitted-avatar': `${namespace}/${slug}`, 'data-read-only': previewOnly }),
+}))
+
 import { MySkillsPage } from './my-skills'
 
 function findButton(label: string) {
@@ -170,6 +175,16 @@ describe('MySkillsPage', () => {
     expect(html).toContain('src="/skill-avatar.png"')
     expect(buttonRecords.some(button => button.label === 'skillAvatar.manage')).toBe(false)
     expect(buttonRecords.some(button => button.label === 'mySkills.update')).toBe(true)
+  })
+
+  it('offers an owner-only submitted avatar preview for active skills without a second editing action', () => {
+    useMySkillsMock.mockReturnValue({ data: { items: [{ id: 1, displayName: 'Team Agent', namespace: 'team-ai', slug: 'team-agent', avatarUrl: '/skill-avatar.png', status: 'ACTIVE', downloadCount: 0 }], total: 1 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(html).toContain('data-submitted-avatar="team-ai/team-agent"')
+    expect(html).toContain('data-read-only="true"')
+    expect(html).toContain('src="/skill-avatar.png"')
+    expect(buttonRecords.some(button => button.label === 'mySkills.update')).toBe(true)
+    expect(buttonRecords.some(button => button.label === 'skillAvatar.manage')).toBe(false)
   })
 
   it('does not render update action for archived skills', () => {

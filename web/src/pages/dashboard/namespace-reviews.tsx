@@ -5,11 +5,9 @@ import { buildNamespaceReviewDetailPath } from '@/features/review/review-paths'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { Card } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { useNamespaceDetail } from '@/shared/hooks/use-namespace-queries'
 import { useReviewList } from '@/features/review/use-review-list'
-import { NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
-import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
+import { NamespaceManagementBack, NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
 import { Pagination } from '@/shared/components/pagination'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
 
@@ -109,19 +107,25 @@ function ReviewListSection({ namespaceId, slug }: { namespaceId?: number; slug: 
   }
 
   return (
-    <Tabs value={activeStatus} onValueChange={(value) => setActiveStatus(value as ReviewStatus)}>
+    <section aria-label={t('nsReviews.title')}>
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <TabsList>
-          <TabsTrigger value="PENDING">{t('nsReviews.tabPending')}</TabsTrigger>
-          <TabsTrigger value="APPROVED">{t('nsReviews.tabApproved')}</TabsTrigger>
-          <TabsTrigger value="REJECTED">{t('nsReviews.tabRejected')}</TabsTrigger>
-        </TabsList>
         <div className="w-full max-w-48">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <label htmlFor="namespace-review-status" className="mb-2 block text-sm font-medium text-muted-foreground">{t('nsReviews.statusLabel')}</label>
+          <Select value={activeStatus} onValueChange={(value) => setActiveStatus(value as ReviewStatus)}>
+            <SelectTrigger id="namespace-review-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">{t('nsReviews.tabPending')}</SelectItem>
+              <SelectItem value="APPROVED">{t('nsReviews.tabApproved')}</SelectItem>
+              <SelectItem value="REJECTED">{t('nsReviews.tabRejected')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full max-w-48">
+          <label htmlFor="namespace-review-sort" className="mb-2 block text-sm font-medium text-muted-foreground">
             {t('nsReviews.sortLabel')}
-          </p>
+          </label>
           <Select value={sortDirection} onValueChange={handleSortChange}>
-            <SelectTrigger>
+            <SelectTrigger id="namespace-review-sort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -131,10 +135,8 @@ function ReviewListSection({ namespaceId, slug }: { namespaceId?: number; slug: 
           </Select>
         </div>
       </div>
-      <TabsContent value="PENDING" className="mt-0">{renderItems(pending, 'PENDING')}</TabsContent>
-      <TabsContent value="APPROVED" className="mt-0">{renderItems(approved, 'APPROVED')}</TabsContent>
-      <TabsContent value="REJECTED" className="mt-0">{renderItems(rejected, 'REJECTED')}</TabsContent>
-    </Tabs>
+      {renderItems(activeStatus === 'PENDING' ? pending : activeStatus === 'APPROVED' ? approved : rejected, activeStatus)}
+    </section>
   )
 }
 
@@ -152,10 +154,7 @@ export function NamespaceReviewsPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      <DashboardPageHeader
-        title={t('nsReviews.title')}
-        subtitle={namespace ? t('nsReviews.reviewsFor', { name: namespace.displayName }) : t('nsReviews.loadingNamespace')}
-      />
+      <NamespaceManagementBack />
       {namespace ? <NamespaceHeader namespace={namespace} /> : null}
       {readOnlyMessage ? (
         <Card className="border-border/50 bg-secondary/40 p-4 text-sm text-muted-foreground">

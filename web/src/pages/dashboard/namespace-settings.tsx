@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
-import { NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
+import { NamespaceManagementBack, NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
 import { executeNamespaceAction, resolveNamespaceActionCopy, type PendingNamespaceAction } from '@/features/namespace/namespace-actions'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { EmptyState } from '@/shared/components/empty-state'
@@ -33,6 +33,7 @@ export function NamespaceSettingsPage() {
   const canEdit = namespace.type === 'TEAM' && namespace.status === 'ACTIVE' && (managed?.currentUserRole === 'OWNER' || managed?.currentUserRole === 'ADMIN')
   return (
     <div className="space-y-6">
+      <NamespaceManagementBack />
       <NamespaceHeader namespace={namespace} canEdit={canEdit} />
       <NamespaceManagementNav slug={slug} active="settings" />
       <Card className="space-y-4 p-5">

@@ -67,7 +67,7 @@ vi.mock('@/features/namespace/namespace-header', () => ({
   NamespaceHeader: () => null,
 }))
 
-vi.mock('@/features/namespace/namespace-management-nav', () => ({ NamespaceManagementNav: ({ slug, active }: { slug: string; active: string }) => createElement('nav', { 'data-slug': slug, 'data-active': active }) }))
+vi.mock('@/features/namespace/namespace-management-nav', () => ({ NamespaceManagementBack: () => createElement('a', { href: '/dashboard/namespaces' }, 'back'), NamespaceManagementNav: ({ slug, active }: { slug: string; active: string }) => createElement('nav', { 'data-slug': slug, 'data-active': active }) }))
 
 import { NamespaceReviewsPage } from './namespace-reviews'
 
@@ -124,6 +124,14 @@ describe('NamespaceReviewsPage', () => {
 
   it('exports a named component function', () => {
     expect(typeof NamespaceReviewsPage).toBe('function')
+  })
+
+  it('uses a status filter instead of nested review tabs', () => {
+    const html = renderToStaticMarkup(createElement(NamespaceReviewsPage))
+    expect(html).toContain('nsReviews.statusLabel')
+    expect(html).toContain('nsReviews.tabPending')
+    expect(html).toContain('nsReviews.sortLabel')
+    expect(html).not.toContain('role="tab"')
   })
 
   it('renders pagination for namespace review list when totalPages > 1', () => {

@@ -1412,7 +1412,11 @@
     "permissions": "确认后，你将以 MEMBER 身份加入，可访问空间资源并发布技能。",
     "alreadyMember": "你已是该空间成员。",
     "enter": "进入空间",
-    "confirm": "确认加入"
+    "confirm": "确认加入",
+    "activeUnavailable": "当前邀请仍有效，但此标签页没有保存完整链接。可在创建链接的标签页复制，或确认生成新链接使旧链接失效。",
+    "localLinkHint": "链接仅保存在当前账号的这个浏览器标签页；24 小时内可供一名新成员使用。",
+    "copy": "复制链接",
+    "storageUnavailable": "浏览器未能保存链接，请现在复制；关闭此窗口或刷新后将无法恢复。"
   },
   "members": {
     "title": "成员管理",
@@ -1508,7 +1512,8 @@
     "batchResultInvalidRole": "角色无效",
     "batchResultUnknownError": "未知错误",
     "batchDone": "完成",
-    "batchBack": "返回"
+    "batchBack": "返回",
+    "cancelRole": "取消角色修改"
   },
   "namespaceEdit": {
     "editButton": "编辑",
@@ -1550,7 +1555,8 @@
     "nextPage": "下一页",
     "globalReadOnly": "这是系统内置命名空间，仅可查看审核记录，不允许执行新的审核动作。",
     "frozenReadOnly": "命名空间已冻结。你仍可查看审核记录，但当前不能继续处理审核任务。",
-    "archivedReadOnly": "命名空间已归档。你仍可查看审核记录，但在恢复前不能继续处理审核任务。"
+    "archivedReadOnly": "命名空间已归档。你仍可查看审核记录，但在恢复前不能继续处理审核任务。",
+    "statusLabel": "审核状态"
   },
   "namespaceStatus": {
     "active": "正常",
@@ -2692,7 +2698,13 @@
     "cropConfirm": "确认并上传",
     "change": "更换图片",
     "stagedReady": "图片已上传，待提交",
-    "removedDraft": "待提交：移除头像"
+    "removedDraft": "待提交：移除头像",
+    "submittedImage": "已提交头像",
+    "publicUnchanged": "审核通过前，公开展示的头像保持不变。",
+    "candidateUnavailable": "已提交头像暂时无法预览",
+    "statusLoadFailed": "无法加载已提交头像，请重试。",
+    "statusRefreshFailed": "无法刷新审核状态，以下为上次加载的头像。",
+    "reloadStatus": "重新加载"
   },
   "namespaceManagement": {
     "back": "返回我的空间",

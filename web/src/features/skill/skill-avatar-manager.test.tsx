@@ -47,6 +47,75 @@ describe('SkillAvatarManager appeal', () => {
     expect(screen.getByRole('button', { name: 'skillAvatar.retry' }).hasAttribute('disabled')).toBe(false)
   })
 
+
+  it('shows the submitted image separately from the unchanged public avatar while waiting', async () => {
+    api.status.mockResolvedValue({ avatarUrl: '/old-public', candidateId: 8, candidateStatus: 'PENDING',
+      machineStatus: 'SKIPPED', reviewStatus: 'PENDING', candidateUrl: '/private-candidate/8' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" /></QueryClientProvider>)
+    expect((await screen.findByRole('img', { name: 'skillAvatar.submittedImage' })).getAttribute('src')).toBe('/private-candidate/8')
+    expect(screen.getByText('skillAvatar.publicUnchanged')).toBeTruthy()
+    expect(screen.queryByRole('img')?.getAttribute('src')).not.toBe('/old-public')
+    expect(api.status).toHaveBeenCalledWith('team', 'foo')
+  })
+
+  it('keeps the My Skills preview read-only without adding another avatar action', async () => {
+    api.status.mockResolvedValue({ candidateId: 8, candidateStatus: 'PENDING', machineStatus: 'BLOCKED',
+      reviewStatus: 'NOT_REQUIRED', candidateUrl: '/private-candidate/8' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" previewOnly /></QueryClientProvider>)
+    expect(await screen.findByRole('img', { name: 'skillAvatar.submittedImage' })).toBeTruthy()
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('explains an unavailable candidate preview rather than presenting the public avatar as the submission', async () => {
+    api.status.mockResolvedValue({ avatarUrl: '/old-public', candidateId: 8, candidateStatus: 'REJECTED',
+      machineStatus: 'SKIPPED', reviewStatus: 'REJECTED', candidateUrl: '/private-candidate/8', reviewReason: 'Please choose a different image' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" /></QueryClientProvider>)
+    fireEvent.error(await screen.findByRole('img', { name: 'skillAvatar.submittedImage' }))
+    expect(screen.getByText('skillAvatar.candidateUnavailable')).toBeTruthy()
+    expect(screen.getByText('Please choose a different image')).toBeTruthy()
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
+  it('removes the pending preview after the standard approval invalidates owner state', async () => {
+    api.status.mockResolvedValueOnce({ candidateId: 8, candidateStatus: 'PENDING', machineStatus: 'SKIPPED',
+      reviewStatus: 'PENDING', candidateUrl: '/private-candidate/8' })
+      .mockResolvedValue({ avatarUrl: '/new-public', candidateId: 8, candidateStatus: 'ACTIVE',
+        machineStatus: 'SKIPPED', reviewStatus: 'APPROVED', candidateUrl: '/private-candidate/8' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" previewOnly /></QueryClientProvider>)
+    expect(await screen.findByRole('img', { name: 'skillAvatar.submittedImage' })).toBeTruthy()
+    await client.invalidateQueries({ queryKey: ['skill-avatar', 'team', 'foo'] })
+    await waitFor(() => expect(screen.queryByRole('img')).toBeNull())
+    expect(screen.queryByText('skillAvatar.publicUnchanged')).toBeNull()
+  })
+
+
+  it('reports an initial owner-status load failure and allows a read-only reload', async () => {
+    api.status.mockRejectedValueOnce(new Error('unavailable')).mockResolvedValue({ candidateId: 8,
+      candidateStatus: 'PENDING', machineStatus: 'SKIPPED', reviewStatus: 'PENDING', candidateUrl: '/private-candidate/8' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" previewOnly /></QueryClientProvider>)
+    expect(await screen.findByText('skillAvatar.statusLoadFailed')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'skillAvatar.reloadStatus' }))
+    expect(await screen.findByRole('img', { name: 'skillAvatar.submittedImage' })).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(api.status).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a cached submitted image visible while clearly reporting a failed status refresh', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(['skill-avatar', 'team', 'foo'], { candidateId: 8, candidateStatus: 'PENDING',
+      machineStatus: 'SKIPPED', reviewStatus: 'PENDING', candidateUrl: '/private-candidate/8' })
+    api.status.mockRejectedValue(new Error('unavailable'))
+    render(<QueryClientProvider client={client}><SkillAvatarManager namespace="team" slug="foo" previewOnly /></QueryClientProvider>)
+    expect(await screen.findByText('skillAvatar.statusRefreshFailed')).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'skillAvatar.submittedImage' }).getAttribute('src')).toBe('/private-candidate/8')
+    expect(screen.getByRole('button', { name: 'skillAvatar.reloadStatus' })).toBeTruthy()
+  })
+
   it('does not render approved reasons, duplicate image or editing controls', async () => {
     api.status.mockResolvedValue({ avatarUrl: '/active', candidateId: 7, candidateStatus: 'ACTIVE', machineStatus: 'SKIPPED', reviewStatus: 'APPROVED', reviewReason: 'approved reason' })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

@@ -1412,7 +1412,11 @@
     "permissions": "Confirm to join as MEMBER. You can access space resources and publish skills.",
     "alreadyMember": "You are already a member of this space.",
     "enter": "Enter space",
-    "confirm": "Confirm and join"
+    "confirm": "Confirm and join",
+    "activeUnavailable": "The invitation is active, but this tab has no saved link. Copy it from the tab that created it, or confirm creating a replacement to invalidate the old link.",
+    "localLinkHint": "The link is saved only for this account in this browser tab; one new member can use it within 24 hours.",
+    "copy": "Copy link",
+    "storageUnavailable": "Your browser could not save the link. Copy it now; it cannot be restored after closing this dialog or refreshing."
   },
   "members": {
     "title": "Member Management",
@@ -1508,7 +1512,8 @@
     "batchResultInvalidRole": "Invalid role",
     "batchResultUnknownError": "Unknown error",
     "batchDone": "Done",
-    "batchBack": "Back"
+    "batchBack": "Back",
+    "cancelRole": "Cancel role change"
   },
   "namespaceEdit": {
     "editButton": "Edit",
@@ -1550,7 +1555,8 @@
     "nextPage": "Next",
     "globalReadOnly": "This is a built-in system namespace. Review history is visible, but no new review actions are allowed.",
     "frozenReadOnly": "This namespace is frozen. You can still view review history, but cannot continue processing review tasks.",
-    "archivedReadOnly": "This namespace is archived. You can still view review history, but cannot continue processing review tasks until it is restored."
+    "archivedReadOnly": "This namespace is archived. You can still view review history, but cannot continue processing review tasks until it is restored.",
+    "statusLabel": "Review status"
   },
   "namespaceStatus": {
     "active": "Active",
@@ -2693,7 +2699,13 @@
     "cropConfirm": "Confirm and upload",
     "change": "Change image",
     "stagedReady": "Image uploaded; ready to submit",
-    "removedDraft": "Pending change: remove avatar"
+    "removedDraft": "Pending change: remove avatar",
+    "submittedImage": "Submitted avatar",
+    "publicUnchanged": "The public avatar stays unchanged until approval.",
+    "candidateUnavailable": "Submitted avatar preview unavailable",
+    "statusLoadFailed": "Couldn't load the submitted avatar. Please retry.",
+    "statusRefreshFailed": "Couldn't refresh review status. The last loaded avatar is shown.",
+    "reloadStatus": "Reload"
   },
   "namespaceManagement": {
     "back": "Back to my spaces",
