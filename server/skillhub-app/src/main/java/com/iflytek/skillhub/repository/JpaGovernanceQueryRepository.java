@@ -311,8 +311,11 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                     task.getSubmittedAt() != null ? task.getSubmittedAt().toString() : null,
                     namespaceSlug, null, "SUITE", suiteSlug);
         }
-        SkillVersion version = bundle.versionsById().get(task.getSkillVersionId());
-        Skill skill = bundle.skillsById().get(task.getSkillId() != null ? task.getSkillId() : version != null ? version.getSkillId() : null);
+        SkillVersion version = task.getSkillVersionId() != null
+                ? bundle.versionsById().get(task.getSkillVersionId()) : null;
+        Long skillId = task.getSkillId() != null ? task.getSkillId()
+                : version != null ? version.getSkillId() : null;
+        Skill skill = skillId != null ? bundle.skillsById().get(skillId) : null;
         Namespace namespace = skill != null ? bundle.namespacesById().get(skill.getNamespaceId()) : null;
         String namespaceSlug = namespace != null ? namespace.getSlug() : null;
         String skillSlug = skill != null ? skill.getSlug() : null;

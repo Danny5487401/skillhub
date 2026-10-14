@@ -210,6 +210,26 @@ class JpaGovernanceQueryRepositoryTest {
     }
 
     @Test
+    void getReviewInboxItems_supportsMetadataWithoutVersionContext() {
+        ReviewTask task = ReviewTask.forSkillMetadata(201L, 11L, "submitter", 7L);
+        setField(task, "id", 4L);
+        Skill skill = new Skill(11L, "avatar-only", "submitter", SkillVisibility.PUBLIC);
+        setField(skill, "id", 201L);
+        Namespace namespace = new Namespace("team-a", "Team A", "submitter");
+        setField(namespace, "id", 11L);
+        given(skillRepository.findByIdIn(List.of(201L))).willReturn(List.of(skill));
+        given(namespaceRepository.findByIdIn(List.of(11L))).willReturn(List.of(namespace));
+
+        var responses = repository.getReviewInboxItems(List.of(task));
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).type()).isEqualTo("REVIEW");
+        assertThat(responses.get(0).title()).isEqualTo("team-a/avatar-only");
+        assertThat(responses.get(0).namespace()).isEqualTo("team-a");
+        assertThat(responses.get(0).skillSlug()).isEqualTo("avatar-only");
+    }
+
+    @Test
     void getReviewInboxItems_toleratesMissingVersionContext() {
         ReviewTask task = new ReviewTask(101L, 11L, "submitter");
         setField(task, "id", 4L);
