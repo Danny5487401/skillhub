@@ -8,6 +8,8 @@ import { useAuth } from '@/features/auth/use-auth'
 import { Pagination } from '@/shared/components/pagination'
 import { Button } from '@/shared/ui/button'
 
+const HISTORY_PAGE_SIZE = 5
+
 const statusKeys: Record<NamespaceInvitationHistory['status'], string> = {
   ACTIVE: 'invitation.historyActive', USED: 'invitation.historyUsed',
   REPLACED: 'invitation.historyReplaced', REVOKED: 'invitation.historyRevoked',
@@ -20,21 +22,22 @@ export function InvitationHistory({ slug }: { slug: string }) {
   const { user } = useAuth()
   const [page, setPage] = useState(0)
   const history = useQuery({
-    queryKey: ['namespace-invitation-history', slug, user?.userId, page],
+    queryKey: ['namespace-invitation-history', slug, user?.userId, page, HISTORY_PAGE_SIZE],
     enabled: !!user,
     staleTime: 0,
     retry: false,
-    queryFn: () => namespaceApi.invitationHistory(slug, page, 10),
+    queryFn: () => namespaceApi.invitationHistory(slug, page, HISTORY_PAGE_SIZE),
   })
   const formatDate = (value: string) => new Intl.DateTimeFormat(i18n?.language ?? 'zh', {
     dateStyle: 'short', timeStyle: 'short',
   }).format(new Date(value))
-  const identity = (name: string | null | undefined, id: string | null | undefined) => (
-    <span className="block min-w-0 break-words">
-      {name || id || t('invitation.historyUnknownUser')}
-      {name && id ? <span className="block break-all text-xs text-muted-foreground">{id}</span> : null}
+  const identity = (name: string | null | undefined, id: string | null | undefined) => {
+    const shortId = id && id.length > 18 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id
+    const label = name && id ? `${name} (${id})` : name || id || t('invitation.historyUnknownUser')
+    return <span className="block min-w-0 truncate" title={label} aria-label={label}>
+      {name || shortId || t('invitation.historyUnknownUser')}
     </span>
-  )
+  }
   const status = (item: NamespaceInvitationHistory) => (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <span className="rounded-full bg-secondary px-2 py-1 text-xs font-medium">{t(statusKeys[item.status])}</span>
@@ -58,7 +61,7 @@ export function InvitationHistory({ slug }: { slug: string }) {
         <p role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{t('invitation.historyError')}</p>
       ) : history.data?.items.length ? (
         <>
-          <div className="max-h-72 overflow-auto rounded-lg border">
+          <div className="max-h-60 overflow-auto rounded-lg border">
             <table className="hidden w-full table-fixed text-left text-xs sm:table">
               <caption className="sr-only">{t('invitation.historyTitle')}</caption>
               <thead className="sticky top-0 bg-secondary text-muted-foreground"><tr>
@@ -75,7 +78,7 @@ export function InvitationHistory({ slug }: { slug: string }) {
               </tr>)}</tbody>
             </table>
             <ul className="divide-y sm:hidden">{history.data.items.map((item) => <li key={item.invitationId} className="space-y-2 p-3 text-xs">
-              <div className="flex items-start justify-between gap-2"><div>{t('invitation.historyCreator')}: {identity(item.issuedByName, item.issuedBy)}</div>{status(item)}</div>
+              <div className="flex items-start justify-between gap-2"><div className="min-w-0 flex-1">{t('invitation.historyCreator')}: {identity(item.issuedByName, item.issuedBy)}</div>{status(item)}</div>
               <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
                 <dt className="text-muted-foreground">{t('invitation.historyCreatedAt')}</dt><dd><time dateTime={item.issuedAt}>{formatDate(item.issuedAt)}</time></dd>
                 <dt className="text-muted-foreground">{t('invitation.historyExpiresAt')}</dt><dd><time dateTime={item.expiresAt}>{formatDate(item.expiresAt)}</time></dd>
