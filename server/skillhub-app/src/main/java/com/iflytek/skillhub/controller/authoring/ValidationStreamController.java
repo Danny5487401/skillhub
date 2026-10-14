@@ -1,12 +1,10 @@
 package com.iflytek.skillhub.controller.authoring;
 
 import com.iflytek.skillhub.domain.authoring.service.ValidationRunService;
-import com.iflytek.skillhub.domain.authoring.validation.ValidationEvent;
 import com.iflytek.skillhub.domain.authoring.validation.ValidationRun;
 import com.iflytek.skillhub.service.authoring.ValidationEventBroadcaster;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
 import java.util.Set;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,8 +47,8 @@ public class ValidationStreamController {
                                    Set<String> platformRoles) {
         ValidationRun run = runService.getOwnedRun(runId, userId, platformRoles);
         int lastSeq = resolveCursor(afterSeq, lastEventId);
-        List<ValidationEvent> replay = runService.listEvents(run.getId(), lastSeq);
-        return broadcaster.subscribe(run.getId(), lastSeq, replay);
+        return broadcaster.subscribe(run.getId(), lastSeq,
+                () -> runService.listEvents(run.getId(), lastSeq));
     }
 
     private int resolveCursor(Integer afterSeq, String lastEventId) {

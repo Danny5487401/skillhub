@@ -110,6 +110,9 @@ public class ValidationRun {
         if (terminalStatus == null || !terminalStatus.isTerminal()) {
             throw new IllegalArgumentException("Terminal status required: " + terminalStatus);
         }
+        if (errorCount < 0 || warningCount < 0) {
+            throw new IllegalArgumentException("Finding counts must be nonnegative");
+        }
         requireActive("finish");
         status = terminalStatus;
         this.errorCount = errorCount;

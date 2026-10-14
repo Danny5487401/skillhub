@@ -1,6 +1,7 @@
 package com.iflytek.skillhub.task;
 
 import com.iflytek.skillhub.config.AuthoringProperties;
+import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
 import com.iflytek.skillhub.domain.authoring.validation.ValidationRun;
 import com.iflytek.skillhub.domain.authoring.validation.ValidationRunStatus;
 import com.iflytek.skillhub.domain.authoring.service.ValidationRunService;
@@ -95,9 +96,10 @@ public class ValidationRunMaintenanceTask {
                     }
                 });
             }
-        } catch (Exception exception) {
-            // unknown run id (workspace of a deleted draft) — remove the directory too
+        } catch (DomainNotFoundException exception) {
             deleteQuietly(directory);
+        } catch (IOException | RuntimeException exception) {
+            log.warn("Cannot check validation workspace {}; retaining it", directory, exception);
         }
     }
 

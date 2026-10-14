@@ -34,6 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Domain service for skill authoring drafts: creation with a scaffold, content-addressed
@@ -138,21 +140,23 @@ public class SkillDraftService {
 
     @Transactional
     public void deleteDraft(Long draftId, String userId, Set<String> platformRoles) {
-        SkillDraft draft = getOwnedDraft(draftId, userId, platformRoles);
+        SkillDraft draft = getOwnedDraftForUpdate(draftId, userId, platformRoles);
         List<String> storageKeys = fileRepository.findByDraftIdOrderByFilePath(draftId).stream()
                 .map(DraftFile::getStorageKey)
                 .toList();
-        if (!storageKeys.isEmpty()) {
-            try {
-                objectStorageService.deleteObjects(storageKeys);
-            } catch (Exception exception) {
-                // storage garbage is not worth blocking a draft deletion; keys are
-                // namespaced under drafts/{draftId} and become unreachable
-                log.warn("Failed to clean up draft storage for draft {}: {}",
-                        draftId, exception.getMessage());
-            }
-        }
         draftRepository.delete(draft);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (!storageKeys.isEmpty()) {
+                    try {
+                        objectStorageService.deleteObjects(storageKeys);
+                    } catch (RuntimeException exception) {
+                        log.warn("Failed to clean up storage after deleting draft {}", draftId, exception);
+                    }
+                }
+            }
+        });
     }
 
     // ---------------------------------------------------------------- file editing
@@ -165,7 +169,7 @@ public class SkillDraftService {
     public SaveFileOutcome saveFile(Long draftId, String userId, String rawPath, byte[] content,
                                     String contentType, Integer expectedRevision,
                                     Set<String> platformRoles) {
-        SkillDraft draft = getOwnedDraft(draftId, userId, platformRoles);
+        SkillDraft draft = getOwnedDraftForUpdate(draftId, userId, platformRoles);
         assertRevisionMatches(draft, expectedRevision);
         String path = normalizeAndCheckPath(rawPath);
 
@@ -211,7 +215,7 @@ public class SkillDraftService {
     @Transactional
     public void deleteFile(Long draftId, String userId, String rawPath, Integer expectedRevision,
                            Set<String> platformRoles) {
-        SkillDraft draft = getOwnedDraft(draftId, userId, platformRoles);
+        SkillDraft draft = getOwnedDraftForUpdate(draftId, userId, platformRoles);
         assertRevisionMatches(draft, expectedRevision);
         String path = normalizeAndCheckPath(rawPath);
         DraftFile file = fileRepository.findByDraftIdAndFilePath(draftId, path)
@@ -263,7 +267,7 @@ public class SkillDraftService {
     @Transactional
     public SkillDraft applyPatch(Long draftId, String userId, List<FilePatch> patches,
                                  Integer expectedRevision, Set<String> platformRoles) {
-        SkillDraft draft = getOwnedDraft(draftId, userId, platformRoles);
+        SkillDraft draft = getOwnedDraftForUpdate(draftId, userId, platformRoles);
         assertRevisionMatches(draft, expectedRevision);
         if (patches == null || patches.isEmpty()) {
             throw new DomainBadRequestException("error.authoring.patch.empty");
@@ -307,17 +311,32 @@ public class SkillDraftService {
      * Builds streaming package entries from the draft's current files. Used by the
      * validation orchestrator (snapshot) and the submit flow (publish input).
      */
-    @Transactional(readOnly = true)
-    public List<PackageEntry> materializeEntries(Long draftId) {
+    public record MaterializedSnapshot(String name, String requirement, List<PackageEntry> entries) {}
+
+    /** Locks the draft while checking its revision and reading its immutable content. */
+    @Transactional
+    public MaterializedSnapshot materializeSnapshot(Long draftId, Integer expectedRevision) {
+        SkillDraft draft = draftRepository.findByIdForUpdate(draftId)
+                .orElseThrow(() -> new DomainNotFoundException("error.authoring.draft.notFound", draftId));
+        assertRevisionMatches(draft, expectedRevision);
         List<PackageEntry> entries = new ArrayList<>();
         for (DraftFile file : fileRepository.findByDraftIdOrderByFilePath(draftId)) {
-            entries.add(PackageEntry.streaming(
-                    file.getFilePath(),
-                    file.getSize(),
-                    file.getContentType(),
-                    () -> objectStorageService.getObject(file.getStorageKey())));
+            try (InputStream input = objectStorageService.getObject(file.getStorageKey())) {
+                byte[] content = input.readNBytes(Math.toIntExact(file.getSize()) + 1);
+                if (content.length != file.getSize()) {
+                    throw new IllegalStateException("Draft file size changed: " + file.getFilePath());
+                }
+                entries.add(new PackageEntry(file.getFilePath(), content, file.getSize(), file.getContentType()));
+            } catch (IOException exception) {
+                throw new IllegalStateException("Failed to snapshot draft file: " + file.getFilePath(), exception);
+            }
         }
-        return entries;
+        return new MaterializedSnapshot(draft.getName(), draft.getRequirement(), List.copyOf(entries));
+    }
+
+    @Transactional
+    public List<PackageEntry> materializeEntries(Long draftId) {
+        return materializeSnapshot(draftId, null).entries();
     }
 
     @Transactional(readOnly = true)
@@ -341,6 +360,13 @@ public class SkillDraftService {
     }
 
     // ---------------------------------------------------------------- internals
+
+    private SkillDraft getOwnedDraftForUpdate(Long draftId, String userId, Set<String> platformRoles) {
+        SkillDraft draft = draftRepository.findByIdForUpdate(draftId)
+                .orElseThrow(() -> new DomainNotFoundException("error.authoring.draft.notFound", draftId));
+        assertOwner(draft, userId, platformRoles);
+        return draft;
+    }
 
     private DraftFile storeFile(Long draftId, String path, byte[] content, String contentType) {
         return new DraftFile(draftId, path, sha256Hex(content), (long) content.length,
@@ -370,6 +396,10 @@ public class SkillDraftService {
 
     private String resolveContentType(String path, String provided) {
         if (provided != null && !provided.isBlank()) {
+            if (provided.length() > 128) {
+                throw new DomainBadRequestException("error.authoring.file.contentMismatch", path,
+                        "content type exceeds 128 characters");
+            }
             return provided;
         }
         String lower = path.toLowerCase(Locale.ROOT);
@@ -397,6 +427,9 @@ public class SkillDraftService {
             normalized = SkillPackagePolicy.canonicalizeSkillMdPath(
                     SkillPackagePolicy.normalizeEntryPath(rawPath));
         } catch (IllegalArgumentException exception) {
+            throw new DomainBadRequestException("error.authoring.file.path.invalid", rawPath);
+        }
+        if (normalized.length() > 512) {
             throw new DomainBadRequestException("error.authoring.file.path.invalid", rawPath);
         }
         if (!SkillPackagePolicy.hasAllowedExtension(normalized)) {

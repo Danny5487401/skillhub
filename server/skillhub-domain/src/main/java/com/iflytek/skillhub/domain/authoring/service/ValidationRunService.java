@@ -64,7 +64,7 @@ public class ValidationRunService {
      */
     @Transactional
     public ValidationRun startRun(Long draftId, String userId, Set<String> platformRoles) {
-        SkillDraft draft = draftRepository.findById(draftId)
+        SkillDraft draft = draftRepository.findByIdForUpdate(draftId)
                 .orElseThrow(() -> new DomainNotFoundException("error.authoring.draft.notFound", draftId));
         assertOwner(draft, userId, platformRoles);
         if (runRepository.findByDraftIdOrderByCreatedAtDesc(draftId).stream()
@@ -133,6 +133,15 @@ public class ValidationRunService {
     public Optional<ValidationRun> settleIfActive(Long runId, ValidationRunStatus terminalStatus,
                                                   int errorCount, int warningCount,
                                                   Map<String, Object> summary) {
+        // Only successful validation updates the draft. Timeout/failure must not wait
+        // for snapshot object-storage IO while it holds the draft lock.
+        SkillDraft draft = null;
+        if (terminalStatus == ValidationRunStatus.SUCCEEDED) {
+            Long draftId = runRepository.findDraftIdById(runId)
+                    .orElseThrow(() -> new DomainNotFoundException("error.authoring.run.notFound", runId));
+            draft = draftRepository.findByIdForUpdate(draftId)
+                    .orElseThrow(() -> new DomainNotFoundException("error.authoring.draft.notFound", draftId));
+        }
         ValidationRun run = runRepository.findByIdForUpdate(runId)
                 .orElseThrow(() -> new DomainNotFoundException("error.authoring.run.notFound", runId));
         if (run.getStatus().isTerminal()) {
@@ -141,15 +150,28 @@ public class ValidationRunService {
         run.finish(terminalStatus, errorCount, warningCount, summary, clock.instant());
         ValidationRun settled = runRepository.save(run);
 
-        if (terminalStatus == ValidationRunStatus.SUCCEEDED && errorCount == 0) {
-            draftRepository.findById(settled.getDraftId()).ifPresent(draft -> {
-                if (draft.getRevision().equals(settled.getDraftRevision())) {
-                    draft.markValidated(settled.getDraftRevision(), settled.getId());
-                    draftRepository.save(draft);
-                }
-            });
+        if (terminalStatus == ValidationRunStatus.SUCCEEDED && errorCount == 0
+                && draft.getRevision().equals(settled.getDraftRevision())) {
+            draft.markValidated(settled.getDraftRevision(), settled.getId());
+            draftRepository.save(draft);
         }
         return Optional.of(settled);
+    }
+
+    /** Queue rejection may fail an unclaimed run, never a duplicate already executing. */
+    @Transactional
+    public Optional<ValidationRun> settleIfQueued(Long runId, int errorCount, int warningCount,
+                                                Map<String, Object> summary) {
+        Long draftId = runRepository.findDraftIdById(runId)
+                .orElseThrow(() -> new DomainNotFoundException("error.authoring.run.notFound", runId));
+        draftRepository.findByIdForUpdate(draftId)
+                .orElseThrow(() -> new DomainNotFoundException("error.authoring.draft.notFound", draftId));
+        ValidationRun run = lockRun(runId);
+        if (run.getStatus() != ValidationRunStatus.QUEUED) {
+            return Optional.empty();
+        }
+        run.finish(ValidationRunStatus.FAILED, errorCount, warningCount, summary, clock.instant());
+        return Optional.of(runRepository.save(run));
     }
 
     // ---------------------------------------------------------------- events & findings
@@ -158,14 +180,52 @@ public class ValidationRunService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ValidationEvent appendEvent(Long runId, ValidationEventType type, String phase,
                                        Map<String, Object> payload) {
-        int nextSeq = eventRepository.findMaxSeqByRunId(runId).map(seq -> seq + 1).orElse(1);
-        return eventRepository.save(
-                new ValidationEvent(runId, nextSeq, type, phase, payload));
+        ValidationRun run = lockRun(runId);
+        requireActive(run);
+        if (type == ValidationEventType.RUN_FINISHED) {
+            throw new DomainConflictException("error.authoring.run.terminal", runId, run.getStatus());
+        }
+        return saveEvent(runId, type, phase, payload);
     }
 
-    /** Records one finding and returns it; commits independently. */
+    /** Persists exactly one event from the actual terminal state; active runs return null. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ValidationEvent appendTerminalEvent(Long runId) {
+        ValidationRun run = lockRun(runId);
+        if (run.isActive()) {
+            return null;
+        }
+        Optional<ValidationEvent> existing = eventRepository.findByRunIdOrderBySeqAsc(runId).stream()
+                .filter(event -> event.getEventType() == ValidationEventType.RUN_FINISHED).findFirst();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        return saveEvent(runId, ValidationEventType.RUN_FINISHED, null, Map.of(
+                "status", run.getStatus().name(), "errorCount", run.getErrorCount(),
+                "warningCount", run.getWarningCount()));
+    }
+
+    private ValidationEvent saveEvent(Long runId, ValidationEventType type, String phase,
+                                      Map<String, Object> payload) {
+        int nextSeq = eventRepository.findMaxSeqByRunId(runId).map(seq -> seq + 1).orElse(1);
+        return eventRepository.save(new ValidationEvent(runId, nextSeq, type, phase, payload));
+    }
+
+    private ValidationRun lockRun(Long runId) {
+        return runRepository.findByIdForUpdate(runId)
+                .orElseThrow(() -> new DomainNotFoundException("error.authoring.run.notFound", runId));
+    }
+
+    private void requireActive(ValidationRun run) {
+        if (!run.isActive()) {
+            throw new DomainConflictException("error.authoring.run.terminal", run.getId(), run.getStatus());
+        }
+    }
+
+    /** Records one finding only while the run is active; serialized with settlement. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ValidationFinding recordFinding(Long runId, FindingDraft draft) {
+        requireActive(lockRun(runId));
         return findingRepository.save(new ValidationFinding(
                 runId, draft.layer(), draft.ruleCode(), draft.severity(),
                 draft.filePath(), draft.location(), draft.message(), draft.suggestion()));

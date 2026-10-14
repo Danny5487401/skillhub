@@ -12,6 +12,8 @@ public interface SkillDraftRepository {
 
     Optional<SkillDraft> findById(Long id);
 
+    Optional<SkillDraft> findByIdForUpdate(Long id);
+
     List<SkillDraft> findByOwnerIdOrderByUpdatedAtDesc(String ownerId);
 
     List<SkillDraft> findByNamespaceId(Long namespaceId);

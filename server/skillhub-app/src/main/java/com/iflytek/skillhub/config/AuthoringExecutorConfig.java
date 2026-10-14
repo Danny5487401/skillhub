@@ -1,6 +1,8 @@
 package com.iflytek.skillhub.config;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +16,17 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @Configuration
 public class AuthoringExecutorConfig {
 
+    @Bean(name = "authoringValidationTimer", destroyMethod = "shutdownNow")
+    public ScheduledExecutorService authoringValidationTimer() {
+        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, runnable -> {
+            Thread thread = new Thread(runnable, "authoring-validation-timeout");
+            thread.setDaemon(true);
+            return thread;
+        });
+        timer.setRemoveOnCancelPolicy(true);
+        return timer;
+    }
+
     @Bean(name = "authoringValidationExecutor")
     public Executor authoringValidationExecutor(AuthoringProperties properties) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -21,8 +34,7 @@ public class AuthoringExecutorConfig {
         executor.setMaxPoolSize(Math.max(1, properties.getExecutorThreads()));
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("authoring-validation-");
-        // a full queue runs the task on the submitting thread instead of dropping runs
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.initialize();
         return executor;
     }

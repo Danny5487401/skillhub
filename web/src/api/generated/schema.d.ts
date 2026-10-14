@@ -8071,6 +8071,7 @@ export interface components {
             size?: number;
             contentType?: string;
             content?: string;
+            encoding?: string;
         };
         ApiResponseListDraftFileResponse: {
             /** Format: int32 */

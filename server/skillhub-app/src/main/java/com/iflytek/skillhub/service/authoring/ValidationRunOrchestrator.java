@@ -1,6 +1,6 @@
 package com.iflytek.skillhub.service.authoring;
 
-import com.iflytek.skillhub.domain.authoring.SkillDraft;
+import com.iflytek.skillhub.config.AuthoringProperties;
 import com.iflytek.skillhub.domain.authoring.service.DraftStructureValidator;
 import com.iflytek.skillhub.domain.authoring.service.SkillDraftService;
 import com.iflytek.skillhub.domain.authoring.service.ValidationRunService;
@@ -13,14 +13,17 @@ import com.iflytek.skillhub.domain.authoring.validation.ValidationLayer;
 import com.iflytek.skillhub.domain.authoring.validation.ValidationRun;
 import com.iflytek.skillhub.domain.authoring.validation.ValidationRunStatus;
 import com.iflytek.skillhub.domain.shared.exception.DomainConflictException;
-import com.iflytek.skillhub.domain.skill.validation.PackageEntry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -45,38 +48,60 @@ public class ValidationRunOrchestrator {
     private final ValidationEventBroadcaster broadcaster;
     private final Executor executor;
 
-    private final Map<Long, AtomicBoolean> cancelFlags = new ConcurrentHashMap<>();
-
-    /** Serializes the RUN_FINISHED emission so it happens exactly once per run. */
-    private final Map<Long, Object> terminalLocks = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService timer;
+    private final AuthoringProperties properties;
+    private final Map<Long, FutureTask<Void>> tasks = new ConcurrentHashMap<>();
 
     public ValidationRunOrchestrator(ValidationRunService runService,
                                      SkillDraftService draftService,
                                      DraftStructureValidator structureValidator,
                                      ValidationEventBroadcaster broadcaster,
-                                     @Qualifier("authoringValidationExecutor") Executor executor) {
+                                     @Qualifier("authoringValidationExecutor") Executor executor,
+                                     @Qualifier("authoringValidationTimer") ScheduledExecutorService timer,
+                                     AuthoringProperties properties) {
         this.runService = runService;
         this.draftService = draftService;
         this.structureValidator = structureValidator;
         this.broadcaster = broadcaster;
         this.executor = executor;
+        this.timer = timer;
+        this.properties = properties;
     }
 
     /** Enqueues one QUEUED run for execution. */
     public void submit(Long runId) {
-        executor.execute(() -> executeRun(runId));
+        FutureTask<Void> task = new FutureTask<>(() -> { executeRun(runId); return null; }) {
+            @Override protected void done() { tasks.remove(runId, this); }
+        };
+        if (tasks.putIfAbsent(runId, task) != null) {
+            return;
+        }
+        try {
+            executor.execute(task);
+        } catch (RejectedExecutionException exception) {
+            tasks.remove(runId, task);
+            // The run was persisted before enqueue. Settle rather than leave it QUEUED.
+            runService.settleIfQueued(runId, 1, 0,
+                    Map.of("reason", "validation executor is busy; start a new run"));
+            emitTerminalOnce(runId);
+        }
     }
 
     /**
-     * Requests cooperative cancellation. QUEUED runs settle immediately; running runs
-     * settle when their executor observes the flag.
+     * Settles cancellation immediately, fences further writes, then interrupts
+     * the local worker cooperatively. Interrupt-insensitive work may still finish computing.
      */
     public ValidationRun requestCancel(Long runId, String userId, Set<String> platformRoles) {
         ValidationRun run = runService.requestCancel(runId, userId, platformRoles);
-        cancelFlags.computeIfAbsent(runId, key -> new AtomicBoolean()).set(true);
-        if (run.getStatus().isTerminal()) {
+        if (run.isActive()) {
+            settle(runId, ValidationRunStatus.CANCELLED, run.getErrorCount(), run.getWarningCount(),
+                    Map.of("reason", "cancelled by user"));
+            run = runService.getRun(runId);
+        } else {
             emitTerminalOnce(runId);
         }
+        FutureTask<Void> task = tasks.get(runId);
+        if (task != null) { task.cancel(true); }
         return run;
     }
 
@@ -88,63 +113,77 @@ public class ValidationRunOrchestrator {
                        Map<String, Object> summary) {
         runService.settleIfActive(runId, status, errorCount, warningCount, summary);
         emitTerminalOnce(runId);
+        if (status == ValidationRunStatus.TIMED_OUT) {
+            FutureTask<Void> task = tasks.get(runId);
+            if (task != null) { task.cancel(true); }
+        }
     }
 
     // ---------------------------------------------------------------- execution
 
     private void executeRun(Long runId) {
+        ScheduledFuture<?> deadline = null;
+        boolean claimed = false;
         try {
             ValidationRun run = runService.claimForExecution(runId);
             if (run.getStatus().isTerminal()) {
                 emitTerminalOnce(runId);
                 return;
             }
+            claimed = true;
+            deadline = timer.schedule(() -> {
+                try {
+                    settle(runId, ValidationRunStatus.TIMED_OUT, 0, 0,
+                            Map.of("reason", "validation execution deadline exceeded"));
+                } catch (RuntimeException exception) {
+                    log.error("Could not settle validation deadline for run {}", runId, exception);
+                }
+            }, Math.max(1, properties.getRunTimeoutMs()), TimeUnit.MILLISECONDS);
             executePipeline(run);
         } catch (DomainConflictException exception) {
-            // cancelled while queued, or already claimed/settled elsewhere
-            log.info("Validation run {} no longer claimable: {}", runId, exception.getMessage());
-            emitTerminalOnce(runId);
+            if (claimed) {
+                settle(runId, ValidationRunStatus.FAILED, 1, 0,
+                        Map.of("reason", "draft revision changed or run already settled"));
+            } else {
+                // Duplicate submit cannot append a fake terminal to another active worker.
+                emitTerminalOnce(runId);
+            }
         } catch (Exception exception) {
             log.error("Validation run {} crashed", runId, exception);
             settle(runId, ValidationRunStatus.FAILED, 1, 0,
                     Map.of("internalError", truncate(String.valueOf(exception.getMessage()), 500)));
         } finally {
-            cancelFlags.remove(runId);
-            terminalLocks.remove(runId);
+            if (deadline != null) { deadline.cancel(false); }
         }
     }
 
     private void executePipeline(ValidationRun run) {
         Long runId = run.getId();
-        SkillDraft draft = draftService.getDraft(run.getDraftId());
-        List<PackageEntry> entries = draftService.materializeEntries(draft.getId());
+        SkillDraftService.MaterializedSnapshot snapshot =
+                draftService.materializeSnapshot(run.getDraftId(), run.getDraftRevision());
         RunContext context = new RunContext(runId);
 
         emit(runId, ValidationEventType.RUN_STARTED, null, Map.of(
-                "draftId", draft.getId(),
-                "draftName", draft.getName(),
+                "draftId", run.getDraftId(),
+                "draftName", snapshot.name(),
                 "draftRevision", run.getDraftRevision()));
 
         try {
             // ---- STRUCTURE layer
             emit(runId, ValidationEventType.PHASE_STARTED, "STRUCTURE", Map.of());
             DraftStructureValidator.StructureReport structure =
-                    structureValidator.validate(draft.getName(), draft.getRequirement(), entries);
+                    structureValidator.validate(snapshot.name(), snapshot.requirement(), snapshot.entries());
             structure.findings().forEach(context::recordFinding);
             emit(runId, ValidationEventType.PHASE_FINISHED, "STRUCTURE", Map.of(
                     "findings", structure.findings().size(),
                     "errors", context.errorCount(ValidationLayer.STRUCTURE),
                     "warnings", context.warningCount(ValidationLayer.STRUCTURE)));
 
-            if (cancelFlags.getOrDefault(runId, new AtomicBoolean(false)).get()) {
-                settle(runId, ValidationRunStatus.CANCELLED, context.errorCount, context.warningCount,
-                        summary(context));
-                return;
-            }
-
             settle(runId,
                     context.errorCount == 0 ? ValidationRunStatus.SUCCEEDED : ValidationRunStatus.FAILED,
                     context.errorCount, context.warningCount, summary(context));
+        } catch (DomainConflictException exception) {
+            throw exception;
         } catch (Exception exception) {
             log.error("Validation pipeline for run {} failed", runId, exception);
             settle(runId, ValidationRunStatus.FAILED, context.errorCount + 1, context.warningCount,
@@ -161,20 +200,8 @@ public class ValidationRunOrchestrator {
 
     /** Appends the RUN_FINISHED event exactly once per run, then completes SSE subscribers. */
     private void emitTerminalOnce(Long runId) {
-        Object lock = terminalLocks.computeIfAbsent(runId, key -> new Object());
-        synchronized (lock) {
-            for (ValidationEvent event : runService.listEvents(runId, null)) {
-                if (event.getEventType() == ValidationEventType.RUN_FINISHED) {
-                    broadcaster.completeRun(runId, event);
-                    return;
-                }
-            }
-            ValidationRun run = runService.getRun(runId);
-            ValidationEvent terminal = runService.appendEvent(runId,
-                    ValidationEventType.RUN_FINISHED, null, Map.of(
-                            "status", run.getStatus().name(),
-                            "errorCount", run.getErrorCount(),
-                            "warningCount", run.getWarningCount()));
+        ValidationEvent terminal = runService.appendTerminalEvent(runId);
+        if (terminal != null) {
             broadcaster.completeRun(runId, terminal);
         }
     }

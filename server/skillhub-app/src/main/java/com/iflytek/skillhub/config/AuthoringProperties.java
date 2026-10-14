@@ -17,7 +17,7 @@ public class AuthoringProperties {
     /** Concurrent validation runs executed in-process. */
     private int executorThreads = 4;
 
-    /** Hard wall-clock cap for one whole validation run. */
+    /** Deadline after execution starts; interrupts cooperatively and blocks late writes. */
     private long runTimeoutMs = 900_000;
 
     /** Active runs older than this are swept to TIMED_OUT by the maintenance task. */

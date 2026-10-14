@@ -100,6 +100,9 @@ public class SkillDraft {
      * is still considered validated.
      */
     public void applyContentChange(int newRevision, String newContentDigest) {
+        if (newRevision <= 0) {
+            throw new IllegalArgumentException("Draft revision must be positive");
+        }
         this.revision = newRevision;
         this.contentDigest = newContentDigest;
     }

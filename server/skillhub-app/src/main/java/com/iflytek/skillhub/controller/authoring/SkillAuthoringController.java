@@ -139,12 +139,7 @@ public class SkillAuthoringController extends BaseApiController {
                                                           Set<String> platformRoles) {
         SkillDraftService.FileContent content =
                 draftService.readFile(draftId, userId, path, platformRoles);
-        return ok("response.success", new DraftFileContentResponse(
-                content.file().getFilePath(),
-                content.file().getSha256(),
-                content.file().getSize(),
-                content.file().getContentType(),
-                content.asText()));
+        return ok("response.success", DraftFileContentResponse.from(content));
     }
 
     @Operation(operationId = "deleteDraftFile", summary = "Delete one draft file")

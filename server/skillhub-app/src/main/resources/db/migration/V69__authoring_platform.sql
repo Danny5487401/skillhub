@@ -18,8 +18,7 @@ CREATE TABLE skill_draft (
     submitted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT chk_skill_draft_revision CHECK (revision > 0)
+    version BIGINT NOT NULL DEFAULT 0
 );
 
 -- Name uniqueness is enforced case-insensitively per owner.
@@ -44,8 +43,7 @@ CREATE TABLE draft_file (
     storage_key VARCHAR(768) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_draft_file_path UNIQUE (draft_id, file_path),
-    CONSTRAINT chk_draft_file_size CHECK (size >= 0)
+    CONSTRAINT uq_draft_file_path UNIQUE (draft_id, file_path)
 );
 
 CREATE INDEX idx_draft_file_draft
@@ -82,9 +80,7 @@ CREATE TABLE validation_run (
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT chk_validation_run_error_count CHECK (error_count >= 0),
-    CONSTRAINT chk_validation_run_warning_count CHECK (warning_count >= 0)
+    version BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_validation_run_draft_created
@@ -121,9 +117,7 @@ CREATE TABLE validation_finding (
     suggestion JSONB,
     status VARCHAR(16) NOT NULL DEFAULT 'OPEN',
     applied_revision INT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_validation_finding_status
-        CHECK (status IN ('OPEN', 'APPLIED', 'DISMISSED'))
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_validation_finding_run_status

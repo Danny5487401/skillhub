@@ -13,6 +13,8 @@ import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import java.util.List;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -156,5 +158,14 @@ class SkillAuthoringControllerAuthorizationTest {
                             .with(asUser(OTHER_USER)).with(csrf()))
                     .andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    void openApiDescribesBinarySafeDraftContent() throws Exception {
+        String schema = mockMvc.perform(get("/v3/api-docs").with(asUser(ADMIN, "SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.DraftFileContentResponse.properties.encoding").exists())
+                .andReturn().getResponse().getContentAsString();
+        Files.writeString(Path.of("target", "authoring-openapi.json"), schema);
     }
 }

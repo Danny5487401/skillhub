@@ -25,6 +25,10 @@ public interface ValidationRunJpaRepository extends JpaRepository<ValidationRun,
     @Query(value = "SELECT * FROM validation_run WHERE id = :id FOR UPDATE", nativeQuery = true)
     Optional<ValidationRun> findByIdForUpdate(@Param("id") Long id);
 
+    @Override
+    @Query(value = "SELECT draft_id FROM validation_run WHERE id = :id", nativeQuery = true)
+    Optional<Long> findDraftIdById(@Param("id") Long id);
+
     List<ValidationRun> findByDraftIdOrderByCreatedAtDesc(Long draftId);
 
     Optional<ValidationRun> findFirstByDraftIdAndDraftRevisionOrderByCreatedAtDesc(

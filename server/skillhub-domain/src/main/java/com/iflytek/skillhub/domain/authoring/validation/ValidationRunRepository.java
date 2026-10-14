@@ -15,6 +15,8 @@ public interface ValidationRunRepository {
 
     Optional<ValidationRun> findByIdForUpdate(Long id);
 
+    Optional<Long> findDraftIdById(Long id);
+
     List<ValidationRun> findByDraftIdOrderByCreatedAtDesc(Long draftId);
 
     /** Latest run recorded for an exact draft revision, used by the submit gate. */

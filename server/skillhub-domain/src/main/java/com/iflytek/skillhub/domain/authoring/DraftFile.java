@@ -56,6 +56,9 @@ public class DraftFile {
                      String contentType, String storageKey) {
         this.draftId = draftId;
         this.filePath = filePath;
+        if (size == null || size < 0) {
+            throw new IllegalArgumentException("Draft file size must be nonnegative");
+        }
         this.sha256 = sha256;
         this.size = size;
         this.contentType = contentType;
@@ -75,6 +78,9 @@ public class DraftFile {
     }
 
     public void updateContent(String sha256, Long size, String contentType, String storageKey) {
+        if (size == null || size < 0) {
+            throw new IllegalArgumentException("Draft file size must be nonnegative");
+        }
         this.sha256 = sha256;
         this.size = size;
         this.contentType = contentType;
