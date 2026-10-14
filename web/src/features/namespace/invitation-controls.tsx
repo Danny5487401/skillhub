@@ -12,6 +12,7 @@ import { resolvePublicRegistryUrl } from '@/shared/lib/registry-url'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+import { InvitationHistory } from './invitation-history'
 
 export function InvitationControls({ slug, compact = false }: { slug: string; compact?: boolean }) {
   const { t, i18n } = useTranslation()
@@ -74,14 +75,20 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
       try { window.sessionStorage.setItem(storageKey, token) } catch { setStorageUnavailable(true) }
       const url = invitationUrl(resolvePublicRegistryUrl(getAppBaseUrl(), window.location.origin, BASE_PATH), token)
       await copyLink(url, replaced)
-      await queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['namespace-invitation-history', slug, user?.userId] }),
+      ])
     },
   })
   const revoke = useMutation({
     mutationFn: () => namespaceApi.revokeInvitation(slug),
     onSuccess: async () => {
       clearStoredToken()
-      await queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['namespace-invitation-status', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['namespace-invitation-history', slug, user?.userId] }),
+      ])
       toast.success(t('invitation.revoked'))
     },
   })
@@ -142,6 +149,7 @@ export function InvitationControls({ slug, compact = false }: { slug: string; co
           </div>
         </div>
       ) : null}
+      {!compact && user ? <InvitationHistory key={`${slug}:${user.userId}`} slug={slug} /> : null}
       <ConfirmDialog open={confirm !== null} onOpenChange={(open) => { if (!open) setConfirm(null) }}
         title={t(confirm === 'revoke' ? 'invitation.revokeTitle' : 'invitation.replaceTitle')}
         description={t(confirm === 'revoke' ? 'invitation.revokeDescription' : 'invitation.replaceDescription')}

@@ -29,7 +29,10 @@ export function JoinPage() {
     mutationFn: () => namespaceApi.acceptInvitation(token!),
     onSuccess: async (result) => {
       clearInvitationToken()
-      await queryClient.invalidateQueries({ queryKey: ['namespaces'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['namespaces'] }),
+        queryClient.invalidateQueries({ queryKey: ['namespace-invitation-history', result.namespaceSlug] }),
+      ])
       await navigate({ to: '/space/$namespace', params: { namespace: result.namespaceSlug }, replace: true })
     },
   })

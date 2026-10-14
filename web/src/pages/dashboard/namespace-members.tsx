@@ -6,6 +6,7 @@ import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { AddNamespaceMemberDialog } from '@/features/namespace/add-namespace-member-dialog'
 import { BatchImportMembersDialog } from '@/features/namespace/batch-import-members-dialog'
 import { InvitationControls } from '@/features/namespace/invitation-controls'
+import { InvitationHistory } from '@/features/namespace/invitation-history'
 import { NamespaceManagementBack, NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/shared/ui/dialog'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
@@ -77,6 +78,7 @@ export function NamespaceMembersPage() {
   // Membership changes are only allowed in active team namespaces and only for
   // elevated roles surfaced through the current user's namespace membership.
   const canManageMembers = !isReadOnly && (currentUserRole === 'OWNER' || currentUserRole === 'ADMIN')
+  const canViewInvitations = namespace?.type === 'TEAM' && (currentUserRole === 'OWNER' || currentUserRole === 'ADMIN')
   const canEditNamespace = canManageMembers
   const canTransferOwnership = !isReadOnly && currentUserRole === 'OWNER'
 
@@ -176,14 +178,14 @@ export function NamespaceMembersPage() {
           </Card>
         ) : null}
 
-        {canManageMembers ? <div className="flex flex-wrap items-center justify-end gap-2">
-          {canManageMembers ? (
+        {canViewInvitations ? <div className="flex flex-wrap items-center justify-end gap-2">
+          {canViewInvitations ? (
             <Dialog>
-              <DialogTrigger asChild><Button variant="outline">{t('namespaceManagement.invite')}</Button></DialogTrigger>
+              <DialogTrigger asChild><Button variant="outline">{t(canManageMembers ? 'namespaceManagement.invite' : 'invitation.historyTitle')}</Button></DialogTrigger>
               <DialogContent className="w-[min(calc(100vw-2rem),40rem)] gap-5 p-5 sm:p-6">
-                <DialogTitle>{t('namespaceManagement.invite')}</DialogTitle>
+                <DialogTitle>{t(canManageMembers ? 'namespaceManagement.invite' : 'invitation.historyTitle')}</DialogTitle>
                 <DialogDescription className="break-words">{namespace.displayName} <span className="text-muted-foreground">@{slug}</span></DialogDescription>
-                <InvitationControls slug={slug} />
+                {canManageMembers ? <InvitationControls slug={slug} /> : <InvitationHistory key={slug} slug={slug} />}
               </DialogContent>
             </Dialog>
           ) : null}

@@ -25,11 +25,15 @@ class NamespaceInvitationServiceTest {
     private final NamespaceMemberRepository members = mock(NamespaceMemberRepository.class);
     private final UserAccountRepository users = mock(UserAccountRepository.class);
     private final AuditLogService audit = mock(AuditLogService.class);
+    private final NamespaceInvitationHistoryRepository histories = mock(NamespaceInvitationHistoryRepository.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-12T00:00:00Z"), ZoneOffset.UTC);
-    private final NamespaceInvitationService service = new NamespaceInvitationService(namespaces, invitations, members, users, audit, clock);
+    private final NamespaceInvitationService service = new NamespaceInvitationService(namespaces, invitations, members, users, audit, clock, histories);
 
     @BeforeEach
     void setup() {
+        lenient().when(histories.save(any())).thenAnswer(call -> call.getArgument(0));
+        lenient().when(histories.findById(org.mockito.ArgumentMatchers.nullable(String.class))).thenAnswer(call ->
+                Optional.of(new NamespaceInvitationHistory(7L, "owner", "Owner", clock.instant(), clock.instant().plusSeconds(86400))));
         Namespace namespace = new Namespace("team", "Team", "owner");
         // Entity ID is database-generated; mock the locked lookup with the same instance.
         try {
@@ -307,6 +311,38 @@ class NamespaceInvitationServiceTest {
 
         assertThat(renewed.replaced()).isFalse();
         assertThat(renewed.token()).isNotEqualTo(first.token());
+    }
+
+    @Test
+    void historyStatusPreservesTerminalFactsAndUsesExactExpiryBoundary() {
+        var row = new NamespaceInvitationHistory(7L, "owner", "Owner", clock.instant().minusSeconds(86400), clock.instant());
+        row.end("REPLACED", clock.instant());
+        assertThat(row.status(clock.instant())).isEqualTo("EXPIRED");
+        var used = new NamespaceInvitationHistory(7L, "owner", "Owner", clock.instant(), clock.instant().plusSeconds(86400));
+        used.consume("guest", "Guest", clock.instant());
+        used.end("REVOKED", clock.instant());
+        assertThat(used.status(clock.instant().plusSeconds(100000))).isEqualTo("USED");
+    }
+
+    @Test
+    void historyRejectsMembersAndPlatformAdminsWithoutNamespaceManagementRole() {
+        assertThatThrownBy(() -> service.history("team", "guest", 0, 10)).isInstanceOf(DomainNotFoundException.class);
+        assertThatThrownBy(() -> service.history("team", "platform-admin", 0, 10)).isInstanceOf(DomainNotFoundException.class);
+        verify(histories, never()).findByNamespaceId(any(), any());
+    }
+
+    @Test
+    void inactiveManagerCannotReadHistoryAndFrozenNamespaceDoesNotRemoveReadPermission() {
+        var namespace = namespaces.findById(7L).orElseThrow();
+        when(histories.findByNamespaceId(eq(7L), any())).thenReturn(org.springframework.data.domain.Page.empty());
+        namespace.setStatus(NamespaceStatus.FROZEN);
+        assertThat(service.history("team", "owner", 0, 10)).isEmpty();
+        namespace.setStatus(NamespaceStatus.ARCHIVED);
+        assertThat(service.history("team", "owner", 0, 10)).isEmpty();
+        UserAccount inactive = mock(UserAccount.class);
+        when(inactive.getStatus()).thenReturn(UserStatus.MERGED);
+        when(users.findById("owner")).thenReturn(Optional.of(inactive));
+        assertThatThrownBy(() -> service.history("team", "owner", 0, 10)).isInstanceOf(DomainNotFoundException.class);
     }
 
     private NamespaceInvitation invitationExpiringNow() {

@@ -8,7 +8,8 @@ vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ slug: 'team' }) }
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }) }))
 vi.mock('@/features/namespace/namespace-header', () => ({ NamespaceHeader: () => <h1>Team</h1> }))
 vi.mock('@/features/namespace/namespace-management-nav', () => ({ NamespaceManagementBack: () => <a href="/dashboard/namespaces">Back</a>, NamespaceManagementNav: () => <nav>Navigation</nav> }))
-vi.mock('@/features/namespace/invitation-controls', () => ({ InvitationControls: () => null }))
+vi.mock('@/features/namespace/invitation-controls', () => ({ InvitationControls: () => <span>Active invitation controls</span> }))
+vi.mock('@/features/namespace/invitation-history', () => ({ InvitationHistory: () => <span>Read-only invitation history</span> }))
 vi.mock('@/features/namespace/add-namespace-member-dialog', () => ({ AddNamespaceMemberDialog: ({ children }: { children: ReactNode }) => children }))
 vi.mock('@/features/namespace/batch-import-members-dialog', () => ({ BatchImportMembersDialog: ({ children }: { children: ReactNode }) => children }))
 vi.mock('@/features/namespace/transfer-ownership-dialog', () => ({ TransferOwnershipDialog: ({ children }: { children: ReactNode }) => children }))
@@ -40,6 +41,22 @@ afterEach(cleanup)
 beforeEach(() => { state.role = 'OWNER'; state.status = 'ACTIVE'; state.update.mockReset().mockResolvedValue({}); state.remove.mockReset() })
 
 describe('NamespaceMembersPage permissions and role actions', () => {
+  it.each(['FROZEN', 'ARCHIVED'])('allows OWNER to view history without creating links in %s space', async (status) => {
+    state.status = status
+    render(<NamespaceMembersPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'invitation.historyTitle' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Read-only invitation history')).toBeTruthy()
+    expect(within(dialog).queryByText('Active invitation controls')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'namespaceManagement.invite' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'members.addMember' })).toBeNull()
+  })
+  it('does not offer invitation history to an ordinary member', () => {
+    state.role = 'MEMBER'
+    render(<NamespaceMembersPage />)
+    expect(screen.queryByRole('button', { name: 'invitation.historyTitle' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'namespaceManagement.invite' })).toBeNull()
+  })
   it('places back navigation before the namespace header', () => {
     const { container } = render(<NamespaceMembersPage />)
     expect(container.firstElementChild?.firstElementChild?.tagName).toBe('A')

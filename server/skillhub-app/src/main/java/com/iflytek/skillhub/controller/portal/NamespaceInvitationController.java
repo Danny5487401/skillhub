@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping({"/api/v1", "/api/web"})
@@ -38,6 +41,28 @@ public class NamespaceInvitationController extends BaseApiController {
         requireSession(principal, request);
         return ok("response.success.read", new InvitationStatus(invitations.hasActiveInvitation(slug, principal.userId())));
     }
+
+    @GetMapping("/namespaces/{slug}/invitations/history")
+    public ApiResponse<InvitationHistoryPage> history(@PathVariable String slug,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request, HttpServletResponse response) {
+        noStore(response);
+        requireSession(principal, request);
+        var rows = invitations.history(slug, principal.userId(), page, size);
+        var now = invitations.currentTime();
+        return ok("response.success.read", new InvitationHistoryPage(rows.getContent().stream()
+                .map(row -> new InvitationHistoryItem(row.getId(), row.getIssuedBy(), row.getIssuedByName(),
+                        row.getIssuedAt(), row.getExpiresAt(), row.status(now), row.getConsumedBy(), row.getConsumedByName(),
+                        row.getConsumedAt(), row.getEndedAt(), row.isLegacy())).toList(),
+                rows.getNumber(), rows.getSize(), rows.getTotalElements(), rows.getTotalPages()));
+    }
+
+    public record InvitationHistoryItem(String invitationId, String issuedBy, String issuedByName,
+            Instant issuedAt, Instant expiresAt, String status, String consumedBy,
+            String consumedByName, Instant consumedAt, Instant endedAt, boolean legacy) {}
+    public record InvitationHistoryPage(List<InvitationHistoryItem> items, int page, int size,
+            long total, int totalPages) {}
 
     @PostMapping("/namespaces/{slug}/invitations")
     public ApiResponse<NamespaceInvitationService.Created> create(@PathVariable String slug,

@@ -86,10 +86,12 @@ class NamespaceInvitationPostgresTest {
     @Autowired private AccountMergeService accountMerge;
     @Autowired private AccountMergeRequestRepository mergeRequests;
     @Autowired private NamespaceInvitationJpaRepository invitationRows;
+    @Autowired private com.iflytek.skillhub.infra.jpa.NamespaceInvitationHistoryJpaRepository historyRows;
     @Autowired private NamespaceJpaRepository namespaces;
     @Autowired private NamespaceMemberJpaRepository members;
     @Autowired private UserAccountJpaRepository users;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockBean private SkillRepository skills;
     @MockBean private ReviewTaskRepository reviewTasks;
     @MockBean private PromotionRequestRepository promotions;
@@ -119,6 +121,10 @@ class NamespaceInvitationPostgresTest {
         assertThat(members.findByNamespaceId(namespaceId, org.springframework.data.domain.Pageable.unpaged())
                 .getContent().stream().filter(member -> member.getRole() == NamespaceRole.MEMBER)).hasSize(1);
         assertThat(invitationRows.findByNamespaceId(namespaceId).orElseThrow().getConsumedBy()).isIn(first, second);
+        var history = invitations.history("inv-" + suffix, owner, 0, 10).getContent();
+        assertThat(history).hasSize(1);
+        assertThat(history.getFirst().getConsumedBy()).isIn(first, second);
+        assertThat(history.getFirst().status(Instant.now())).isEqualTo("USED");
     }
 
     @Test
@@ -248,6 +254,9 @@ class NamespaceInvitationPostgresTest {
         }
         assertThat(namespaces.findBySlug(slug)).isEmpty();
         assertThat(invitationRows.findByNamespaceId(namespaceId)).isEmpty();
+        assertThat(historyRows.findByNamespaceId(namespaceId, org.springframework.data.domain.Pageable.unpaged())).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_log WHERE target_type='NAMESPACE' AND target_id=? AND action='NAMESPACE_INVITE_CREATED'", Long.class, namespaceId)).isEqualTo(1);
+
         assertThat(members.findByNamespaceIdAndUserId(namespaceId, guest)).isEmpty();
     }
 
@@ -299,6 +308,98 @@ class NamespaceInvitationPostgresTest {
                 .getContent().stream().filter(member -> member.getUserId().equals(primary))).hasSize(1);
         assertThat(invitationRows.findByNamespaceId(ids[1]).orElseThrow().getConsumedAt() != null)
                 .isEqualTo(!alreadyMember);
+    }
+
+    @Test
+    void migrationBackfillsOnlyProvableCurrentRowsAndNeverTokensOrInventedNames() throws Exception {
+        String schema = "invite_legacy_" + UUID.randomUUID().toString().replace("-", "");
+        var flyway = org.flywaydb.core.Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .schemas(schema).defaultSchema(schema).target("73").load();
+        flyway.migrate();
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var statement = connection.createStatement()) {
+            statement.execute("SET search_path TO " + schema);
+            statement.execute("INSERT INTO user_account(id,display_name,status) VALUES ('legacy-owner','Owner','ACTIVE')");
+            statement.execute("INSERT INTO namespace(slug,display_name,type,status,created_by) VALUES ('legacy-one','Legacy one','TEAM','ACTIVE','legacy-owner'),('legacy-two','Legacy two','TEAM','ACTIVE','legacy-owner')");
+            statement.execute("INSERT INTO namespace_invitation(namespace_id,token_hash,issued_by,issued_at,expires_at,consumed_by,consumed_at) "
+                    + "SELECT id, CASE slug WHEN 'legacy-one' THEN repeat('a',64) ELSE repeat('b',64) END,'legacy-owner',now()-interval '1 hour',now()+interval '23 hours',"
+                    + "CASE slug WHEN 'legacy-two' THEN 'legacy-guest' END,CASE slug WHEN 'legacy-two' THEN now() END FROM namespace WHERE slug IN ('legacy-one','legacy-two')");
+            org.flywaydb.core.Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                    .schemas(schema).defaultSchema(schema).load().migrate();
+            try (var rows = statement.executeQuery("SELECT count(*), count(*) FILTER (WHERE legacy), count(*) FILTER (WHERE consumed_by='legacy-guest'), count(issued_by_name) FROM namespace_invitation_history")) {
+                rows.next();
+                assertThat(rows.getInt(1)).isEqualTo(2);
+                assertThat(rows.getInt(2)).isEqualTo(2);
+                assertThat(rows.getInt(3)).isEqualTo(1);
+                assertThat(rows.getInt(4)).isZero();
+            }
+            try (var rows = statement.executeQuery("SELECT count(*) FROM namespace_invitation i JOIN namespace_invitation_history h ON h.id=i.history_id AND h.namespace_id=i.namespace_id")) {
+                rows.next(); assertThat(rows.getInt(1)).isEqualTo(2);
+            }
+            statement.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void historyKeepsUsedAndRemovedMemberFactsAndIndependentReplacementRevocation() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String owner = "history-owner-" + suffix;
+        String guest = "history-guest-" + suffix;
+        String slug = "history-" + suffix;
+        Long namespaceId = createTeam(slug, owner, guest);
+        String firstToken = invitations.create(slug, owner).token();
+        String firstId = invitationRows.findByNamespaceId(namespaceId).orElseThrow().getHistoryId();
+        invitations.create(slug, owner, true);
+        assertThat(historyRows.findById(firstId).orElseThrow().status(Instant.now())).isEqualTo("REPLACED");
+        String secondId = invitationRows.findByNamespaceId(namespaceId).orElseThrow().getHistoryId();
+        invitations.revoke(slug, owner);
+        assertThat(historyRows.findById(secondId).orElseThrow().status(Instant.now())).isEqualTo("REVOKED");
+        String thirdToken = invitations.create(slug, owner).token();
+        String thirdId = invitationRows.findByNamespaceId(namespaceId).orElseThrow().getHistoryId();
+        invitations.accept(thirdToken, guest);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            members.delete(members.findByNamespaceIdAndUserId(namespaceId, guest).orElseThrow());
+            users.findAllById(java.util.List.of(guest)).iterator().next().setDisplayName("Renamed later");
+        });
+        invitations.create(slug, owner);
+        var history = invitations.history(slug, owner, 0, 2);
+        assertThat(history.getTotalElements()).isEqualTo(4);
+        assertThat(jdbc.queryForObject("SELECT detail_json::jsonb->>'invitationId' FROM audit_log WHERE target_type='NAMESPACE' AND target_id=? AND action='NAMESPACE_INVITE_ACCEPTED'", String.class, namespaceId)).isEqualTo(thirdId);
+        assertThat(history.getTotalPages()).isEqualTo(2);
+        var used = historyRows.findById(thirdId).orElseThrow();
+        assertThat(used.status(Instant.now())).isEqualTo("USED");
+        assertThat(used.getConsumedBy()).isEqualTo(guest);
+        assertThat(used.getConsumedByName()).isNotEqualTo("Renamed later");
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> invitations.preview(firstToken, guest)))
+                .isInstanceOf(DomainNotFoundException.class);
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> invitations.history(slug, guest, 0, 10)))
+                .isInstanceOf(DomainNotFoundException.class);
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> invitations.history(slug, owner, 0, 51)))
+                .isInstanceOf(DomainBadRequestException.class);
+    }
+
+    @Test
+    void accountMergeDoesNotRewriteHistoricalRecipientIdentity() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String owner = "history-owner-" + suffix;
+        String secondary = "history-secondary-" + suffix;
+        String primary = "history-primary-" + suffix;
+        String slug = "history-merge-" + suffix;
+        Long namespaceId = createTeam(slug, owner, secondary);
+        String token = invitations.create(slug, owner).token();
+        invitations.accept(token, secondary);
+        Long requestId = new TransactionTemplate(transactionManager).execute(status -> {
+            users.saveAndFlush(new UserAccount(primary, primary, null, null));
+            AccountMergeRequest request = new AccountMergeRequest(primary, secondary, null, Instant.now().plusSeconds(3600));
+            request.setStatus(AccountMergeRequest.STATUS_VERIFIED);
+            return mergeRequests.saveAndFlush(request).getId();
+        });
+        accountMerge.confirm(primary, requestId);
+        assertThat(members.findByNamespaceIdAndUserId(namespaceId, primary)).isPresent();
+        var row = invitations.history(slug, owner, 0, 10).getContent().getFirst();
+        assertThat(row.getConsumedBy()).isEqualTo(secondary);
+        assertThat(row.status(Instant.now())).isEqualTo("USED");
     }
 
     private Long createTeam(String slug, String owner, String guest) {

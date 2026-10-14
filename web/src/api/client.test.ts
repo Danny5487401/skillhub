@@ -185,6 +185,7 @@ describe('namespace invitation API', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
+    await namespaceApi.invitationHistory('@team', 2, 10)
     await namespaceApi.invitationStatus('@team')
     await namespaceApi.createInvitation('@team', false)
     await namespaceApi.revokeInvitation('@team')
@@ -192,14 +193,15 @@ describe('namespace invitation API', () => {
     await namespaceApi.acceptInvitation('raw-token')
 
     expect(fetchMock.mock.calls.map(([url, init]) => [url, init.method ?? 'GET'])).toEqual([
+      ['/api/web/namespaces/team/invitations/history?page=2&size=10', 'GET'],
       ['/api/web/namespaces/team/invitations', 'GET'],
       ['/api/web/namespaces/team/invitations', 'POST'],
       ['/api/web/namespaces/team/invitations', 'DELETE'],
       ['/api/web/namespace-invitations/preview', 'POST'],
       ['/api/web/namespace-invitations/accept', 'POST'],
     ])
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ replace: false })
-    expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual({ token: 'raw-token' })
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ replace: false })
+    expect(JSON.parse(fetchMock.mock.calls[4][1].body)).toEqual({ token: 'raw-token' })
   })
 })
 

@@ -6,6 +6,10 @@ import com.iflytek.skillhub.domain.shared.exception.DomainConflictException;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.domain.user.UserStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -26,16 +30,18 @@ public class NamespaceInvitationService {
     private final UserAccountRepository users;
     private final AuditLogService audit;
     private final Clock clock;
+    private final NamespaceInvitationHistoryRepository histories;
 
     public NamespaceInvitationService(NamespaceRepository namespaces, NamespaceInvitationRepository invitations,
                                       NamespaceMemberRepository members, UserAccountRepository users,
-                                      AuditLogService audit, Clock clock) {
+                                      AuditLogService audit, Clock clock, NamespaceInvitationHistoryRepository histories) {
         this.namespaces = namespaces;
         this.invitations = invitations;
         this.members = members;
         this.users = users;
         this.audit = audit;
         this.clock = clock;
+        this.histories = histories;
     }
 
     public record Created(String token, Instant expiresAt, boolean replaced) {}
@@ -66,13 +72,21 @@ public class NamespaceInvitationService {
         if (replaced && !replace) {
             throw new DomainConflictException("error.namespace.invite.replaceConfirmationRequired");
         }
+        if (invitation != null) {
+            NamespaceInvitationHistory previous = history(invitation);
+            previous.end("REPLACED", now);
+            histories.save(previous);
+        }
+        NamespaceInvitationHistory history = histories.save(new NamespaceInvitationHistory(namespace.getId(), actorId,
+                users.findById(actorId).orElseThrow(this::invalid).getDisplayName(), now, now.plusSeconds(86400)));
         if (invitation == null) {
             invitation = new NamespaceInvitation(namespace.getId(), hash(token), actorId, now, now.plusSeconds(86400));
         } else {
             invitation.replace(hash(token), actorId, now);
         }
+        invitation.setHistoryId(history.getId());
         invitations.save(invitation);
-        record(actorId, replaced ? "NAMESPACE_INVITE_REPLACED" : "NAMESPACE_INVITE_CREATED", namespace.getId());
+        record(actorId, replaced ? "NAMESPACE_INVITE_REPLACED" : "NAMESPACE_INVITE_CREATED", namespace.getId(), history.getId());
         return new Created(token, invitation.getExpiresAt(), replaced);
     }
 
@@ -82,11 +96,12 @@ public class NamespaceInvitationService {
         Namespace namespace = lock(slug);
         requireManager(namespace, actorId);
         requireActiveTeam(namespace);
-        if (invitations.findByNamespaceId(namespace.getId()).isEmpty()) {
-            throw invalid();
-        }
+        NamespaceInvitation invitation = invitations.findByNamespaceId(namespace.getId()).orElseThrow(this::invalid);
+        NamespaceInvitationHistory history = history(invitation);
+        history.end("REVOKED", clock.instant());
+        histories.save(history);
         invitations.deleteByNamespaceId(namespace.getId());
-        record(actorId, "NAMESPACE_INVITE_REVOKED", namespace.getId());
+        record(actorId, "NAMESPACE_INVITE_REVOKED", namespace.getId(), history.getId());
     }
 
     @Transactional(readOnly = true)
@@ -130,10 +145,32 @@ public class NamespaceInvitationService {
         requireActiveUser(userId);
         requireValid(namespace, invitation);
         members.save(new NamespaceMember(namespace.getId(), userId, NamespaceRole.MEMBER));
-        invitation.consume(userId, clock.instant());
+        Instant acceptedAt = clock.instant();
+        invitation.consume(userId, acceptedAt);
+        NamespaceInvitationHistory history = history(invitation);
+        history.consume(userId, users.findById(userId).orElseThrow(this::invalid).getDisplayName(), acceptedAt);
+        histories.save(history);
         invitations.save(invitation);
-        record(userId, "NAMESPACE_INVITE_ACCEPTED", namespace.getId());
+        record(userId, "NAMESPACE_INVITE_ACCEPTED", namespace.getId(), history.getId());
         return new Accepted(namespace.getSlug(), AcceptOutcome.JOINED);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<NamespaceInvitationHistory> history(String slug, String actorId, int page, int size) {
+        if (page < 0 || size < 1 || size > 50) {
+            throw new DomainBadRequestException("error.pagination.invalid", 50);
+        }
+        Namespace namespace = namespaces.findBySlug(slug).orElseThrow(this::invalid);
+        requireManager(namespace, actorId);
+        return histories.findByNamespaceId(namespace.getId(), PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "issuedAt", "id")));
+    }
+
+    public Instant currentTime() { return clock.instant(); }
+
+    private NamespaceInvitationHistory history(NamespaceInvitation invitation) {
+        return histories.findById(invitation.getHistoryId()).orElseThrow(() ->
+                new IllegalStateException("Current invitation history is missing"));
     }
 
     private Namespace lock(String slug) {
@@ -186,7 +223,7 @@ public class NamespaceInvitationService {
         }
     }
 
-    private void record(String actorId, String action, Long namespaceId) {
-        audit.record(actorId, action, "NAMESPACE", namespaceId, null, null, null, null);
+    private void record(String actorId, String action, Long namespaceId, String invitationId) {
+        audit.record(actorId, action, "NAMESPACE", namespaceId, null, null, null, "{\"invitationId\":\"" + invitationId + "\"}");
     }
 }

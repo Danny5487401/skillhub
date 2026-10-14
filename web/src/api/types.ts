@@ -809,3 +809,9 @@ export interface NotificationPreferenceItem {
 export interface NotificationUnreadCount {
   count: number
 }
+
+/** Read-only, token-free invitation history from the generated API contract. */
+export type NamespaceInvitationHistory = Required<components['schemas']['InvitationHistoryItem']>
+export type NamespaceInvitationHistoryPage = Omit<Required<components['schemas']['InvitationHistoryPage']>, 'items'> & {
+  items: NamespaceInvitationHistory[]
+}

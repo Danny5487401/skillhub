@@ -106,6 +106,28 @@ class NamespaceInvitationControllerTest {
     }
 
     @Test
+    void historyRequiresSessionAndNeverReturnsTokensOrHashes() throws Exception {
+        PlatformPrincipal owner = new PlatformPrincipal("owner", "Owner", null, null, "local", Set.of());
+        assertThatThrownBy(() -> controller.history("team", 0, 10, owner, request, response))
+                .isInstanceOf(UnauthorizedException.class);
+        when(request.getSession(false)).thenReturn(mock(HttpSession.class));
+        PlatformPrincipal token = new PlatformPrincipal("owner", "Owner", null, null, "api_token", Set.of("SUPER_ADMIN"));
+        assertThatThrownBy(() -> controller.history("team", 0, 10, token, request, response))
+                .isInstanceOf(UnauthorizedException.class);
+        Instant now = Instant.parse("2026-10-13T00:00:00Z");
+        var row = new com.iflytek.skillhub.domain.namespace.NamespaceInvitationHistory(7L, "owner", "Original name", now, now.plusSeconds(86400));
+        when(invitations.history("team", "owner", 0, 10)).thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(row), org.springframework.data.domain.PageRequest.of(0, 10), 1));
+        when(invitations.currentTime()).thenReturn(now);
+        when(responses.ok(anyString(), any())).thenAnswer(call -> new ApiResponse<>(0, "ok", call.getArgument(1), now, null));
+        var page = controller.history("team", 0, 10, owner, request, response).data();
+        assertThat(page.items().getFirst().status()).isEqualTo("ACTIVE");
+        assertThat(page.total()).isEqualTo(1);
+        String json = new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(page);
+        assertThat(json).contains("invitationId", "Original name").doesNotContain("token", "hash");
+        verify(response, times(3)).setHeader("Cache-Control", "no-store, private");
+    }
+
+    @Test
     void firstCreateNeedsNoBodyAndSuccessDtosMatchIssueContract() {
         when(request.getSession(false)).thenReturn(mock(HttpSession.class));
         PlatformPrincipal owner = new PlatformPrincipal("owner", "Owner", null, null, "local", Set.of());

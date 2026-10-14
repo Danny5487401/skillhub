@@ -4589,6 +4589,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/namespaces/{slug}/invitations/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["history_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{slug}/invitations/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["history_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/web/me/suites/workspace": {
         parameters: {
             query?: never;
@@ -7769,6 +7801,43 @@ export interface components {
             displayName?: string;
             email?: string;
             status?: string;
+        };
+        ApiResponseInvitationHistoryPage: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["InvitationHistoryPage"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        InvitationHistoryItem: {
+            invitationId?: string;
+            issuedBy?: string;
+            issuedByName?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            status?: string;
+            consumedBy?: string;
+            consumedByName?: string;
+            /** Format: date-time */
+            consumedAt?: string;
+            /** Format: date-time */
+            endedAt?: string;
+            legacy?: boolean;
+        };
+        InvitationHistoryPage: {
+            items?: components["schemas"]["InvitationHistoryItem"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            totalPages?: number;
         };
         ApiResponseInvitationStatus: {
             /** Format: int32 */
@@ -16926,6 +16995,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListNamespaceCandidateUserResponse"];
+                };
+            };
+        };
+    };
+    history_2: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitationHistoryPage"];
+                };
+            };
+        };
+    };
+    history_3: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInvitationHistoryPage"];
                 };
             };
         };

@@ -32,6 +32,12 @@ public class NamespaceInvitation {
     @Column(name = "consumed_at")
     private Instant consumedAt;
 
+    @Column(name = "history_id", nullable = false)
+    private String historyId;
+
+    public String getHistoryId() { return historyId; }
+    public void setHistoryId(String historyId) { this.historyId = historyId; }
+
     protected NamespaceInvitation() {}
 
     public NamespaceInvitation(Long namespaceId, String tokenHash, String issuedBy, Instant issuedAt, Instant expiresAt) {

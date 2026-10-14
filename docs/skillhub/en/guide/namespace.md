@@ -176,6 +176,16 @@ Content-Type: application/json
 POST /api/v1/namespaces/{slug}/unfreeze
 ```
 
+## Invite Members and View History
+
+Team Owners and Admins can create a link from **Members → Invite members**. It expires after 24 hours and permits one new member to join. The recipient must sign in, meet existing admission rules, and confirm joining. Replacing an active link or revoking it requires confirmation and does not remove existing members.
+
+The dialog includes a read-only, paginated history showing the creator, creation and expiration times, status, and the account that successfully joined. Each generated invitation has its own record. Replacement, revocation, expiration, or a member leaving does not erase history. History cannot restore expired links and does not indicate current membership. Only the space's Owner/Admin can view it; platform roles do not bypass this restriction. Frozen or archived spaces retain a history-only entry.
+
+An upgrade imports only the provable current invitation, marked as a legacy record; earlier links are not reconstructed from incomplete audit data. History remains while the space exists and is deleted when the space is permanently deleted. Existing audit records follow their original retention rules.
+
+The history endpoint requires a browser session: `GET /api/v1/namespaces/{slug}/invitations/history?page=0&size=10`. Page sizes are bounded to 1–50; tokens and hashes are never returned.
+
 ## Notes
 
 > **Slug Uniqueness**: Namespace slugs must be globally unique and cannot be changed after creation. Use a short identifier for your team or project.

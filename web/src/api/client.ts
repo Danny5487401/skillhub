@@ -48,6 +48,7 @@ import type {
   Namespace,
   CreateNamespaceRequest,
   NamespaceMember,
+  NamespaceInvitationHistoryPage,
   NamespaceCandidateUser,
   NotificationItem,
   NotificationPreferenceItem,
@@ -818,6 +819,11 @@ export const labelApi = {
 }
 
 export const namespaceApi = {
+  async invitationHistory(slug: string, page = 0, size = 10): Promise<NamespaceInvitationHistoryPage> {
+    const params = new URLSearchParams({ page: String(page), size: String(size) })
+    return fetchJson<NamespaceInvitationHistoryPage>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations/history?${params}`)
+  },
+
   async invitationStatus(slug: string): Promise<{ active: boolean }> {
     return fetchJson<{ active: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`)
   },

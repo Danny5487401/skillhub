@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   invitationStatus: vi.fn(),
+  invitationHistory: vi.fn().mockResolvedValue({ items: [], total: 0, totalPages: 0, page: 0, size: 10 }),
   createInvitation: vi.fn(),
   revokeInvitation: vi.fn(),
   previewInvitation: vi.fn(),
@@ -27,6 +28,7 @@ describe('InvitationControls', () => {
     window.sessionStorage.clear()
     auth.user = { userId: 'owner' }
     Object.values(api).forEach((mock) => mock.mockReset())
+    api.invitationHistory.mockResolvedValue({ items: [], total: 0, totalPages: 0, page: 0, size: 10 })
   })
 
   async function openConfirmation(action: 'replace' | 'revoke') {
@@ -85,6 +87,30 @@ describe('InvitationControls', () => {
     expect(api.createInvitation).not.toHaveBeenCalled()
     expect(api.revokeInvitation).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it.each(['create', 'replace', 'revoke'] as const)('refreshes history only after %s succeeds', async (action) => {
+    api.invitationStatus.mockResolvedValue({ active: action !== 'create' })
+    api.previewInvitation.mockResolvedValue({ namespaceSlug: 'team', expiresAt: '2999-01-01T00:00:00Z' })
+    const historyPage = { items: [], page: 0, size: 10, total: 0, totalPages: 0 }
+    api.invitationHistory.mockResolvedValue(historyPage)
+    let succeed: () => void = () => {}
+    if (action === 'revoke') api.revokeInvitation.mockImplementation(() => new Promise<void>((resolve) => { succeed = () => { api.invitationStatus.mockResolvedValue({ active: false }); resolve() } }))
+    else api.createInvitation.mockImplementation(() => new Promise((resolve) => { succeed = () => { api.invitationStatus.mockResolvedValue({ active: true }); resolve({ token: 'a'.repeat(43), replaced: action === 'replace' }) } }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><InvitationControls slug="team" /></QueryClientProvider>)
+    const button = await screen.findByRole('button', { name: action === 'create' ? 'invitation.create' : action === 'replace' ? 'invitation.replaceAction' : 'invitation.revoke' })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() => expect(api.invitationHistory).toHaveBeenCalledTimes(1))
+    fireEvent.click(button)
+    if (action !== 'create') {
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'dialog.confirm' }))
+    }
+    await waitFor(() => expect(action === 'revoke' ? api.revokeInvitation : api.createInvitation).toHaveBeenCalledTimes(1))
+    expect(api.invitationHistory).toHaveBeenCalledTimes(1)
+    succeed()
+    await waitFor(() => expect(api.invitationHistory).toHaveBeenCalledTimes(2))
   })
 
   const token = 'a'.repeat(43)
