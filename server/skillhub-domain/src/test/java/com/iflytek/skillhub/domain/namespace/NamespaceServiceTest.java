@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.namespace;
 
+import com.iflytek.skillhub.domain.authoring.SkillDraftRepository;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
 import com.iflytek.skillhub.domain.review.PromotionRequestRepository;
@@ -32,6 +33,9 @@ class NamespaceServiceTest {
 
     @Mock
     private SkillRepository skillRepository;
+
+    @Mock
+    private SkillDraftRepository skillDraftRepository;
 
     @Mock
     private ReviewTaskRepository reviewTaskRepository;
@@ -286,6 +290,26 @@ class NamespaceServiceTest {
         when(promotionRequestRepository.existsByTargetNamespaceId(namespaceId)).thenReturn(true);
 
         assertFalse(namespaceService.canDelete(namespace, NamespaceRole.OWNER));
+    }
+
+    @Test
+    void draftDependencyPreventsDeleteAndDisablesDeleteCapability() {
+        Long namespaceId = 1L;
+        String owner = "owner-1";
+        Namespace namespace = new Namespace("draft-team", "Draft Team", owner);
+        setField(namespace, "id", namespaceId);
+        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.OWNER)).thenReturn(true);
+        when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, owner))
+                .thenReturn(Optional.of(new NamespaceMember(namespaceId, owner, NamespaceRole.OWNER)));
+        when(skillDraftRepository.existsByNamespaceId(namespaceId)).thenReturn(true);
+
+        assertFalse(namespaceService.canDelete(namespace, NamespaceRole.OWNER));
+        DomainBadRequestException exception = assertThrows(DomainBadRequestException.class,
+                () -> namespaceService.deleteNamespace(namespaceId, owner));
+        assertEquals("error.namespace.delete.hasDependencies", exception.messageCode());
+        verify(namespaceMemberRepository, never()).deleteByNamespaceId(namespaceId);
+        verify(namespaceRepository, never()).delete(any());
     }
 
     private void setField(Object target, String fieldName, Object value) {

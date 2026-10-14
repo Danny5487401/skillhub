@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.namespace;
 
+import com.iflytek.skillhub.domain.authoring.SkillDraftRepository;
 import com.iflytek.skillhub.domain.review.PromotionRequestRepository;
 import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
@@ -20,6 +21,7 @@ public class NamespaceService {
     private final NamespaceMemberRepository namespaceMemberRepository;
     private final NamespaceAccessPolicy namespaceAccessPolicy;
     private final SkillRepository skillRepository;
+    private final SkillDraftRepository skillDraftRepository;
     private final ReviewTaskRepository reviewTaskRepository;
     private final PromotionRequestRepository promotionRequestRepository;
 
@@ -27,12 +29,14 @@ public class NamespaceService {
                            NamespaceMemberRepository namespaceMemberRepository,
                            NamespaceAccessPolicy namespaceAccessPolicy,
                            SkillRepository skillRepository,
+                           SkillDraftRepository skillDraftRepository,
                            ReviewTaskRepository reviewTaskRepository,
                            PromotionRequestRepository promotionRequestRepository) {
         this.namespaceRepository = namespaceRepository;
         this.namespaceMemberRepository = namespaceMemberRepository;
         this.namespaceAccessPolicy = namespaceAccessPolicy;
         this.skillRepository = skillRepository;
+        this.skillDraftRepository = skillDraftRepository;
         this.reviewTaskRepository = reviewTaskRepository;
         this.promotionRequestRepository = promotionRequestRepository;
     }
@@ -181,7 +185,8 @@ public class NamespaceService {
     private boolean hasDependentData(Long namespaceId) {
         return skillRepository.existsByNamespaceId(namespaceId)
                 || reviewTaskRepository.existsByNamespaceId(namespaceId)
-                || promotionRequestRepository.existsByTargetNamespaceId(namespaceId);
+                || promotionRequestRepository.existsByTargetNamespaceId(namespaceId)
+                || skillDraftRepository.existsByNamespaceId(namespaceId);
     }
 
     private void assertWritable(Namespace namespace) {
