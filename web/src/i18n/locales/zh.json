@@ -1830,6 +1830,7 @@
     "copyright": "© 2026 SkillHub. Apache-2.0."
   },
   "publish": {
+    "retryPackagePreview": "重试",
     "packageName": "包内名称",
     "displayName": "显示名称",
     "displayNamePlaceholder": "例如：会议纪要助手",

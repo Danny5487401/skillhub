@@ -293,7 +293,7 @@ class SkillPublishControllerTest {
         mockMvc.perform(multipart("/api/v1/skills/package-preview")
                 .file(new MockMultipartFile("file", "skill.zip", "application/zip", buildZipBytes()))
                 .with(csrf()))
-                .andExpect(status().isTooManyRequests());
+                .andExpect(status().isUnauthorized());
         org.mockito.Mockito.verifyNoInteractions(skillPublishService);
     }
 

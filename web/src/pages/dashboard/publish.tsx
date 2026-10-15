@@ -328,7 +328,7 @@ export function PublishPage() {
           {selectedFile && packagePreview.isPending && <p role="status" className="text-sm text-muted-foreground">{t('publish.readingPackage')}</p>}
           {selectedFile && packagePreview.isError && <div role="alert" className="text-sm text-destructive">
             <p>{t('publish.packagePreviewFailed')}</p>
-            <Button type="button" size="sm" variant="outline" onClick={() => packagePreview.refetch()}>{t('common.retry')}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => packagePreview.refetch()}>{t('publish.retryPackagePreview')}</Button>
           </div>}
           {selectedFile && packagePreview.data && <p className="break-all text-xs text-muted-foreground">{t('publish.packageName')}: <code>{packagePreview.data.name}</code></p>}
         </div>

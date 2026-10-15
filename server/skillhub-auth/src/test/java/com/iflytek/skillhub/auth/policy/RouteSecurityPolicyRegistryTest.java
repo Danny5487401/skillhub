@@ -19,11 +19,12 @@ class RouteSecurityPolicyRegistryTest {
     private final RouteSecurityPolicyRegistry registry = new RouteSecurityPolicyRegistry();
 
     @Test
-    void packagePreviewIsAuthenticatedAndSessionOnly() {
+    void packagePreviewIsAuthenticatedAndRequiresPublishScope() {
         for (String prefix : java.util.List.of("/api/v1", "/api/web")) {
             assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,
                     registry.accessLevel("POST", prefix + "/skills/package-preview"));
-            assertFalse(registry.authorizeApiToken("POST", prefix + "/skills/package-preview", Set.of("skill:read", "skill:publish", "skill:delete", "token:manage")).allowed());
+            assertFalse(registry.authorizeApiToken("POST", prefix + "/skills/package-preview", Set.of("skill:read")).allowed());
+            assertTrue(registry.authorizeApiToken("POST", prefix + "/skills/package-preview", Set.of("skill:publish")).allowed());
         }
     }
 

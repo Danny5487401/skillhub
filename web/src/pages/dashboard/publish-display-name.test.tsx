@@ -67,7 +67,7 @@ describe('web display name publishing', () => {
     mount(); select('invalid.zip')
     await screen.findByRole('alert')
     expect(screen.getByRole('button', { name: 'publish.confirm' }).hasAttribute('disabled')).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }))
+    fireEvent.click(screen.getByRole('button', { name: 'publish.retryPackagePreview' }))
     await waitFor(() => expect((screen.getByLabelText('publish.displayName') as HTMLInputElement).value).toBe('重试后的名称'))
   })
 })

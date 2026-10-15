@@ -1,10 +1,10 @@
 ## Implementation
 
-- [ ] Add safe authenticated package preview and version-bound optional display name.
-- [ ] Preserve snapshot compatibility and lifecycle metadata across approval/yank/promotion.
-- [ ] Implement web prefill with user-edit and stale-response protection.
-- [ ] Show one management status with pending metadata and full copyable detail coordinate.
-- [ ] Update generated API types and user guides.
+- [x] Add safe authenticated package preview and version-bound optional display name.
+- [x] Preserve snapshot compatibility and lifecycle metadata across approval/yank/promotion.
+- [x] Implement web prefill with user-edit and stale-response protection.
+- [x] Show one management status with pending metadata and full copyable detail coordinate.
+- [x] Update generated API types and user guides.
 
 ## Verification
 
