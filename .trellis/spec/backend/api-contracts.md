@@ -34,10 +34,10 @@ Mock 身份仅按现有开发 profile 使用，不替代真实认证验收。
 3. 选择 HTTP/消费方测试验证实际响应和失败路径；至少覆盖此次变化触及的身份/权限边界。
 4. [生成漂移脚本](../../../scripts/check-openapi-generated.sh) 会启动依赖并在退出时执行 Compose down；仅在隔离、可清理的本地环境运行，不能作为无副作用的文档检查。
 
-## 已知文档漂移
+## 生命周期对齐与剩余例外
 
-2026-10-15 静态核查：docs/14 的撤回描述仍为 DRAFT，而
-[withdrawPendingVersion 实现](../../../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/skill/service/SkillGovernanceService.java) 设置 UPLOADED。
-旧工程 Skill 的状态表也不是新的权威。修改相关功能时对照
-[治理测试](../../../server/skillhub-domain/src/test/java/com/iflytek/skillhub/domain/skill/service/SkillGovernanceServiceTest.java)和正式需求解决差异；本次迁移不裁定新业务状态。
+2026-10-15 已将[生命周期文档](../../../docs/14-skill-lifecycle.md)的撤回目标对齐为 `UPLOADED`，
+并补充扫描、PRIVATE 确认、删除与访问约束；依据正式语义、实现及测试，不沿用旧工程 Skill 状态表。
+[Latest 章节](../../../docs/14-skill-lifecycle.md#31-latest)仍记录原始 `latestVersionId` 在 PRIVATE 上传中的未发布指针例外；
+是否统一持久化不变量需另行设计，不能因此放宽公共分发仅使用 published 版本的约束。
 发布审核绕过、可见性、latest 指针、警告确认、删除约束均须核对当前服务与测试，不从历史快照复制规则。
