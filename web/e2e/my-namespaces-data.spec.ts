@@ -1,13 +1,31 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { setEnglishLocale } from './helpers/auth-fixtures'
 import { E2eTestDataBuilder } from './helpers/test-data-builder'
+import { loginWithCredentials } from './helpers/session'
+
+async function findNamespaceCard(page: Page, slug: string) {
+  await page.goto('/dashboard/namespaces')
+  await expect(page.getByRole('heading', { name: 'My Namespaces' })).toBeVisible()
+  const card = page.getByTestId(`namespace-card-${slug}`)
+  const next = page.getByRole('button', { name: 'Next', exact: true })
+  const firstCard = page.locator('[data-testid^="namespace-card-"]').first()
+  await expect(firstCard).toBeVisible()
+  while (!(await card.isVisible()) && await next.count() > 0 && await next.isEnabled()) {
+    const previousId = await firstCard.getAttribute('data-testid')
+    await next.click()
+    await expect(firstCard).not.toHaveAttribute('data-testid', previousId!)
+  }
+  await expect(card.getByText(`@${slug}`, { exact: true })).toBeVisible()
+  return card
+}
 
 test.describe('My Namespaces Data (Real API)', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     await setEnglishLocale(page)
-    await page.context().setExtraHTTPHeaders({
-      'X-Mock-User-Id': 'local-admin',
-    })
+    await loginWithCredentials(page, {
+      username: process.env.E2E_ADMIN_USERNAME ?? process.env.BOOTSTRAP_ADMIN_USERNAME ?? 'admin',
+      password: process.env.E2E_ADMIN_PASSWORD ?? process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'ChangeMe!2026',
+    }, testInfo)
   })
 
   test('shows namespace created by request helper', async ({ page }, testInfo) => {
@@ -15,11 +33,8 @@ test.describe('My Namespaces Data (Real API)', () => {
     await builder.init()
 
     try {
-      const namespace = await builder.ensureWritableNamespace()
-      await page.goto('/dashboard/namespaces')
-
-      await expect(page.getByRole('heading', { name: 'My Namespaces' })).toBeVisible()
-      await expect(page.getByText(`@${namespace.slug}`)).toBeVisible()
+      const namespace = await builder.createNamespace('e2e-list')
+      await findNamespaceCard(page, namespace.slug)
     } finally {
       await builder.cleanup()
     }
@@ -32,11 +47,12 @@ test.describe('My Namespaces Data (Real API)', () => {
     try {
       const namespace = await builder.createNamespace('e2e-delete')
 
-      await page.goto('/dashboard/namespaces')
+      const namespaceCard = await findNamespaceCard(page, namespace.slug)
 
-      const namespaceCard = page.getByTestId(`namespace-card-${namespace.slug}`)
-      await expect(namespaceCard.getByText(`@${namespace.slug}`)).toBeVisible()
-
+      await namespaceCard.getByRole('button', { name: 'Enter space', exact: true }).click()
+      await page.getByRole('navigation', { name: 'Space management' })
+        .getByRole('link', { name: 'Settings', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Space lifecycle', exact: true })).toBeVisible()
       await page.getByTestId(`delete-namespace-${namespace.slug}`).click()
       await expect(page.getByTestId('namespace-action-dialog-delete')).toBeVisible()
 
@@ -48,7 +64,8 @@ test.describe('My Namespaces Data (Real API)', () => {
       const deleteResponse = await deleteResponsePromise
 
       expect(deleteResponse.ok()).toBeTruthy()
-      await expect(page.getByText(`@${namespace.slug}`)).toHaveCount(0)
+      await expect(page).toHaveURL(/\/dashboard\/namespaces$/)
+      await expect(page.getByTestId(`namespace-card-${namespace.slug}`)).toHaveCount(0)
     } finally {
       await builder.cleanup()
     }
@@ -66,10 +83,11 @@ test.describe('My Namespaces Data (Real API)', () => {
         description: 'Prevents namespace deletion during Playwright validation',
       })
 
-      await page.goto('/dashboard/namespaces')
-
-      const namespaceCard = page.getByTestId(`namespace-card-${namespace.slug}`)
-      await expect(namespaceCard.getByText(`@${namespace.slug}`)).toBeVisible()
+      const namespaceCard = await findNamespaceCard(page, namespace.slug)
+      await namespaceCard.getByRole('button', { name: 'Enter space', exact: true }).click()
+      await page.getByRole('navigation', { name: 'Space management' })
+        .getByRole('link', { name: 'Settings', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Space lifecycle', exact: true })).toBeVisible()
       await expect(page.getByTestId(`delete-namespace-${namespace.slug}`)).toHaveCount(0)
     } finally {
       await builder.cleanup()
