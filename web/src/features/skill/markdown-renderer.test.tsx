@@ -96,9 +96,6 @@ describe('MarkdownRenderer Mermaid blocks', () => {
       startOnLoad: false,
       securityLevel: 'strict',
       suppressErrorRendering: true,
-      layout: 'dagre',
-      theme: 'default',
-      look: 'classic',
     })
     expect(container.querySelector('[data-testid="mermaid-svg"]')?.closest('pre')).toBeNull()
   })

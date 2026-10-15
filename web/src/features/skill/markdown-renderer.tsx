@@ -32,11 +32,6 @@ function loadMermaid(): Promise<MermaidApi> {
       startOnLoad: false,
       securityLevel: 'strict',
       suppressErrorRendering: true,
-      // Mermaid 12 defaults to the ELK layout and the neo/redux-color look;
-      // keep the classic rendering that existing skill documents were written for.
-      layout: 'dagre',
-      theme: 'default',
-      look: 'classic',
     })
     return mermaid
   })

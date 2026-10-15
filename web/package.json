@@ -25,6 +25,7 @@
       "brace-expansion@<1.1.21": "^1.1.21",
       "brace-expansion@>=2.0.0 <2.1.7": "^2.1.7",
       "dompurify@<3.4.16": "^3.4.16",
+      "katex@<0.18.2": "0.18.10",
       "source-map-js@<1.2.2": "^1.2.2"
     }
   },
@@ -53,7 +54,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.344.0",
-    "mermaid": "^12.2.0",
+    "mermaid": "^11.17.2",
     "openapi-fetch": "^0.13.8",
     "react": "^19.0.0",
     "react-diff-viewer-continued": "^4.2.0",
