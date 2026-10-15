@@ -23,7 +23,9 @@ test.describe('My Skills Navigation (Real API)', () => {
 
       await expect(page.getByRole('heading', { name: displayName, exact: true })).toBeVisible()
       await page.getByRole('heading', { name: displayName, exact: true }).click()
-      await expect(page).toHaveURL(new RegExp(`/space/${skill.namespace}/${skill.slug}\\?returnTo=%2Fdashboard%2Fskills$`))
+      await expect(page).toHaveURL(url => url.pathname === `/space/${skill.namespace}/${skill.slug}`
+        && url.searchParams.get('returnTo') === '/dashboard/skills'
+        && url.searchParams.get('version') === skill.version)
 
       await expect(page.getByRole('heading', { name: displayName, exact: true })).toBeVisible()
 
