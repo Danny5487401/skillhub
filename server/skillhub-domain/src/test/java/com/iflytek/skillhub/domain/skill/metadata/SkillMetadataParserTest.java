@@ -12,6 +12,56 @@ class SkillMetadataParserTest {
     private final SkillMetadataParser parser = new SkillMetadataParser();
 
     @Test
+    void parsesDisplayNameWithoutChangingPackageName() {
+        SkillMetadata metadata = parser.parse("""
+                ---
+                name: example-skill
+                description: An example skill for demonstration
+                metadata:
+                  version: "1.0.0"
+                  display-name: "  示例技能  "
+                ---
+                Instructions
+                """);
+
+        assertEquals("示例技能", metadata.displayName());
+        assertEquals("example-skill", metadata.name());
+        assertEquals("1.0.0", metadata.version());
+        assertEquals("示例技能", new com.fasterxml.jackson.databind.ObjectMapper()
+                .convertValue(metadata, SkillMetadata.class).displayName());
+    }
+
+    @Test
+    void fallsBackToPackageNameForMissingOrBlankDisplayName() {
+        for (String extra : new String[] {"", "metadata: {}", "metadata:\n  display-name: null",
+                "metadata:\n  display-name: '   '"}) {
+            SkillMetadata metadata = parser.parse("---\nname: my-skill\ndescription: Test\n"
+                    + extra + "\n---\nBody");
+            assertEquals("my-skill", metadata.displayName());
+        }
+        assertEquals("old-skill", new SkillMetadata("old-skill", "Test", "1.0.0", "Body", null).displayName());
+    }
+
+    @Test
+    void rejectsNonStringDisplayNames() {
+        for (String value : new String[] {"123", "true", "[one, two]", "{label: test}"}) {
+            DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
+                    () -> parser.parse("---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: "
+                            + value + "\n---\nBody"));
+            assertEquals("error.skill.metadata.displayName.invalid", error.messageCode());
+        }
+    }
+
+    @Test
+    void validatesDisplayNameLengthBeforePublishing() {
+        String template = "---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: %s\n---\nBody";
+        assertEquals("中".repeat(200), parser.parse(template.formatted("中".repeat(200))).displayName());
+        DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
+                () -> parser.parse(template.formatted("中".repeat(201))));
+        assertEquals("error.skill.metadata.displayName.tooLong", error.messageCode());
+    }
+
+    @Test
     void testParseStandardFrontmatterAndBody() {
         String content = """
             ---

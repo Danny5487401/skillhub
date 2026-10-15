@@ -708,8 +708,11 @@ public class SkillPublishService {
         }
 
         // 12. Update skill metadata and move the published pointer for auto-publish flows
-        skill.setDisplayName(metadata.name());
-        skill.setSummary(metadata.description());
+        // A pending update must not replace the currently published title or summary.
+        if (autoPublish || visibility == SkillVisibility.PRIVATE || skill.getLatestVersionId() == null) {
+            skill.setDisplayName(metadata.displayName());
+            skill.setSummary(metadata.description());
+        }
         if (autoPublish || visibility == SkillVisibility.PRIVATE) {
             // Update latestVersionId for autoPublish or PRIVATE skill (UPLOADED status)
             skill.setLatestVersionId(version.getId());

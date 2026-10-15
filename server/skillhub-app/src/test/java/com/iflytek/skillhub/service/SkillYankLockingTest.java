@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.event.SkillVersionYankedEvent;
 import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
@@ -130,6 +131,7 @@ class SkillYankLockingTest {
                 eventPublisher,
                 mock(SecurityScanService.class),
                 mock(SkillStorageDeletionCompensationService.class),
+                new ObjectMapper(),
                 Clock.systemUTC());
         CountDownLatch firstAudited = new CountDownLatch(1);
         CountDownLatch secondReady = new CountDownLatch(1);

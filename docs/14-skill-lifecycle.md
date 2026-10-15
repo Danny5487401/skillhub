@@ -123,7 +123,7 @@ Status: current code-aligned reference
 
 ### 4.8 Yank 后指针修正
 
-- yank 已发布版本时，若命中当前 `latestVersionId`，必须重算 latest published pointer
+- yank 已发布版本时，若命中当前 `latestVersionId`，必须重算 latest published pointer，并从回退版本的 metadata 恢复展示名和摘要
 - 若仍有其他 `PUBLISHED` 版本，则指向最新一个
 - 若已无任何 `PUBLISHED` 版本，则 `latestVersionId = null`
 
