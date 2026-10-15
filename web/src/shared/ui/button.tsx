@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils'
 
 const buttonVariants = cva(
   // 基础：紧致圆角、精准属性过渡、按下回弹、聚焦双层光晕
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[transform,background-color,box-shadow,border-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] select-none',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[transform,background-color,box-shadow,border-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] motion-reduce:transform-none select-none',
   {
     variants: {
       variant: {
@@ -25,10 +25,10 @@ const buttonVariants = cva(
           'text-primary underline-offset-4 hover:underline active:scale-100',
       },
       size: {
-        default: 'h-9 px-4 py-2',
+        default: 'h-[var(--control-height)] px-4 py-2',
         sm: 'h-8 rounded-sm px-3 text-xs',
         lg: 'h-10 rounded-lg px-8',
-        icon: 'h-9 w-9',
+        icon: 'h-[var(--control-height)] w-[var(--control-height)]',
       },
     },
     defaultVariants: {
