@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test'
 import { setEnglishLocale } from './helpers/auth-fixtures'
-import { registerSession } from './helpers/session'
+import { loginWithCredentials } from './helpers/session'
 import { E2eTestDataBuilder } from './helpers/test-data-builder'
 
 test.describe('Namespace Members Data (Real API)', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     await setEnglishLocale(page)
-    await registerSession(page, testInfo)
+    await loginWithCredentials(page, {
+      username: process.env.E2E_ADMIN_USERNAME ?? process.env.BOOTSTRAP_ADMIN_USERNAME ?? 'admin',
+      password: process.env.E2E_ADMIN_PASSWORD ?? process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'ChangeMe!2026',
+    }, testInfo)
   })
 
   test('opens members management for writable namespace', async ({ page }, testInfo) => {
@@ -14,7 +17,8 @@ test.describe('Namespace Members Data (Real API)', () => {
     await builder.init()
 
     try {
-      const namespace = await builder.ensureWritableNamespace()
+      const namespace = await builder.createNamespace('e2e-members')
+      expect(namespace.type).toBe('TEAM')
 
       await page.goto(`/dashboard/namespaces/${namespace.slug}/members`)
 
