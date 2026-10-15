@@ -65,7 +65,10 @@ Before opening a pull request, make sure:
 
 - The branch is rebased or merged cleanly from the target branch.
 - Relevant backend tests pass.
-- Frontend typecheck/build passes when frontend files changed.
+- Frontend checks follow the [change-impact matrix](.trellis/spec/testing/index.md).
+  Changes limited to existing translation display text use its narrow exception;
+  frontend behavior or tooling changes require the applicable typecheck/build checks.
+  This does not waive required CI checks or failures in relevant existing tests.
 - `make generate-api` or `./scripts/check-openapi-generated.sh` has been run when
   backend API contracts changed.
 - Smoke coverage is updated when operator-facing workflows change.
