@@ -85,6 +85,14 @@ docs/superpowers/
 # Local workspace metadata
 CLAUDE.md
 
+# Share stable engineering specs; keep Trellis execution state local.
+!/.trellis/
+/.trellis/*
+!/.trellis/spec/
+!/.trellis/spec/**
+/.agents/skills/trellis-*/
+/AGENTS.override.md
+
 # Local report-generation skill
 .agents/skills/generate-skillhub-weekly-report/
 

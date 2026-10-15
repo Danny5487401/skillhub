@@ -7,8 +7,10 @@ preserve the existing architecture and product direction documented in
 [`docs/`](./docs).
 
 AI coding agents working in this repository should follow the rules in
-[`AGENTS.md`](./AGENTS.md), which documents repository architecture,
-dependency rules, and agent-specific conventions.
+[`AGENTS.md`](./AGENTS.md), which routes to the engineering conventions in
+[`.trellis/spec/index.md`](./.trellis/spec/index.md). These documents can be read
+without installing Trellis or any engineering Skill. Architecture and business
+design remain in `docs/`; execution tools and task records remain local.
 
 ## Before You Start
 

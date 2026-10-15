@@ -5,8 +5,9 @@
 
 ## Validation
 
-- [ ] Backend tests passed
-- [ ] Frontend typecheck/build passed
+- [ ] Applicable checks selected from `.trellis/spec/testing/index.md`; exclusions explained
+- [ ] Backend tests passed when backend behavior changed
+- [ ] Frontend typecheck/build passed when frontend files changed
 - [ ] OpenAPI SDK regenerated or checked when API contracts changed
 - [ ] Smoke test run when relevant
 
