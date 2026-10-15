@@ -57,6 +57,18 @@ render web-dns "$CHART_DIR" --namespace team-skills \
 assert_web_upstream "$TMP_DIR/web-dns-custom.yaml" \
   'http://custom-hub-server.team-skills.svc.k8s.example.internal:9080'
 
+# --reuse-values can supply old chart defaults without this newly added key.
+# Model that effective values shape here; a real cross-version upgrade is a
+# separate integration check, not a second render of this chart's new defaults.
+LEGACY_VALUES_CHART="$TMP_DIR/legacy-values-chart"
+cp -R "$CHART_DIR" "$LEGACY_VALUES_CHART"
+sed '/^  clusterDomain:/d' "$CHART_DIR/values.yaml" >"$LEGACY_VALUES_CHART/values.yaml"
+render web-dns "$LEGACY_VALUES_CHART" --namespace team-skills \
+  --set fullnameOverride=custom-hub --set server.service.port=9080 \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns-legacy-values.yaml"
+assert_web_upstream "$TMP_DIR/web-dns-legacy-values.yaml" \
+  'http://custom-hub-server.team-skills.svc.cluster.local:9080'
+
 assert_rejected web-dns-empty-domain --set-string web.clusterDomain=
 assert_rejected web-dns-url-domain --set-string web.clusterDomain=https://cluster.local
 assert_rejected web-dns-empty-label --set-string web.clusterDomain=cluster..local
