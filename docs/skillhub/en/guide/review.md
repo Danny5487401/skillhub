@@ -108,6 +108,19 @@ If a developer discovers an issue, they can withdraw the submission before it is
 3. Click "Withdraw"
 4. Confirm the withdrawal
 
+### Deleting a Promoted Skill
+
+If permanent deletion reports "Use the reviewed revocation workflow to remove a promoted skill", manage the global publication from the source team skill's detail page. Hiding, archiving, or withdrawing a pending submission does not remove an approved global skill. Submitting a revocation request does not complete revocation either.
+
+1. Open the source skill, such as `@it/translate-document`. In "Promote to Global", choose "Request global revocation", enter a reason, and confirm.
+2. Ask a platform `SKILL_ADMIN` or `SUPER_ADMIN` to open "Revocations to review" at `/dashboard/promotions`, verify the source and global skill, and choose "Approve revocation". A `SKILL_ADMIN` cannot review their own request; a `SUPER_ADMIN` can.
+3. Refresh the source skill and check that the current request shows "Revoked" (`APPROVED`) in "Revocation history". `PENDING` or `REJECTED` means that this request has not completed revocation; ordinary deletion remains blocked while an active global link exists. A historical request's status is not a substitute for checking the current promotion relationship.
+4. Approval deletes the linked `@global/translate-document` and all its global versions while keeping the source team skill. To remove the source too, use its permanent-delete action afterward with the required deletion permissions.
+
+A platform `SKILL_ADMIN` or `SUPER_ADMIN` can also choose "Revoke directly as admin" on the source detail page when no revocation request is pending. Confirmation completes global revocation immediately and retains the revocation record. When a request is already pending, the detail page only shows its pending status; handle it through "Revocations to review" as described above. Check the confirmation carefully: this removes the entire global skill, including independently uploaded global versions, ratings, and statistics. Installed client files cannot be recalled, and another skill may later use the same address.
+
+If the revocation record is already `APPROVED` but the same error persists after refreshing, record the source/global skill IDs, revocation request ID, deployed version or image tag, and the deletion response and request ID. Also check whether a new global promotion was approved after revocation. If the revocation controls are missing, first verify that the deployment and database migrations match the intended version and ask a maintainer to investigate. Do not edit promotion relationships directly in the database to bypass the workflow.
+
 **Handling Reports**:
 
 1. Navigate to `/dashboard/reports`
