@@ -76,7 +76,7 @@
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}` | 版本详情 |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/files` | 文件清单 |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/file?path=...` | 读取单个文件（query param 避免路径中 / 的解析问题） |
-| GET | `/api/v1/skills/{namespace}/{slug}/download` | 下载默认安装版本（最新已发布版本） |
+| GET | `/api/v1/skills/{namespace}/{slug}/download` | 按原始 latest 指针选择版本，再检查下载权限；公开分发须已发布，管理预览例外见[生命周期读模型](./14-skill-lifecycle.md#32-lifecycle-projection) |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/download` | 下载指定版本包 |
 | GET | `/api/v1/skills/{namespace}/{slug}/resolve` | 解析技能版本（支持 query param: `version`、`tag`、`hash`） |
 | GET | `/api/v1/skills/{namespace}/{slug}/tags/{tagName}/download` | 按标签下载（解析标签指向的版本后下载） |
@@ -237,16 +237,16 @@ Public API 的可见性规则：
 
 当前代码中的 skill 生命周期读模型不再依赖 `latestVersionStatus` / `viewingVersionStatus` 一类拼装字段，而统一使用以下 projection：
 
-- `headlineVersion`：当前页面应展示的主版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
 - `publishedVersion`：当前最新已发布版本；能否安装仍需通过可见性与安全门禁
 - `ownerPreviewVersion`：owner / namespace 管理者可见、比当前已发布版本更新的未发布版本（排除 `YANKED`）；无已发布版本时取最新候选
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 其中：
 
-- 公开详情、公开安装、公开搜索一律只认 `publishedVersion`
+- 默认公开版本展示、安装与搜索以最新已发布版本为候选；显式版本和自定义标签可选择其他 `PUBLISHED` 版本，仍须通过对应入口的授权与就绪检查
 - owner 详情页在没有可展示发布版本时，才允许 `headlineVersion` 落到 `ownerPreviewVersion`
-- 推广到全局一律使用 `publishedVersion.id`
+- 提升到全局可选择属于来源 skill 的任一 `PUBLISHED` 版本，包括历史版本；不要求等于 `publishedVersion.id`
 - `hidden` 是独立治理覆盖层，不属于生命周期状态机
 - 常规版本详情与文件预览在技能可见性校验后，允许 owner / namespace `ADMIN` / `OWNER` 查看非发布版本；这不授予安装或下载权限。显式下载另对 `UPLOADED` / `PENDING_REVIEW` 放行有权管理的用户，其他未发布状态不放行。完整边界见 [生命周期文档](./14-skill-lifecycle.md)。
 
@@ -370,7 +370,7 @@ Admin API 按最小权限拆分，不再统一要求 SUPER_ADMIN：
 
 - 对外 `latest` 以 `publishedVersion` 表示的最新已发布版本为准；`skill.latest_version_id` 是内部指针，PRIVATE 上传流程可能指向未发布版本，不能单凭该指针判断已发布或可安装。
 - `yank` 当前最新已发布版本时，需要同步重算 `latest_version_id` 指向下一个最新的 `PUBLISHED` 版本；若不存在则允许为 `null`
-- `latest` 标签：系统保留，只读，由发布和撤回流程维护；不得将 PRIVATE 上传更新内部指针理解为公开标签也已更新。
+- `latest` 标签是系统保留、API 不可手动移动的标签。当前 `SkillTagService.listTags` 通过读取授权后，直接按原始 `latest_version_id` 合成该标签，不检查目标版本状态；PRIVATE 未发布指针也可能出现在授权用户的标签列表中。这是列表现状，不代表该版本可以公开下载，解析与下载仍须执行各自门禁。
 - 自定义标签（如 `beta`、`stable-2026q1`）：允许人工创建和移动，用于固定安装通道
 
 | 场景 | 使用字段 | 说明 |

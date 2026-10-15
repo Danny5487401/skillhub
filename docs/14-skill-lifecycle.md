@@ -59,16 +59,16 @@ Status: contract reference with documented implementation exception
 
 详情页、我的技能、我的收藏、搜索等读模型统一基于以下 projection：
 
-- `headlineVersion`：当前页面主展示版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
 - `publishedVersion`：最新已发布版本
 - `ownerPreviewVersion`：有权限的管理者可见的新一轮未发布工作版本（排除 `PUBLISHED` / `YANKED`，且比已有发布版本更新）
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 约束：
 
-- 公开浏览、安装、下载、搜索只认 `publishedVersion`
+- 默认公开展示、安装与搜索以最新已发布版本为候选；显式版本或自定义标签可指向其他 `PUBLISHED` 版本，仍须通过入口授权与就绪检查
 - owner 详情页只有在不存在 `publishedVersion` 时，才允许 `headlineVersion = ownerPreviewVersion`
-- promotion、compat latest、默认下载等公开分发行为都只能绑定 `publishedVersion`
+- compat latest 和默认公开下载采用最新已发布版本语义；promotion 可选择来源 skill 的任一 `PUBLISHED` 版本，不要求等于 `publishedVersion`。原始指针与各入口解析差异见第 3.1 节
 - 管理者的授权预览下载与公开分发不同：owner 或 namespace ADMIN/OWNER 可下载 `UPLOADED` / `PENDING_REVIEW`，仍须通过 Skill 可见性检查；`DRAFT` 等其他非发布状态不能据此下载。常规 `downloadLatest` 读取原始指针后也使用相同版本授权判断，因此 PRIVATE 指针例外下，默认下载不一定是已发布版本；该行为不授予公众访问权。
 - 已发布版本可安装还要求 `downloadReady=true`、`yankedAt=null`；下载要求容器为 `ACTIVE`，元数据可读不等于可下载
 
@@ -115,8 +115,9 @@ Status: contract reference with documented implementation exception
 ### 4.6 已发布版本重发
 
 - rerelease 当前本质上是从已发布版本复制并重新走发布流程
-- 当前实现允许特权路径直接产出新 `PUBLISHED` 版本
-- 该能力应被理解为发布路径特例，不是生命周期展示态
+- 入口先检查生命周期管理权限，要求来源版本为 `PUBLISHED`、目标版本号未占用；内部传空平台角色集且 `forceAutoPublish=false`，不沿用平台特权直发
+- 新版本按原 skill 的可见性及扫描配置进入 4.1 对应的上传、扫描或待审路径；内部绕过重复成员校验不等于绕过审核
+- 该能力是复制内容重新发布，不是生命周期展示态
 
 ### 4.7 隐藏 / 恢复 / 归档 / 撤回已发布版本
 
@@ -148,7 +149,8 @@ Status: contract reference with documented implementation exception
 
 ### 5.3 提升更新与撤销
 
-- 提升先要求团队来源版本 `PUBLISHED`，再单独进入平台提升审核；后续更新同一全局 Skill 时为它新增不可变的已发布版本。
+- 提升要求所选版本属于团队来源 Skill 且为 `PUBLISHED`，可选历史版本，再单独进入平台提升审核；后续更新同一全局 Skill 时为它新增不可变的已发布版本。
+- 首次和后续提升均优先从所选来源版本的 `parsedMetadataJson` 读取展示名和摘要；字段为空才回退到审核时来源 Skill 的展示信息，非空但解析失败则抛错。
 - 全局 Skill 也可独立上传并审核。提升更新与独立上传使用相同版本号时不能互相覆盖；不同号版本分别发布，latest 指向最后通过审核的版本，不按版本字符串大小排序。
 - 撤销提升不同于归档或隐藏：平台审核通过后移除全局派生 Skill 的公众入口及记录，保留来源团队 Skill、提升和撤销审计，并保护共用对象存储文件。重新提升形成新的全局 Skill ID。
 
@@ -172,6 +174,7 @@ Status: contract reference with documented implementation exception
 ## 8. 依据与验证锚点
 
 - 正式语义：[核心语义规则 §6](./oss-02-core-semantic-rules.md#61-状态转换表)、[Bundle 发布规格](../openspec/changes/add-suite-bundle-publishing/specs/suite-bundle-publishing/spec.md)；Bundle 不自动撤回，SuiteVersion 使用独立模型。
+- 提升展示信息：[版本展示名规格](../openspec/changes/refine-display-name-publishing/specs/skill-display-name/spec.md)要求标题与摘要匹配所选版本快照，取代旧提升方案中读取来源 Skill 当前展示信息的描述；[PromotionService](../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/review/PromotionService.java)保留空元数据的兼容回退。
 - 上传及 PRIVATE 指针：[SkillPublishService](../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/skill/service/SkillPublishService.java)、[发布测试](../server/skillhub-domain/src/test/java/com/iflytek/skillhub/domain/skill/service/SkillPublishServiceTest.java)。
 - 扫描：[SecurityScanService](../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/security/SecurityScanService.java)、[扫描测试](../server/skillhub-domain/src/test/java/com/iflytek/skillhub/domain/security/SecurityScanServiceTest.java)。
 - 提审 / PRIVATE 确认：[SkillReviewSubmitService](../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/skill/service/SkillReviewSubmitService.java)、[提审与确认测试](../server/skillhub-domain/src/test/java/com/iflytek/skillhub/domain/skill/service/SkillReviewSubmitServiceTest.java)。

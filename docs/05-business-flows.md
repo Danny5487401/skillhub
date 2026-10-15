@@ -54,7 +54,7 @@
 
 当前代码中的 skill 生命周期展示与操作判断，不再依赖旧的 `latestVersionStatus`、`viewingVersionStatus` 一类拼装字段，而统一基于以下 projection：
 
-- `headlineVersion`：当前详情页/我的技能列表主展示版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
 - `publishedVersion`：当前已发布版本投影；详情投影与公开列表的就绪过滤存在区别，不能只凭字段非空判定可下载
 - `ownerPreviewVersion`：详情 projection 中暴露给 owner / namespace 管理者的新一轮非公开版本；排除 `PUBLISHED`、`YANKED`，按创建时间及 ID 选择最新，且须比已有已发布版本更新
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
@@ -154,7 +154,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 - 全局空间的新 skill 由其 owner 独立管理版本
 - 原团队 skill 可继续独立迭代
 - 两者版本不自动同步。来源 owner 或 namespace 管理员可在团队详情选择已发布版本，再次提交平台提升审核；审核通过后在原全局 skill 上新增版本，不覆盖原有版本
-- 再次提升通过后，全局 skill 的展示名和摘要也更新为审核时来源 skill 的展示信息，使详情页与最新发布内容保持一致
+- 首次或再次提升通过时，全局 skill 的展示名和摘要优先取所选来源版本的 `parsedMetadataJson`（`displayName` / `description`）；该字段为空时回退到审核时来源 skill 的展示信息。非空元数据解析失败会抛错，不会静默回退
 - 申请和审批时均检查目标身份、来源版本状态及全局同号冲突。全局独立上传可以同时待审；不同号版本分别发布，后通过者成为 latest，同号后通过的申请失败
 - 版本号不比较数值高低；例如全局当前 v1.3、团队提交尚未占用的 v1.1，确认提示后仍可提交，审批通过后 v1.1 成为 latest，v1.3 保留在历史
 
@@ -166,7 +166,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 
 提升流程当前严格绑定已发布版本：
 
-- promotion request 的 `source_version_id` 必须指向 `publishedVersion.id`
+- promotion request 的 `source_version_id` 必须属于来源 skill 且状态为 `PUBLISHED`；可以选择历史已发布版本，不要求等于 projection 的 `publishedVersion.id`
 - 不允许直接提升 `ownerPreviewVersion`
 
 ## 3 下载流程
@@ -246,12 +246,13 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 | 事件 | 触发时机 | 消费方 |
 |------|---------|--------|
 | `SkillPublishedEvent` | 审核通过或直发等产生已发布版本的路径 | 搜索索引写入 |
-| `SkillYankedEvent` | 版本撤回 | 搜索索引移除 |
+| `SkillVersionYankedEvent` | 已发布版本撤回 | 提交后异步重建该 skill 的搜索文档；无剩余发布版本不代表物理移除索引行，见[索引写入时机](./04-search-architecture.md#4-索引写入时机) |
+| `SkillStatusChangedEvent` | 归档 / 取消归档 | 归档移除搜索文档，取消归档重建；hide/unhide 不走此事件 |
 | `SkillDownloadedEvent` | 已发布版本下载结果构建成功并完成同步计数后 | 当前未发现生产消费者；下载计数由下载服务同步完成 |
 | `SkillStarredEvent` | 收藏/取消 | 收藏计数 |
 | `SkillRatedEvent` | 评分提交 | 评分重算 |
 | `ReviewCompletedEvent` | 审核完成 | 预留给后续通知能力（当前可不消费） |
-| `SkillPromotedEvent` | 提升到全局 | 搜索索引写入（新 skill） |
+| `SkillPublishedEvent`（提升路径） | 首次提升或提升更新审核通过 | 重建目标全局 skill 的搜索文档；不是独立的 `SkillPromotedEvent` |
 
 一期用 Spring ApplicationEvent + `@Async` 实现，后续可替换为消息队列。
 
@@ -265,7 +266,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 
 Spring ApplicationEvent + @Async 存在 Pod 被杀时事件丢失的风险。补充以下兜底机制：
 
-- 搜索索引：定时任务每小时检查 `skill_version.status = PUBLISHED` 但 `skill_search_document` 中无对应记录的版本，补建索引
+- 搜索索引：每小时检查已发布 skill 的缺失文档并补建，是待实现的兜底目标；当前已具备重建接口，但未发现对应定时调度，不能作为事件丢失后的自动恢复保证
 - 计数器：可接受少量丢失，定时任务每天凌晨从 `skill_star` / `skill_rating` 表重算修正
 - 优雅停机：`@Async` 线程池配置 `awaitTerminationSeconds=25`，配合 30s shutdown timeout
 

@@ -144,7 +144,7 @@
 | updated_by | varchar(128) | |
 | updated_at | datetime | |
 
-- `latest` 是系统保留标签，只读，由发布和撤回流程维护，不允许 API 手动移动；PRIVATE 上传更新内部 `latest_version_id` 不代表已更新公开标签
+- `latest` 是系统保留标签，不允许 API 手动移动。当前标签列表在读取授权后按原始 `latest_version_id` 动态合成，不检查目标版本状态，因此 PRIVATE 上传的未发布指针也可能反映到授权用户的列表中；标签存在不等于可公开分发，下载仍需通过授权、版本状态与就绪检查
 - 自定义标签（如 `beta`、`stable-2026q1`）允许人工创建和移动
 - 唯一约束：`(skill_id, tag_name)`
 - `target_version_id` 必须指向 `status = PUBLISHED` 的版本，应用层校验

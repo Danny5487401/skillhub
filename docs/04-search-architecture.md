@@ -79,10 +79,13 @@ PostgreSQL 全文搜索索引：表增加 `search_vector tsvector` 生成列，�
 
 ## 4 索引写入时机
 
-以下场景触发搜索文档更新（upsert by skill_id）：
-- 审核通过（`PENDING_REVIEW → PUBLISHED`）：重算“最新已发布版本”指针，并用该发布版本内容更新搜索文档
-- 已发布版本被撤回（`PUBLISHED → YANKED`）：重算“最新已发布版本”指针；若不存在任何已发布版本，则移除搜索文档
-- 技能状态变更（隐藏/归档/恢复）：更新搜索文档的 status 字段
+当前 `SearchIndexEventListener` 在事务提交后异步消费以下事件：
+- `SkillPublishedEvent`（审核通过、直发等）：重建该 skill 的搜索文档。生命周期服务负责更新版本指针，索引监听器不负责重算指针。
+- `SkillVersionYankedEvent`：撤回服务重算发布指针，监听器调用 `rebuildBySkill`。当前重建器即使找不到版本，仍可按 skill 信息生成文档，不会因此直接移除索引行；索引行存在不等于公开可检索。
+- `SkillStatusChangedEvent`：归档时移除搜索文档，取消归档时重建。
+- hide/unhide 当前不发上述状态事件，不靠索引 status 更新生效；查询端关联 skill 并过滤 `hidden`，公开搜索还检查发布状态和下载就绪。
+
+实现依据：`SearchIndexEventListener`、`PostgresSearchRebuildService.rebuildBySkill/toDocument` 和 `PostgresFullTextQueryService`。撤回后无发布版本应对公众不可检索，但不能将这一结果写成已物理删除搜索文档。
 
 ## 5 搜索演进路线
 
