@@ -99,10 +99,10 @@ export function MySkillsPage() {
   const submitPromotionMutation = useSubmitPromotion()
   const restoreHiddenMutation = useRestoreHiddenSkill()
 
-  const handleSkillClick = (namespace: string, slug: string) => {
+  const handleSkillClick = (namespace: string, slug: string, version?: string) => {
     navigate({
       to: `/space/${namespace}/${encodeURIComponent(slug)}`,
-      search: { returnTo: buildReturnTo(location) },
+      search: { returnTo: buildReturnTo(location), version },
     })
   }
 
@@ -374,28 +374,37 @@ export function MySkillsPage() {
                 const publishedVersion = getPublishedVersion(skill)
                 const ownerPreviewVersion = getOwnerPreviewVersion(skill)
                 const hasPendingPreview = hasPendingOwnerPreview(skill)
+                const preview = ownerPreviewVersion && ownerPreviewVersion.id !== publishedVersion?.id && ownerPreviewVersion.status !== 'YANKED'
+                  ? ownerPreviewVersion : null
+                const displayName = preview?.displayName ?? skill.displayName
+                const summary = preview?.summary ?? skill.summary
+                const mainStatus = filter === 'HIDDEN' ? 'HIDDEN' : skill.status === 'ARCHIVED' || skill.status === 'HIDDEN'
+                  ? skill.status : preview?.status ?? headlineVersion?.status ?? skill.status
+
 
                 return (
                   <Card
                     key={skill.id}
                     className={`p-5 group animate-fade-up delay-${Math.min(idx + 1, 6)} ${filter === 'HIDDEN' ? '' : 'cursor-pointer'}`}
-                    onClick={filter === 'HIDDEN' ? undefined : () => handleSkillClick(skill.namespace, skill.slug)}
+                    onClick={filter === 'HIDDEN' ? undefined : () => handleSkillClick(skill.namespace, skill.slug, preview?.version)}
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="mb-3 flex items-center gap-3">
-                          <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
+                          <SkillAvatar name={displayName} url={skill.avatarUrl} />
                           <h3 className="min-w-0 break-words font-heading text-lg font-semibold group-hover:text-primary transition-colors">
-                            {skill.displayName}
+                            {displayName}
                           </h3>
                         </div>
                         {skill.status === 'ACTIVE' && filter !== 'HIDDEN' && <SkillAvatarManager namespace={skill.namespace} slug={skill.slug} previewOnly />}
-                        {skill.summary && (
-                          <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{skill.summary}</p>
+                        {summary && (
+                          <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{summary}</p>
                         )}
                         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           <span className="handle-tag">@{skill.namespace}</span>
-                          {headlineVersion ? (
+                          {preview && publishedVersion ? (
+                            <span className="text-xs">{t('mySkills.versionDifference', { version: preview.version, published: publishedVersion.version })}</span>
+                          ) : headlineVersion ? (
                             <span className="font-mono text-xs">v{headlineVersion.version}</span>
                           ) : null}
                           <span className="flex items-center gap-1">
@@ -404,26 +413,12 @@ export function MySkillsPage() {
                             </svg>
                             {formatCompactCount(skill.downloadCount)}
                           </span>
-                          {skill.status || filter === 'HIDDEN' ? (
-                            <span className={resolveStatusClassName(filter === 'HIDDEN' ? 'HIDDEN' : skill.status)}>
-                              {resolveStatusLabel(filter === 'HIDDEN' ? 'HIDDEN' : skill.status)}
+                          {mainStatus && (
+                            <span className={resolveStatusClassName(mainStatus)}>
+                              {hasPendingPreview && publishedVersion && mainStatus === 'PENDING_REVIEW'
+                                ? t('mySkills.statusUpdatePendingReview') : resolveStatusLabel(mainStatus)}
                             </span>
-                          ) : null}
-                          {headlineVersion?.status ? (
-                            <span className={resolveStatusClassName(headlineVersion.status)}>
-                              {resolveStatusLabel(headlineVersion.status)}
-                            </span>
-                          ) : null}
-                          {hasPendingPreview && ownerPreviewVersion?.version !== headlineVersion?.version ? (
-                            <span className={resolveStatusClassName(ownerPreviewVersion?.status)}>
-                              {resolveStatusLabel(ownerPreviewVersion?.status)}
-                            </span>
-                          ) : null}
-                          {!hasPendingPreview && ownerPreviewVersion?.status === 'REJECTED' && ownerPreviewVersion?.version !== headlineVersion?.version ? (
-                            <span className={resolveStatusClassName('REJECTED')}>
-                              {resolveStatusLabel('REJECTED')}
-                            </span>
-                          ) : null}
+                          )}
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:max-w-[45%] sm:justify-end">
@@ -444,7 +439,7 @@ export function MySkillsPage() {
                             variant="outline"
                             onClick={(event) => {
                               event.stopPropagation()
-                              handleUpdateSkill(skill.namespace, skill.slug, skill.displayName, skill.visibility ?? 'PUBLIC')
+                              handleUpdateSkill(skill.namespace, skill.slug, displayName, skill.visibility ?? 'PUBLIC')
                             }}
                           >
                             {t('mySkills.update')}

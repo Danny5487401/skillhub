@@ -225,8 +225,9 @@ class ReviewServiceTest {
     @Nested
     class ApproveReview {
 
-        @Test
-        void shouldApproveReviewSuccessfully() {
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+        void shouldApproveReviewSuccessfully(boolean hasDisplayName) {
             ReviewTask task = createPendingReviewTask();
             Namespace ns = createTeamNamespace();
             SkillVersion sv = createPendingReviewSkillVersion();
@@ -235,7 +236,9 @@ class ReviewServiceTest {
             skill.setSummary("Published Summary");
             skill.setUpdatedBy("previous-reviewer");
             assertDoesNotThrow(() -> sv.setParsedMetadataJson(objectMapper.writeValueAsString(
-                    new SkillMetadata("Approved Name", "Approved Summary", "1.0.0", "Body", Map.of())
+                    new SkillMetadata("Approved Name", "Approved Summary", "1.0.0", "Body",
+                            hasDisplayName ? Map.of("metadata", Map.of("display-name", "包内标题")) : Map.of(),
+                            hasDisplayName ? "已审核的中文标题" : null)
             )));
 
             when(reviewTaskRepository.findById(REVIEW_TASK_ID)).thenReturn(Optional.of(task));
@@ -262,7 +265,8 @@ class ReviewServiceTest {
             assertEquals(SkillVersionStatus.PUBLISHED, sv.getStatus());
             assertEquals(Instant.now(CLOCK), sv.getPublishedAt());
             assertEquals(SKILL_VERSION_ID, skill.getLatestVersionId());
-            assertEquals("Approved Name", skill.getDisplayName());
+            assertEquals(hasDisplayName ? "已审核的中文标题" : "Approved Name", skill.getDisplayName());
+            assertEquals("my-skill", skill.getSlug());
             assertEquals("Approved Summary", skill.getSummary());
             assertEquals(REVIEWER_ID, skill.getUpdatedBy());
             verify(eventPublisher).publishEvent(any(SkillPublishedEvent.class));

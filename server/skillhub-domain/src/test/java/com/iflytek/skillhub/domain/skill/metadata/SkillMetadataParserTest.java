@@ -12,6 +12,88 @@ class SkillMetadataParserTest {
     private final SkillMetadataParser parser = new SkillMetadataParser();
 
     @Test
+    void platformOverrideIsVersionedWithoutChangingFrontmatter() throws Exception {
+        SkillMetadata source = parser.parse("---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: 包内标题\n---\nBody");
+        SkillMetadata result = source.withDisplayNameOverride("  网页标题  ");
+        assertEquals("网页标题", result.displayName());
+        assertEquals(source.frontmatter(), result.frontmatter());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals("网页标题", mapper.readValue(mapper.writeValueAsString(result), SkillMetadata.class).displayName());
+        assertEquals("包内标题", source.withDisplayNameOverride("  ").displayName());
+        assertThrows(DomainBadRequestException.class, () -> source.withDisplayNameOverride("中".repeat(201)));
+        assertEquals("my-skill", mapper.readValue("{\"name\":\"my-skill\",\"frontmatter\":{}}", SkillMetadata.class).displayName());
+    }
+
+    @Test
+    void parsesDisplayNameWithoutChangingPackageName() {
+        SkillMetadata metadata = parser.parse("""
+                ---
+                name: example-skill
+                description: An example skill for demonstration
+                metadata:
+                  version: "1.0.0"
+                  display-name: "  示例技能  "
+                ---
+                Instructions
+                """);
+
+        assertEquals("示例技能", metadata.displayName());
+        assertEquals("example-skill", metadata.name());
+        assertEquals("1.0.0", metadata.version());
+        assertEquals("示例技能", new com.fasterxml.jackson.databind.ObjectMapper()
+                .convertValue(metadata, SkillMetadata.class).displayName());
+    }
+
+    @Test
+    void fallsBackToPackageNameForMissingOrBlankDisplayName() {
+        for (String extra : new String[] {"", "metadata: {}", "metadata:\n  display-name: null",
+                "metadata:\n  display-name: '   '"}) {
+            SkillMetadata metadata = parser.parse("---\nname: my-skill\ndescription: Test\n"
+                    + extra + "\n---\nBody");
+            assertEquals("my-skill", metadata.displayName());
+        }
+        assertEquals("old-skill", new SkillMetadata("old-skill", "Test", "1.0.0", "Body", null).displayName());
+    }
+
+    @Test
+    void readsLegacyDisplayNameSnapshotsWithoutDiscardingRawValues() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (Object legacyValue : new Object[] {123, true, java.util.List.of("one", "two"),
+                Map.of("label", "test"), "中".repeat(201)}) {
+            String snapshot = mapper.writeValueAsString(Map.of(
+                    "name", "old-skill", "description", "Historical summary",
+                    "frontmatter", Map.of("metadata", Map.of("display-name", legacyValue))));
+
+            SkillMetadata metadata = mapper.readValue(snapshot, SkillMetadata.class);
+
+            assertEquals("old-skill", metadata.displayName());
+            assertEquals(legacyValue,
+                    ((Map<?, ?>) metadata.frontmatter().get("metadata")).get("display-name"));
+            assertEquals(mapper.readTree(snapshot).get("frontmatter"),
+                    mapper.readTree(mapper.writeValueAsString(metadata)).get("frontmatter"));
+        }
+    }
+
+    @Test
+    void rejectsNonStringDisplayNames() {
+        for (String value : new String[] {"123", "true", "[one, two]", "{label: test}"}) {
+            DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
+                    () -> parser.parse("---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: "
+                            + value + "\n---\nBody"));
+            assertEquals("error.skill.metadata.displayName.invalid", error.messageCode());
+        }
+    }
+
+    @Test
+    void validatesDisplayNameLengthBeforePublishing() {
+        String template = "---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: %s\n---\nBody";
+        assertEquals("中".repeat(200), parser.parse(template.formatted("中".repeat(200))).displayName());
+        DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
+                () -> parser.parse(template.formatted("中".repeat(201))));
+        assertEquals("error.skill.metadata.displayName.tooLong", error.messageCode());
+    }
+
+    @Test
     void testParseStandardFrontmatterAndBody() {
         String content = """
             ---

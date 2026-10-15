@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.review;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.event.SkillPublishedEvent;
 import com.iflytek.skillhub.domain.governance.GovernanceNotificationService;
 import com.iflytek.skillhub.domain.namespace.Namespace;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,7 +67,7 @@ class PromotionServiceTest {
         promotionService = new PromotionService(
                 promotionRequestRepository, skillRepository, skillVersionRepository,
                 skillFileRepository, namespaceRepository, namespaceMemberRepository, permissionChecker,
-                eventPublisher, governanceNotificationService, entityManager, CLOCK);
+                eventPublisher, governanceNotificationService, entityManager, CLOCK, new ObjectMapper());
         lenient().when(namespaceRepository.findById(5L)).thenReturn(Optional.of(createSourceNamespace()));
     }
 
@@ -98,6 +101,13 @@ class PromotionServiceTest {
         sv.setBundleReady(true);
         sv.setDownloadReady(true);
         return sv;
+    }
+
+    private String selectedVersionMetadata(boolean hasDisplayName) {
+        return """
+                {"name":"old-package-name","description":"Old version summary",
+                 "frontmatter":{"metadata":{"display-name":"包内标题"}},"displayNameOverride":"%s"}
+                """.formatted(hasDisplayName ? " 旧版标题 " : " ");
     }
 
     private Namespace createGlobalNamespace() {
@@ -655,12 +665,15 @@ class PromotionServiceTest {
             assertEquals("promotion.target_skill_conflict", ex.messageCode());
         }
 
-        @Test
-        void shouldCopyDisplayNameAndSummaryToNewSkill() {
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void shouldCopySelectedVersionMetadataToNewSkill(boolean hasDisplayName) {
             PromotionRequest pr = createPendingPromotion();
             PromotionRequest approvedRequest = approvedPromotion(pr, "ok");
             Skill sourceSkill = createSourceSkill();
             SkillVersion sourceVersion = createPublishedVersion();
+            sourceSkill.setLatestVersionId(999L);
+            sourceVersion.setParsedMetadataJson(selectedVersionMetadata(hasDisplayName));
 
             when(promotionRequestRepository.findById(PROMOTION_ID))
                     .thenReturn(Optional.of(pr), Optional.of(approvedRequest));
@@ -686,8 +699,9 @@ class PromotionServiceTest {
             ArgumentCaptor<Skill> skillCaptor = ArgumentCaptor.forClass(Skill.class);
             verify(skillRepository, times(2)).save(skillCaptor.capture());
             Skill newSkill = skillCaptor.getAllValues().get(0);
-            assertEquals("My Skill", newSkill.getDisplayName());
-            assertEquals("A test skill", newSkill.getSummary());
+            assertEquals(hasDisplayName ? "旧版标题" : "包内标题", newSkill.getDisplayName());
+            assertEquals("Old version summary", newSkill.getSummary());
+            assertEquals(NEW_VERSION_ID, newSkill.getLatestVersionId());
         }
 
     }
@@ -784,8 +798,9 @@ class PromotionServiceTest {
             assertEquals("2.0.0", state.targetCurrentVersion());
         }
 
-        @Test
-        void approvesUpdateWithoutCreatingAnotherGlobalSkill() {
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void approvesUpdateUsingSelectedVersionMetadata(boolean hasDisplayName) {
             PromotionRequest pending = createPendingPromotion();
             pending.setRequestKind(PromotionRequestKind.UPDATE);
             pending.setTargetSkillId(NEW_SKILL_ID);
@@ -808,8 +823,12 @@ class PromotionServiceTest {
                     PROMOTION_ID, ReviewTaskStatus.APPROVED, REVIEWER_ID, "approved",
                     NEW_SKILL_ID, pending.getVersion()))
                     .thenReturn(1);
-            when(skillRepository.findById(SOURCE_SKILL_ID)).thenReturn(Optional.of(createSourceSkill()));
-            when(skillVersionRepository.findById(SOURCE_VERSION_ID)).thenReturn(Optional.of(createPublishedVersion()));
+            Skill source = createSourceSkill();
+            source.setLatestVersionId(998L);
+            SkillVersion sourceVersion = createPublishedVersion();
+            sourceVersion.setParsedMetadataJson(selectedVersionMetadata(hasDisplayName));
+            when(skillRepository.findById(SOURCE_SKILL_ID)).thenReturn(Optional.of(source));
+            when(skillVersionRepository.findById(SOURCE_VERSION_ID)).thenReturn(Optional.of(sourceVersion));
             when(promotionRequestRepository.findActiveInitialBySourceSkillId(SOURCE_SKILL_ID))
                     .thenReturn(Optional.of(initialLink()));
             when(skillRepository.findById(NEW_SKILL_ID)).thenReturn(Optional.of(target));
@@ -823,8 +842,8 @@ class PromotionServiceTest {
             assertEquals(NEW_SKILL_ID, result.getTargetSkillId());
             assertEquals(NEW_VERSION_ID, result.getTargetVersionId());
             assertEquals(NEW_VERSION_ID, target.getLatestVersionId());
-            assertEquals("My Skill", target.getDisplayName());
-            assertEquals("A test skill", target.getSummary());
+            assertEquals(hasDisplayName ? "旧版标题" : "包内标题", target.getDisplayName());
+            assertEquals("Old version summary", target.getSummary());
             verify(promotionRequestRepository).updateStatusWithVersion(
                     PROMOTION_ID, ReviewTaskStatus.APPROVED, REVIEWER_ID, "approved",
                     NEW_SKILL_ID, pending.getVersion());

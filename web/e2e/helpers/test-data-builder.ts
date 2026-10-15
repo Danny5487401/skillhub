@@ -58,6 +58,7 @@ interface ApiFailure extends Error {
 const cleanupTimeoutMs = process.env.CI ? 8_000 : 5_000
 
 export interface SeedSkillOptions {
+  displayName?: string
   name?: string
   description?: string
   version?: string
@@ -109,7 +110,7 @@ function buildSkillPackageContent(suffix: string, options?: SeedSkillOptions) {
 name: ${skillName}
 description: ${description}
 version: ${version}
----
+${options?.displayName === undefined ? '' : `metadata:\n  display-name: ${JSON.stringify(options.displayName)}\n`}---
 
 # ${readmeHeading}
 

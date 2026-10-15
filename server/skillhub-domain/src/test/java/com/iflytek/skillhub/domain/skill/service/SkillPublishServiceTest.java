@@ -1032,6 +1032,7 @@ class SkillPublishServiceTest {
         SkillVersion sourceVersion = new SkillVersion(skill.getId(), "1.2.3", publisherId);
         setId(sourceVersion, 21L);
         sourceVersion.setStatus(SkillVersionStatus.PUBLISHED);
+        sourceVersion.setParsedMetadataJson("{\"displayNameOverride\":\"原网页标题\"}");
         sourceVersion.setPublishedAt(Instant.parse("2026-03-15T10:00:00Z"));
 
         String sourceSkillMd = """
@@ -1084,6 +1085,7 @@ class SkillPublishServiceTest {
         );
 
         assertEquals("1.2.4", result.version().getVersion());
+        assertEquals("原网页标题", objectMapper.readTree(result.version().getParsedMetadataJson()).path("displayNameOverride").asText());
         // Rerelease for PUBLIC skill should go to PENDING_REVIEW (respecting visibility rules)
         assertEquals(SkillVersionStatus.PENDING_REVIEW, result.version().getStatus());
         // Review task should be created for PUBLIC skill
@@ -1929,6 +1931,69 @@ class SkillPublishServiceTest {
         assertEquals("error.suite.bundle.member.stateChanged", exception.messageCode());
         verify(skillRepository, never()).save(any());
         verify(skillVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publishesDisplayNameWithoutChangingSlugOrVersionMetadataName() throws Exception {
+        PublishFixture fixture = stubValidPublishInputs("test-ns", "user-100", "test-skill", "test-skill", "1.0.0", false);
+        when(skillMetadataParser.parse(anyString())).thenReturn(new SkillMetadata(
+                "test-skill", "Test", "1.0.0", "Body",
+                Map.of("metadata", Map.of("display-name", "示例技能"))));
+
+        SkillPublishService.PublishResult result = service.publishFromEntries(
+                "test-ns", fixture.entries(), "user-100", SkillVisibility.PUBLIC, Set.of("SUPER_ADMIN"));
+
+        assertEquals("test-skill", result.slug());
+        ArgumentCaptor<Skill> saved = ArgumentCaptor.forClass(Skill.class);
+        verify(skillRepository).save(saved.capture());
+        assertEquals("示例技能", saved.getValue().getDisplayName());
+        JsonNode snapshot = objectMapper.readTree(result.version().getParsedMetadataJson());
+        assertEquals("test-skill", snapshot.path("name").asText());
+        assertEquals("示例技能", snapshot.path("frontmatter").path("metadata").path("display-name").asText());
+    }
+
+    @Test
+    void portalOverrideLivesInVersionAndNeverRewritesStoredSkillMd() throws Exception {
+        PublishFixture fixture = stubValidPublishInputs("test-ns", "user-100", "test-skill", "test-skill", "1.0.0", false);
+        when(skillMetadataParser.parse(anyString())).thenReturn(new SkillMetadata(
+                "test-skill", "Test", "1.0.0", "Body", Map.of("metadata", Map.of("display-name", "包内标题"))));
+        java.util.Map<String, byte[]> stored = new java.util.HashMap<>();
+        doAnswer(invocation -> {
+            stored.put(invocation.getArgument(0), ((java.io.InputStream) invocation.getArgument(1)).readAllBytes());
+            return null;
+        }).when(objectStorageService).putObject(anyString(), any(java.io.InputStream.class), anyLong(), anyString());
+
+        var result = service.publishFromEntries("test-ns", fixture.entries(), "user-100",
+                SkillVisibility.PUBLIC, Set.of("SUPER_ADMIN"), false, "  网页标题  ");
+        SkillMetadata snapshot = objectMapper.readerFor(SkillMetadata.class)
+                .without(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(result.version().getParsedMetadataJson());
+        assertEquals("网页标题", snapshot.displayName());
+        assertEquals("test-skill", result.slug());
+        assertEquals("包内标题", ((Map<?, ?>) snapshot.frontmatter().get("metadata")).get("display-name"));
+        byte[] original = fixture.entries().getFirst().content();
+        assertArrayEquals(original, stored.entrySet().stream().filter(entry -> entry.getKey().endsWith("/SKILL.md"))
+                .findFirst().orElseThrow().getValue());
+    }
+
+    @Test
+    void pendingUpdateKeepsPublishedDisplayNameAndSummary() throws Exception {
+        PublishFixture fixture = stubValidPublishInputs("test-ns", "user-100", "test-skill", "test-skill", "2.0.0", true);
+        Skill skill = skillRepository.findByNamespaceIdAndSlugAndOwnerId(1L, "test-skill", "user-100").orElseThrow();
+        skill.setLatestVersionId(9L);
+        skill.setDisplayName("已审核的标题");
+        skill.setSummary("Published summary");
+        when(skillMetadataParser.parse(anyString())).thenReturn(new SkillMetadata(
+                "test-skill", "Pending summary", "2.0.0", "Body",
+                Map.of("metadata", Map.of("display-name", "待审核的标题"))));
+
+        SkillPublishService.PublishResult result = service.publishFromEntries(
+                "test-ns", fixture.entries(), "user-100", SkillVisibility.PUBLIC, Set.of());
+
+        assertEquals(SkillVersionStatus.PENDING_REVIEW, result.version().getStatus());
+        assertEquals("已审核的标题", skill.getDisplayName());
+        assertEquals("Published summary", skill.getSummary());
+        assertEquals(9L, skill.getLatestVersionId());
     }
 
     private record PublishFixture(List<PackageEntry> entries) {

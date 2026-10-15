@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -21,11 +21,12 @@ import {
   SelectValue,
   normalizeSelectValue,
 } from '@/shared/ui/select'
+import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Card } from '@/shared/ui/card'
 import { SkillAvatarEditor, KEEP_AVATAR, type AvatarEdit } from '@/features/skill/skill-avatar-editor'
 import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
-import { usePublishSkill } from '@/shared/hooks/use-skill-queries'
+import { previewSkillPackage, usePublishSkill } from '@/shared/hooks/use-skill-queries'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
@@ -46,6 +47,10 @@ export function PublishPage() {
   const submitting = useRef(false)
   const [isSavingAvatar, setIsSavingAvatar] = useState(false)
   const [avatarEdit, setAvatarEdit] = useState<AvatarEdit>(KEEP_AVATAR)
+  const previewId = useId()
+  const [fileRevision, setFileRevision] = useState(0)
+  const [displayName, setDisplayName] = useState('')
+  const displayNameEdited = useRef(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [namespaceSlug, setNamespaceSlug] = useState<string>(prefill.namespace)
   const [visibility, setVisibility] = useState<string>(prefill.visibility)
@@ -55,11 +60,23 @@ export function PublishPage() {
 
   const { data: namespaces, isLoading: isLoadingNamespaces } = useMyNamespaces()
   const publishMutation = usePublishSkill()
+  const packagePreview = useQuery({
+    queryKey: ['skill-package-preview', previewId, fileRevision],
+    queryFn: () => previewSkillPackage(selectedFile!),
+    enabled: selectedFile !== null,
+    retry: false,
+    gcTime: 0,
+  })
+  useEffect(() => {
+    if (packagePreview.data && !displayNameEdited.current) {
+      setDisplayName(packagePreview.data.displayName ?? packagePreview.data.name ?? '')
+    }
+  }, [packagePreview.data])
   const avatarTarget = useQuery({ queryKey: ['skill-avatar', namespaceSlug, updateSlug], queryFn: () => skillAvatarApi.status(namespaceSlug, updateSlug), enabled: !!namespaceSlug && !!updateSlug })
   const avatarUnavailable = !!updateSlug && (avatarTarget.isLoading || avatarTarget.isError)
   const isBusy = publishMutation.isPending || isSavingAvatar
   const avatarOnly = isUpdate && !selectedFile
-  const canSubmit = !!namespaceSlug && avatarEdit.ready && !avatarUnavailable && !isBusy && (selectedFile !== null || (isUpdate && avatarEdit.action !== 'KEEP'))
+  const canSubmit = (!selectedFile || packagePreview.isSuccess) && displayName.trim().length <= 200 && !!namespaceSlug && avatarEdit.ready && !avatarUnavailable && !isBusy && (selectedFile !== null || (isUpdate && avatarEdit.action !== 'KEEP'))
   const selectedNamespace = namespaces?.find((ns) => ns.slug === namespaceSlug)
   const namespaceOnlyLabel = selectedNamespace?.type === 'GLOBAL'
     ? t('publish.visibilityOptions.loggedInUsersOnly')
@@ -79,6 +96,7 @@ export function PublishPage() {
 
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file)
+    setFileRevision(value => value + 1)
     setPrecheckWarnings([])
     setWarningDialogOpen(false)
   }
@@ -125,6 +143,7 @@ export function PublishPage() {
         avatarAction: avatarEdit.action,
         avatarUploadId: avatarEdit.uploadId,
         expectedSlug: updateSlug || undefined,
+        displayName,
       })
       setPrecheckWarnings([])
       setWarningDialogOpen(false)
@@ -289,6 +308,29 @@ export function PublishPage() {
               </Button>
             </div>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="skill-display-name">{t('publish.displayName')}</Label>
+          <Input
+            id="skill-display-name"
+            value={displayName}
+            maxLength={200}
+            disabled={isBusy || !selectedFile}
+            placeholder={isUpdate ? search.updateName : t('publish.displayNamePlaceholder')}
+            aria-describedby="skill-display-name-help"
+            onChange={event => {
+              displayNameEdited.current = true
+              setDisplayName(event.target.value)
+            }}
+          />
+          <p id="skill-display-name-help" className="text-sm text-muted-foreground">{t('publish.displayNameHelp')}</p>
+          {selectedFile && packagePreview.isPending && <p role="status" className="text-sm text-muted-foreground">{t('publish.readingPackage')}</p>}
+          {selectedFile && packagePreview.isError && <div role="alert" className="text-sm text-destructive">
+            <p>{t('publish.packagePreviewFailed')}</p>
+            <Button type="button" size="sm" variant="outline" onClick={() => packagePreview.refetch()}>{t('publish.retryPackagePreview')}</Button>
+          </div>}
+          {selectedFile && packagePreview.data && <p className="break-all text-xs text-muted-foreground">{t('publish.packageName')}: <code>{packagePreview.data.name}</code></p>}
         </div>
 
         <SkillAvatarEditor key={`${namespaceSlug}/${updateSlug}`} name={search.updateName ?? updateSlug} currentUrl={avatarTarget.data?.avatarUrl} canRemove={!!updateSlug} disabled={isBusy || avatarUnavailable} onChange={setAvatarEdit} />

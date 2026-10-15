@@ -173,6 +173,7 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
         if (projection == null) {
             return null;
         }
-        return new SkillLifecycleVersionResponse(projection.id(), projection.version(), projection.status());
+        return new SkillLifecycleVersionResponse(projection.id(), projection.version(), projection.status(),
+                projection.displayName(), projection.summary());
     }
 }

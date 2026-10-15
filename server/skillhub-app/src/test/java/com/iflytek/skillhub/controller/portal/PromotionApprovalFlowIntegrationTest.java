@@ -34,6 +34,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
@@ -65,6 +66,9 @@ class PromotionApprovalFlowIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private UserAccountJpaRepository userAccountRepository;
@@ -138,6 +142,8 @@ class PromotionApprovalFlowIntegrationTest {
         assertThat(targetSkill.getNamespaceId()).isEqualTo(graph.globalNamespace().getId());
         assertThat(targetSkill.getSlug()).isEqualTo(graph.sourceSkill().getSlug());
         assertThat(targetSkill.getSourceSkillId()).isEqualTo(graph.sourceSkill().getId());
+        assertThat(targetSkill.getDisplayName()).isEqualTo("Selected version title");
+        assertThat(targetSkill.getSummary()).isEqualTo("Selected version summary.");
         assertThat(targetSkill.getLatestVersionId()).isNotNull();
 
         List<SkillVersion> targetVersions = skillVersionRepository.findBySkillId(targetSkill.getId());
@@ -320,9 +326,17 @@ class PromotionApprovalFlowIntegrationTest {
         sourceVersion.setStatus(SkillVersionStatus.PUBLISHED);
         sourceVersion.setPublishedAt(Instant.now());
         sourceVersion.setRequestedVisibility(SkillVisibility.PUBLIC);
-        sourceVersion.setParsedMetadataJson("{\"name\":\"promotion-flow\"}");
+        String metadataJson = """
+                {"name":"promotion-flow","description":"Selected version summary.",
+                 "frontmatter":{"metadata":{"display-name":"Selected version title"}}}
+                """;
+        sourceVersion.setParsedMetadataJson(metadataJson);
         sourceVersion.setManifestJson("{\"version\":\"1.0.0\"}");
         sourceVersion = skillVersionRepository.saveAndFlush(sourceVersion);
+        // H2's JSON mapping can quote a Java String as a JSON scalar. Seed an actual
+        // JSON object, matching the PostgreSQL snapshots produced by publishing.
+        jdbcTemplate.update("UPDATE skill_version SET parsed_metadata_json = ? FORMAT JSON WHERE id = ?",
+                metadataJson, sourceVersion.getId());
 
         sourceSkill.setLatestVersionId(sourceVersion.getId());
         sourceSkill.setUpdatedBy(submitterId);
