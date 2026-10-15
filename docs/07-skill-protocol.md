@@ -40,6 +40,10 @@ description: When to use    # 必需，1-2 句话
 解析规则：
 - `name` 和 `description` 为必需字段，缺失则校验失败
 - `name` 映射为 `skill.slug`（首次发布时），后续版本不可变更
+- 可选的 `metadata.display-name` 映射为 `skill.display_name`，不参与 slug 生成。必须是字符串，去除首尾空白后最多 200 个字符；缺失、null 或空白时回退到 `name`。展示名沿用版本发布/审核流程，待审核更新不覆盖已发布标题；撤下最新版本并回退到旧版本时，标题和摘要同步恢复到该旧版本。
+- 网页发布 multipart 可选字段 `displayName` 在 trim 后非空时优先于包内展示名，最长 200 字符；空白回退包内字段。该覆盖值保存在版本元数据快照，原始 frontmatter 和文件内容不改写；下载 ZIP 沿用现有重新打包机制，压缩包二进制可能不同。CLI 不填写此字段时继续使用包内规则。
+- 网页上传后通过鉴权只读 `POST /api/web/skills/package-preview`（也提供 `/api/v1/skills/package-preview`）读取 `name/displayName/description/version`；此步骤不保存包、不创建技能或启动扫描，正式提交仍执行完整校验。
+- 上述类型和长度限制在新上传解析时检查。读取历史版本快照时，非字符串或超长的旧 `display-name` 回退到该版本的 `name`，原始 frontmatter 保留，避免阻塞审核、提升或版本撤回。
 - `description` 映射为 `skill.summary`
 - frontmatter 完整解析结果存入 `skill_version.parsed_metadata_json`
 

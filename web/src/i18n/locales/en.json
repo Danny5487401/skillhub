@@ -518,6 +518,8 @@
     "securityDesc": "Change password and account security options"
   },
   "mySkills": {
+    "versionDifference": "This update v{{version}} · Public v{{published}}",
+    "statusUpdatePendingReview": "Update awaiting review",
     "title": "My Skills",
     "subtitle": "Manage your published skills",
     "searchPlaceholder": "Search by name, slug, or description",
@@ -1042,6 +1044,9 @@
     "emptyDescription": "No skills have been published in this namespace yet"
   },
   "skillDetail": {
+    "copyCoordinate": "Copy full skill identifier",
+    "unpublishedPreviewTitle": "Unpublished version preview",
+    "unpublishedPreviewDescription": "You are viewing an unpublished version under the existing preview permissions. Public readers continue to see the published name, summary and content.",
     "back": "Back",
     "notFound": "Skill not found",
     "notFoundDesc": "This skill may have been deleted or never existed",
@@ -1826,6 +1831,13 @@
     "copyright": "© 2026 SkillHub. Apache-2.0."
   },
   "publish": {
+    "retryPackagePreview": "Retry",
+    "packageName": "Package name",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "For example: Meeting notes assistant",
+    "displayNameHelp": "Up to 200 characters. Defaults to the package title. Changes follow this version’s review and do not alter the identifier or package files. Leave blank to use the package title.",
+    "readingPackage": "Reading package metadata…",
+    "packagePreviewFailed": "Unable to read the package. Check SKILL.md and select the package again, or retry.",
     "title": "Publish Skill",
     "subtitle": "Upload skill package to SkillHub",
     "reviewNotice": {

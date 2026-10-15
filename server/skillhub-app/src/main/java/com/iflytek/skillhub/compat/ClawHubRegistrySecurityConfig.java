@@ -9,7 +9,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 
 /**
@@ -43,11 +45,14 @@ public class ClawHubRegistrySecurityConfig {
             HttpSecurity http,
             ApiTokenAuthenticationFilter apiTokenAuthenticationFilter) throws Exception {
         http
-                .securityMatcher(
-                        "/api/v1/search",
-                        "/api/v1/download",
-                        "/api/v1/skills/*"
-                )
+                .securityMatcher(new AndRequestMatcher(
+                        new OrRequestMatcher(
+                                new AntPathRequestMatcher("/api/v1/search"),
+                                new AntPathRequestMatcher("/api/v1/download"),
+                                new AntPathRequestMatcher("/api/v1/skills/*")),
+                        new NegatedRequestMatcher(new AntPathRequestMatcher(
+                                "/api/v1/skills/package-preview", HttpMethod.POST.name()))
+                ))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .requestCache(cache -> cache.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

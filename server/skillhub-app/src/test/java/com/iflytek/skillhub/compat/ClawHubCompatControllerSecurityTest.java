@@ -40,6 +40,17 @@ class ClawHubCompatControllerSecurityTest {
     private ClawHubCompatAppService clawHubCompatAppService;
 
     @Test
+    void getPackagePreviewSlugStillUsesCompatibilityEndpoint() throws Exception {
+        when(clawHubCompatAppService.getSkill(eq("package-preview"), isNull(), isNull()))
+                .thenThrow(new DomainNotFoundException("error.skill.notFound", "package-preview"));
+
+        mockMvc.perform(get("/api/v1/skills/package-preview"))
+                .andExpect(status().isNotFound());
+
+        verify(clawHubCompatAppService).getSkill(eq("package-preview"), isNull(), isNull());
+    }
+
+    @Test
     void getSkill_returnsNotFound_whenAnonymousCannotAccessPrivateSkill() throws Exception {
         when(clawHubCompatAppService.getSkill(eq("priv"), isNull(), isNull()))
                 .thenThrow(new DomainNotFoundException("error.skill.notFound", "priv"));

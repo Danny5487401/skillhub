@@ -1,5 +1,10 @@
 package com.iflytek.skillhub.domain.skill.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.iflytek.skillhub.domain.skill.metadata.SkillMetadata;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
 import com.iflytek.skillhub.domain.skill.Skill;
 import com.iflytek.skillhub.domain.skill.SkillInstallability;
@@ -31,10 +36,15 @@ public class SkillLifecycleProjectionService {
             Long id,
             String version,
             String status,
-            String parsedMetadataJson
+            String parsedMetadataJson,
+            String displayName,
+            String summary
     ) {
+        public VersionProjection(Long id, String version, String status, String parsedMetadataJson) {
+            this(id, version, status, parsedMetadataJson, null, null);
+        }
         public VersionProjection(Long id, String version, String status) {
-            this(id, version, status, null);
+            this(id, version, status, null, null, null);
         }
     }
 
@@ -50,9 +60,18 @@ public class SkillLifecycleProjectionService {
             .thenComparing(SkillVersion::getId, Comparator.nullsLast(Comparator.naturalOrder()));
 
     private final SkillVersionRepository skillVersionRepository;
+    private final ObjectReader metadataReader;
 
     public SkillLifecycleProjectionService(SkillVersionRepository skillVersionRepository) {
+        this(skillVersionRepository, new ObjectMapper());
+    }
+
+    @Autowired
+    public SkillLifecycleProjectionService(SkillVersionRepository skillVersionRepository,
+                                            ObjectMapper objectMapper) {
         this.skillVersionRepository = skillVersionRepository;
+        this.metadataReader = objectMapper.readerFor(SkillMetadata.class)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     public Projection projectForViewer(Skill skill, String currentUserId, Map<Long, NamespaceRole> userNsRoles) {
@@ -158,11 +177,21 @@ public class SkillLifecycleProjectionService {
         if (version == null) {
             return null;
         }
+        SkillMetadata metadata = null;
+        if (version.getParsedMetadataJson() != null) {
+            try {
+                metadata = metadataReader.readValue(version.getParsedMetadataJson());
+            } catch (java.io.IOException ignored) {
+                // Legacy versions can have no usable snapshot; keep the existing container fallback.
+            }
+        }
         return new VersionProjection(
                 version.getId(),
                 version.getVersion(),
                 version.getStatus().name(),
-                version.getParsedMetadataJson()
+                version.getParsedMetadataJson(),
+                metadata == null ? null : metadata.displayName(),
+                metadata == null ? null : metadata.description()
         );
     }
 }

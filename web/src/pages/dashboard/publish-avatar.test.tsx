@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ publish: vi.fn(), navigate: vi.fn(), submit: vi.fn(), remove: vi.fn(), refresh: vi.fn(), search: { namespace: 'team', visibility: 'PUBLIC', updateSkill: 'foo', resubmitSkill: '' } }))
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mocks.refresh }), useQuery: () => ({ data: { avatarUrl: '/owner-active' }, isLoading: false, isError: false }) }))
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mocks.refresh }), useQuery: ({ queryKey, enabled }: { queryKey: unknown[]; enabled?: boolean }) => queryKey[0] === 'skill-package-preview'
+  ? { data: enabled ? { name: 'foo', displayName: 'Foo', version: '1.1' } : undefined, isSuccess: !!enabled, isPending: false, isError: false }
+  : { data: { avatarUrl: '/owner-active' }, isLoading: false, isError: false } }))
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => mocks.navigate, useSearch: () => mocks.search }))
 vi.mock('react-i18next', async () => ({ ...await vi.importActual<typeof import('react-i18next')>('react-i18next'), useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@/shared/hooks/use-skill-queries', () => ({

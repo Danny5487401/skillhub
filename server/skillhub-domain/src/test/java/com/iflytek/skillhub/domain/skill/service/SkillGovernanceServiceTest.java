@@ -11,6 +11,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.audit.AuditLogService;
 import com.iflytek.skillhub.domain.event.SkillStatusChangedEvent;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
@@ -36,6 +37,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -81,6 +84,7 @@ class SkillGovernanceServiceTest {
                 eventPublisher,
                 securityScanService,
                 compensationService,
+                new ObjectMapper(),
                 CLOCK
         );
     }
@@ -250,8 +254,9 @@ class SkillGovernanceServiceTest {
         verify(objectStorageService, never()).deleteObject(any());
     }
 
-    @Test
-    void yankVersion_recomputesLatestPublishedPointer() {
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "custom", "number", "tooLong", "override"})
+    void yankVersion_restoresLatestPublishedMetadata(String displayNameCase) throws Exception {
         SkillVersion yanked = new SkillVersion(2L, "2.0.0", "owner");
         setField(yanked, "id", 22L);
         yanked.setStatus(SkillVersionStatus.PUBLISHED);
@@ -261,10 +266,22 @@ class SkillGovernanceServiceTest {
         setField(fallback, "id", 11L);
         fallback.setStatus(SkillVersionStatus.PUBLISHED);
         fallback.setPublishedAt(Instant.parse("2026-03-17T10:00:00Z"));
+        fallback.setParsedMetadataJson(new ObjectMapper().writeValueAsString(Map.of(
+                "name", "example-skill",
+                "description", "Published summary from v1",
+                "displayNameOverride", displayNameCase.equals("override") ? "网页旧版标题" : "",
+                "frontmatter", switch (displayNameCase) {
+                    case "custom" -> Map.of("metadata", Map.of("display-name", "示例技能一"));
+                    case "number" -> Map.of("metadata", Map.of("display-name", 123));
+                    case "tooLong" -> Map.of("metadata", Map.of("display-name", "中".repeat(201)));
+                    default -> Map.of();
+                })));
 
         Skill skill = new Skill(1L, "demo", "owner", com.iflytek.skillhub.domain.skill.SkillVisibility.PUBLIC);
         setField(skill, "id", 2L);
         skill.setLatestVersionId(22L);
+        skill.setDisplayName("示例技能二");
+        skill.setSummary("Published summary from v2");
 
         given(skillVersionRepository.findByIdForUpdate(22L)).willReturn(Optional.of(yanked));
         given(skillVersionRepository.save(yanked)).willReturn(yanked);
@@ -275,7 +292,55 @@ class SkillGovernanceServiceTest {
         service.yankVersion(22L, "admin", "127.0.0.1", "JUnit", "broken");
 
         assertThat(skill.getLatestVersionId()).isEqualTo(11L);
+        assertThat(skill.getDisplayName()).isEqualTo(displayNameCase.equals("override") ? "网页旧版标题" : displayNameCase.equals("custom") ? "示例技能一" : "example-skill");
+        assertThat(skill.getSummary()).isEqualTo("Published summary from v1");
         verify(skillRepository).save(skill);
+    }
+
+    @Test
+    void yankVersion_preservesMetadataWhenYankingAnOlderVersion() {
+        SkillVersion older = new SkillVersion(2L, "1.0.0", "owner");
+        setField(older, "id", 11L);
+        older.setStatus(SkillVersionStatus.PUBLISHED);
+        Skill skill = new Skill(1L, "example-skill", "owner", com.iflytek.skillhub.domain.skill.SkillVisibility.PUBLIC);
+        setField(skill, "id", 2L);
+        skill.setLatestVersionId(22L);
+        skill.setDisplayName("示例技能二");
+        skill.setSummary("Published summary from v2");
+        given(skillVersionRepository.findByIdForUpdate(11L)).willReturn(Optional.of(older));
+        given(skillVersionRepository.save(older)).willReturn(older);
+        given(skillRepository.findById(2L)).willReturn(Optional.of(skill));
+
+        service.yankVersion(11L, "admin", "127.0.0.1", "JUnit", "broken");
+
+        assertThat(skill.getLatestVersionId()).isEqualTo(22L);
+        assertThat(skill.getDisplayName()).isEqualTo("示例技能二");
+        assertThat(skill.getSummary()).isEqualTo("Published summary from v2");
+        verify(skillRepository, never()).save(any());
+    }
+
+    @Test
+    void yankVersion_keepsHistoricalMetadataWhenNoPublishedVersionRemains() {
+        SkillVersion version = new SkillVersion(2L, "1.0.0", "owner");
+        setField(version, "id", 11L);
+        version.setStatus(SkillVersionStatus.PUBLISHED);
+        Skill skill = new Skill(1L, "example-skill", "owner", com.iflytek.skillhub.domain.skill.SkillVisibility.PUBLIC);
+        setField(skill, "id", 2L);
+        skill.setLatestVersionId(11L);
+        skill.setDisplayName("示例技能");
+        skill.setSummary("Historical summary");
+        given(skillVersionRepository.findByIdForUpdate(11L)).willReturn(Optional.of(version));
+        given(skillVersionRepository.save(version)).willReturn(version);
+        given(skillRepository.findById(2L)).willReturn(Optional.of(skill));
+        given(skillVersionRepository.findBySkillIdAndStatus(2L, SkillVersionStatus.PUBLISHED))
+                .willReturn(java.util.List.of());
+        given(skillRepository.save(skill)).willReturn(skill);
+
+        service.yankVersion(11L, "admin", "127.0.0.1", "JUnit", "broken");
+
+        assertThat(skill.getLatestVersionId()).isNull();
+        assertThat(skill.getDisplayName()).isEqualTo("示例技能");
+        assertThat(skill.getSummary()).isEqualTo("Historical summary");
     }
 
     @Test

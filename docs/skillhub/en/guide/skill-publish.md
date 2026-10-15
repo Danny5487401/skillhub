@@ -72,6 +72,32 @@ When packaging an existing skill, keep its required scripts, references,
 `agents/` metadata, and license files together. Pass that skill directory
 (`./my-skill` in this example) to the publish command below.
 
+To show a human-readable or localized title in lists, search results, and detail pages,
+add the optional `metadata.display-name` field:
+
+```yaml
+---
+name: example-skill
+description: An example skill for demonstration.
+metadata:
+  display-name: 示例技能
+  version: "1.0.0"
+---
+```
+
+`name` still determines the slug, installation coordinate, and links. The display name
+must be a string of at most 200 characters after trimming surrounding whitespace.
+Missing, null, or blank display names fall back to `name`. Titles follow the version's
+review lifecycle: an update awaiting review does not replace an existing published title.
+No database migration is needed; existing skills can keep their `name` and publish a new
+version with this optional metadata.
+
+On the web publish/update form, upload a package and edit **Display name**. The package's `metadata.display-name` (or `name`) pre-fills the field. Your edits take precedence and survive selecting another package; leave it blank to use the package title. The name is limited to 200 characters and follows this version's review. Avatar-only updates cannot rename a skill.
+
+**My Skills** shows the pending update's title and summary with one main status and a plain-text comparison to the published version. Open the card to preview that update; public readers still see the published version. Details always show the copyable `@namespace/slug`; renaming does not change links or install identifiers.
+
+Web names are stored in platform version metadata without rewriting `SKILL.md` or other package files. Downloads use the existing ZIP repackaging process, so compressed archive bytes may differ. CLI publishing keeps using package metadata. Approval, rollback after yanking, and promotion use the corresponding version's name and summary.
+
 2. **Publish via CLI (Recommended)**
 
 ```bash

@@ -290,7 +290,9 @@ public class SkillSearchAppService {
         return new com.iflytek.skillhub.dto.SkillLifecycleVersionResponse(
                 projection.id(),
                 projection.version(),
-                projection.status()
+                projection.status(),
+                projection.displayName(),
+                projection.summary()
         );
     }
 

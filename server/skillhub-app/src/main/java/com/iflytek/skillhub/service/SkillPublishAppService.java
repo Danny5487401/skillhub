@@ -41,6 +41,14 @@ public class SkillPublishAppService {
     public SkillPublishService.PublishResult publish(String namespace, List<PackageEntry> entries, String actor,
             SkillVisibility visibility, Set<String> roles, boolean confirmWarnings, AvatarAction action,
             String uploadId, String expectedSlug, AuditRequestContext context) {
+        return publish(namespace, entries, actor, visibility, roles, confirmWarnings, action,
+                uploadId, expectedSlug, null, context);
+    }
+
+    @Transactional
+    public SkillPublishService.PublishResult publish(String namespace, List<PackageEntry> entries, String actor,
+            SkillVisibility visibility, Set<String> roles, boolean confirmWarnings, AvatarAction action,
+            String uploadId, String expectedSlug, String displayName, AuditRequestContext context) {
         if (action == AvatarAction.REPLACE && (uploadId == null || uploadId.isBlank())
                 || action != AvatarAction.REPLACE && uploadId != null && !uploadId.isBlank()) {
             throw new DomainBadRequestException("error.skill.avatar.invalidUpload");
@@ -56,8 +64,9 @@ public class SkillPublishAppService {
                 uploads.validateReference(namespace, targetSlug, actor, uploadId);
             }
         }
-        SkillPublishService.PublishResult result = publications.publishFromEntries(
-                namespace, entries, actor, visibility, roles, confirmWarnings);
+        SkillPublishService.PublishResult result = displayName == null || displayName.isBlank()
+                ? publications.publishFromEntries(namespace, entries, actor, visibility, roles, confirmWarnings)
+                : publications.publishFromEntries(namespace, entries, actor, visibility, roles, confirmWarnings, displayName);
         var review = reviews.findBySkillVersionIdAndStatus(
                 result.version().getId(), ReviewTaskStatus.PENDING).orElse(null);
         if (action == AvatarAction.REPLACE) {

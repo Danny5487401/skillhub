@@ -64,6 +64,7 @@ class JpaMySkillQueryRepositoryTest {
 
         SkillVersion rejectedVersion = new SkillVersion(2L, "1.3.0", "user-1");
         rejectedVersion.setStatus(SkillVersionStatus.REJECTED);
+        rejectedVersion.setParsedMetadataJson("{\"name\":\"team-skill\",\"description\":\"待审摘要\",\"displayNameOverride\":\"网页新标题\",\"frontmatter\":{}}");
         ReflectionTestUtils.setField(rejectedVersion, "id", 23L);
         ReflectionTestUtils.setField(rejectedVersion, "createdAt", Instant.parse("2026-03-15T11:30:00Z"));
 
@@ -82,6 +83,8 @@ class JpaMySkillQueryRepositoryTest {
         assertThat(responses.get(0).publishedVersion()).isNotNull();
         assertThat(responses.get(0).ownerPreviewVersion()).isNotNull();
         assertThat(responses.get(0).ownerPreviewVersion().status()).isEqualTo("REJECTED");
+        assertThat(responses.get(0).ownerPreviewVersion().displayName()).isEqualTo("网页新标题");
+        assertThat(responses.get(0).ownerPreviewVersion().summary()).isEqualTo("待审摘要");
         assertThat(responses.get(0).canSubmitPromotion()).isTrue();
     }
 

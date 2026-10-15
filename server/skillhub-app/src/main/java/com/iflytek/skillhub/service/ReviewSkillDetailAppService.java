@@ -1,5 +1,9 @@
 package com.iflytek.skillhub.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.iflytek.skillhub.domain.skill.metadata.SkillMetadata;
 import com.iflytek.skillhub.domain.review.ReviewSubjectType;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.skill.SkillAvatarCandidate;
@@ -42,6 +46,7 @@ public class ReviewSkillDetailAppService {
     private final SkillQueryService skillQueryService;
     private final SkillDownloadService skillDownloadService;
     private final ComplianceSnapshotProjectionService complianceSnapshotProjectionService;
+    private final ObjectReader metadataReader;
     private SkillRepository skills;
     private SkillAvatarCandidateJpaRepository candidates;
 
@@ -59,6 +64,21 @@ public class ReviewSkillDetailAppService {
                                        SkillQueryService skillQueryService,
                                        SkillDownloadService skillDownloadService,
                                        ComplianceSnapshotProjectionService complianceSnapshotProjectionService) {
+        this(reviewTaskRepository, namespaceRepository, reviewService, rbacService, skillQueryService,
+                skillDownloadService, complianceSnapshotProjectionService, new ObjectMapper());
+    }
+
+    @Autowired
+    public ReviewSkillDetailAppService(ReviewTaskRepository reviewTaskRepository,
+                                       NamespaceRepository namespaceRepository,
+                                       ReviewService reviewService,
+                                       RbacService rbacService,
+                                       SkillQueryService skillQueryService,
+                                       SkillDownloadService skillDownloadService,
+                                       ComplianceSnapshotProjectionService complianceSnapshotProjectionService,
+                                       ObjectMapper objectMapper) {
+        this.metadataReader = objectMapper.readerFor(SkillMetadata.class)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.reviewTaskRepository = reviewTaskRepository;
         this.namespaceRepository = namespaceRepository;
         this.reviewService = reviewService;
@@ -78,13 +98,14 @@ public class ReviewSkillDetailAppService {
         SkillQueryService.ReviewSkillSnapshotDTO snapshot =
                 skillQueryService.getReviewSkillSnapshot(context.task().getSkillVersionId());
 
+        SkillLifecycleVersionResponse activeVersion = toLifecycleVersion(snapshot.activeVersion());
         SkillDetailResponse skill = new SkillDetailResponse(
                 snapshot.skill().getId(),
                 snapshot.skill().getSlug(),
-                snapshot.skill().getDisplayName(),
+                activeVersion.displayName() != null ? activeVersion.displayName() : snapshot.skill().getDisplayName(),
                 snapshot.skill().getOwnerId(),
                 snapshot.ownerDisplayName(),
-                snapshot.skill().getSummary(),
+                activeVersion.summary() != null ? activeVersion.summary() : snapshot.skill().getSummary(),
                 snapshot.skill().getVisibility().name(),
                 snapshot.skill().getStatus().name(),
                 snapshot.skill().getDownloadCount(),
@@ -229,7 +250,16 @@ public class ReviewSkillDetailAppService {
     }
 
     private SkillLifecycleVersionResponse toLifecycleVersion(SkillVersion version) {
-        return new SkillLifecycleVersionResponse(version.getId(), version.getVersion(), version.getStatus().name());
+        SkillMetadata metadata = null;
+        if (version.getParsedMetadataJson() != null) {
+            try {
+                metadata = metadataReader.readValue(version.getParsedMetadataJson());
+            } catch (java.io.IOException ignored) {
+                // Missing or malformed legacy snapshots retain the existing container fallback.
+            }
+        }
+        return new SkillLifecycleVersionResponse(version.getId(), version.getVersion(), version.getStatus().name(),
+                metadata == null ? null : metadata.displayName(), metadata == null ? null : metadata.description());
     }
 
     private record ReviewAccessContext(ReviewTask task, Namespace namespace) {}
