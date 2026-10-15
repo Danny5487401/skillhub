@@ -7,8 +7,10 @@ preserve the existing architecture and product direction documented in
 [`docs/`](./docs).
 
 AI coding agents working in this repository should follow the rules in
-[`AGENTS.md`](./AGENTS.md), which documents repository architecture,
-dependency rules, and agent-specific conventions.
+[`AGENTS.md`](./AGENTS.md), which routes to the engineering conventions in
+[`.trellis/spec/index.md`](./.trellis/spec/index.md). These documents can be read
+without installing Trellis or any engineering Skill. Architecture and business
+design remain in `docs/`; execution tools and task records remain local.
 
 ## Before You Start
 
@@ -63,7 +65,10 @@ Before opening a pull request, make sure:
 
 - The branch is rebased or merged cleanly from the target branch.
 - Relevant backend tests pass.
-- Frontend typecheck/build passes when frontend files changed.
+- Frontend checks follow the [change-impact matrix](.trellis/spec/testing/index.md).
+  Changes limited to existing translation display text use its narrow exception;
+  frontend behavior or tooling changes require the applicable typecheck/build checks.
+  This does not waive required CI checks or failures in relevant existing tests.
 - `make generate-api` or `./scripts/check-openapi-generated.sh` has been run when
   backend API contracts changed.
 - Smoke coverage is updated when operator-facing workflows change.
