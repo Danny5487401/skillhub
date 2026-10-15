@@ -125,7 +125,7 @@ class MeControllerTest {
                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
 
-        given(mySkillAppService.listMyStars("user-42", 0, 12))
+        given(mySkillAppService.listMyStars("user-42", 0, 12, java.util.Map.of(), Set.of("USER")))
                 .willReturn(new PageResponse<>(List.of(), 0, 0, 12));
 
         mockMvc.perform(get("/api/v1/me/stars").with(authentication(auth)))

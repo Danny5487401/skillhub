@@ -199,14 +199,27 @@ Public API 的可见性规则：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/v1/skills/{namespace}/{slug}/star` | 收藏 |
-| DELETE | `/api/v1/skills/{namespace}/{slug}/star` | 取消收藏 |
-| POST | `/api/v1/skills/{namespace}/{slug}/rating` | 评分 |
+| PUT | `/api/v1/skills/{skillId}/star` | 收藏 |
+| GET | `/api/v1/skills/{skillId}/star` | 当前用户收藏状态 |
+| DELETE | `/api/v1/skills/{skillId}/star` | 取消本人收藏（幂等） |
+| PUT | `/api/v1/skills/{skillId}/rating` | 评分 |
+| GET | `/api/v1/skills/{skillId}/rating` | 当前用户评分状态 |
 | GET | `/api/v1/skills/{skillId}/reviews/me` | 当前用户的评分与文字评价 |
 | PUT | `/api/v1/skills/{skillId}/reviews/me` | 新增或更新当前用户评价（`score` 1-5，`reviewText` 最长 2000） |
 | DELETE | `/api/v1/skills/{skillId}/reviews/me` | 删除文字评价并保留星级评分 |
 | GET | `/api/v1/me/stars` | 我的收藏列表 |
 | GET | `/api/v1/me/skills` | 我发布的技能列表 |
+
+收藏与评分同样支持 `/api/web` 路由。上述 `GET` / `PUT star`、`GET` / `PUT rating`
+在读取状态或写入前，按技能详情的对象可见性策略检查当前用户、空间角色和平台角色。
+存在但不可访问的技能返回 `403`，不存在返回 `404`；拒绝不会新增收藏、评分或统计事件。
+合法的所有者、空间管理员及超级管理员仍按现有访问策略处理，不统一禁止私有技能互动。
+
+`GET /me/stars` 在数据库计数、排序与分页之前过滤当前无权访问的技能。
+技能转私有、被隐藏或用户失去空间角色后，旧收藏不能继续返回技能名称、摘要等信息。
+收藏关系仍保留，恢复访问后可再次显示；不因当前不可访问而自动删除历史收藏或评分。
+`DELETE star` 只操作当前用户自己的收藏，可在失去访问权限后继续幂等清理，不返回目标技能信息。
+本次不改变归档技能和未发布技能的既有可见性规则，也不增加数据库业务约束。
 
 ### 草稿与审核提交（Phase 3 引入）
 

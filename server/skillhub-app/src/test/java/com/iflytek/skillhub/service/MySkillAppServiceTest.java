@@ -13,8 +13,8 @@ import com.iflytek.skillhub.domain.skill.SkillVersionRepository;
 import com.iflytek.skillhub.domain.skill.SkillVersionStatus;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService;
-import com.iflytek.skillhub.domain.social.SkillStar;
-import com.iflytek.skillhub.domain.social.SkillStarRepository;
+import com.iflytek.skillhub.repository.StarredSkillQueryRepository;
+import java.util.Map;
 import com.iflytek.skillhub.domain.social.SkillSubscriptionRepository;
 import com.iflytek.skillhub.repository.JpaMySkillQueryRepository;
 import com.iflytek.skillhub.repository.HiddenSkillQueryRepository;
@@ -50,7 +50,7 @@ class MySkillAppServiceTest {
     private SkillVersionRepository skillVersionRepository;
 
     @Mock
-    private SkillStarRepository skillStarRepository;
+    private StarredSkillQueryRepository starredSkillQueryRepository;
 
     @Mock
     private SkillSubscriptionRepository skillSubscriptionRepository;
@@ -76,7 +76,7 @@ class MySkillAppServiceTest {
         service = new MySkillAppService(
                 skillRepository,
                 skillVersionRepository,
-                skillStarRepository,
+                starredSkillQueryRepository,
                 skillSubscriptionRepository,
                 mySkillQueryRepository,
                 hiddenSkillQueryRepository,
@@ -87,22 +87,6 @@ class MySkillAppServiceTest {
 
     @Test
     void listMyStars_loadsAllPagesOfStars() {
-        SkillStar firstStar = new SkillStar(1L, "user-1");
-        ReflectionTestUtils.setField(firstStar, "createdAt", Instant.parse("2026-03-14T10:00:00Z"));
-        SkillStar secondStar = new SkillStar(2L, "user-1");
-        ReflectionTestUtils.setField(secondStar, "createdAt", Instant.parse("2026-03-14T11:00:00Z"));
-
-        given(skillStarRepository.findByUserId("user-1", PageRequest.of(1, 1)))
-                .willReturn(new PageImpl<>(List.of(secondStar), PageRequest.of(1, 1), 2));
-
-        Skill firstSkill = new Skill(1L, "first-skill", "user-1", SkillVisibility.PUBLIC);
-        firstSkill.setDisplayName("First Skill");
-        firstSkill.setSummary("first summary");
-        ReflectionTestUtils.setField(firstSkill, "id", 1L);
-        ReflectionTestUtils.setField(firstSkill, "starCount", 1);
-        ReflectionTestUtils.setField(firstSkill, "namespaceId", 101L);
-        ReflectionTestUtils.setField(firstSkill, "updatedAt", Instant.parse("2026-03-14T10:00:00Z"));
-
         Skill secondSkill = new Skill(2L, "second-skill", "user-1", SkillVisibility.PUBLIC);
         secondSkill.setDisplayName("Second Skill");
         secondSkill.setSummary("second summary");
@@ -111,12 +95,13 @@ class MySkillAppServiceTest {
         ReflectionTestUtils.setField(secondSkill, "namespaceId", 101L);
         ReflectionTestUtils.setField(secondSkill, "updatedAt", Instant.parse("2026-03-14T11:00:00Z"));
 
-        given(skillRepository.findByIdIn(List.of(2L))).willReturn(List.of(secondSkill));
+        given(starredSkillQueryRepository.findAccessible("user-1", Map.of(), Set.of(), PageRequest.of(1, 1)))
+                .willReturn(new PageImpl<>(List.of(secondSkill), PageRequest.of(1, 1), 2));
         given(skillVersionRepository.findBySkillIdAndStatus(2L, SkillVersionStatus.PUBLISHED)).willReturn(List.of());
         given(skillVersionRepository.findBySkillId(2L)).willReturn(List.of());
         given(namespaceRepository.findByIdIn(List.of(101L))).willReturn(List.of(new Namespace("team-ai", "Team AI", "user-1")));
 
-        var stars = service.listMyStars("user-1", 1, 1);
+        var stars = service.listMyStars("user-1", 1, 1, Map.of(), Set.of());
 
         assertThat(stars.total()).isEqualTo(2);
         assertThat(stars.page()).isEqualTo(1);
