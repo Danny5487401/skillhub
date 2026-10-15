@@ -79,7 +79,7 @@ SUPER_ADMIN 可访问所有管理页面。路由守卫检查用户是否持有�
 
 - `headlineVersion`：当前页面主展示版本
 - `publishedVersion`：当前最新已发布版本
-- `ownerPreviewVersion`：owner / namespace 管理者可见的待审核版本
+- `ownerPreviewVersion`：owner / namespace 管理者可见的新一轮未发布版本；不限于待审核状态，选择规则见[生命周期读模型](14-skill-lifecycle.md#32-lifecycle-projection)。展示投影不等于下载或操作权限。
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 约束：

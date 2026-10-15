@@ -57,7 +57,7 @@ WHERE (visibility = 'PUBLIC')
 
 ## 3 搜索文档表 skill_search_document
 
-一个 skill 对应一条搜索文档，但文档内容的来源语义应严格收敛为“当前最新已发布版本”。实现上仍可由 `latest_version_id` 作为缓存指针承载，但它只允许指向 `PUBLISHED` 版本；搜索层不能再把它当作泛化的“当前版本”。
+一个 skill 对应一条搜索文档，但文档内容的来源语义应严格收敛为“当前最新已发布版本”。搜索消费方必须验证发布与可安装条件，不能仅凭 `latest_version_id` 非空认定可公开分发；该原始指针存在 PRIVATE 上传例外，见[生命周期 Latest 约束](14-skill-lifecycle.md#31-latest)。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -88,7 +88,7 @@ PostgreSQL 全文搜索索引：表增加 `search_vector tsvector` 生成列，�
 
 ### 5.1 一期数据建模约束
 
-一期“每个 skill 一条搜索文档、内容永远取最新已发布版本”是有意的简化。当前实现仍使用 `latest_version_id` 作为持久化指针，但这里的语义已经收敛为 latest published pointer。这个模型在以下场景下会不够用：
+一期“每个 skill 一条搜索文档、内容永远取最新已发布版本”是有意的简化。公开搜索的 latest 语义是 latest published；原始持久化指针的例外不能改变这个公开契约。这个模型在以下场景下会不够用：
 
 - 版本级检索（搜索某个旧版本的内容）
 - 自定义标签/通道检索（搜索 `@beta` 标签指向的版本内容）
