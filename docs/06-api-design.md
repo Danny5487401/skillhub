@@ -76,7 +76,7 @@
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}` | 版本详情 |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/files` | 文件清单 |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/file?path=...` | 读取单个文件（query param 避免路径中 / 的解析问题） |
-| GET | `/api/v1/skills/{namespace}/{slug}/download` | 下载默认安装版本（最新已发布版本） |
+| GET | `/api/v1/skills/{namespace}/{slug}/download` | 按原始 latest 指针选择版本，再检查下载权限；公开分发须已发布，管理预览例外见[生命周期读模型](./14-skill-lifecycle.md#32-lifecycle-projection) |
 | GET | `/api/v1/skills/{namespace}/{slug}/versions/{version}/download` | 下载指定版本包 |
 | GET | `/api/v1/skills/{namespace}/{slug}/resolve` | 解析技能版本（支持 query param: `version`、`tag`、`hash`） |
 | GET | `/api/v1/skills/{namespace}/{slug}/tags/{tagName}/download` | 按标签下载（解析标签指向的版本后下载） |
@@ -208,12 +208,14 @@ Public API 的可见性规则：
 | GET | `/api/v1/me/stars` | 我的收藏列表 |
 | GET | `/api/v1/me/skills` | 我发布的技能列表 |
 
-### 草稿与审核提交（Phase 3 引入）
+### 已上传版本与审核提交
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/v1/skills/{namespace}/{slug}/versions/{version}/withdraw-review` | 撤回提审（PENDING_REVIEW → DRAFT，同时删除关联的 PENDING review_task） |
+| POST | `/api/v1/skills/{namespace}/{slug}/versions/{version}/withdraw-review` | 撤回提审（PENDING_REVIEW → UPLOADED，同时删除关联的 PENDING review_task） |
 | POST | `/api/v1/reviews` | 提交指定 `skillVersionId` 进入审核队列 |
+| POST | `/api/v1/skills/{namespace}/{slug}/submit-review` | 提交 `UPLOADED` 或兼容 `DRAFT` 版本；body 为 `version`、`targetVisibility`（`PUBLIC` / `NAMESPACE_ONLY`） |
+| POST | `/api/v1/skills/{namespace}/{slug}/confirm-publish` | 确认发布 PRIVATE 技能的 `UPLOADED` 或兼容 `DRAFT` 版本；body 为 `version` |
 
 ### 标签管理
 
@@ -233,24 +235,24 @@ Public API 的可见性规则：
 |------|------|------|
 | POST | `/api/v1/skills/{namespace}/{slug}/archive` | 归档技能（namespace ADMIN 或 owner） |
 | POST | `/api/v1/skills/{namespace}/{slug}/unarchive` | 恢复归档（namespace ADMIN 或 owner） |
-| DELETE | `/api/v1/skills/{namespace}/{slug}/versions/{version}` | 删除 DRAFT/REJECTED 版本 |
+| DELETE | `/api/v1/skills/{namespace}/{slug}/versions/{version}` | 删除 DRAFT/UPLOADED/REJECTED/SCAN_FAILED 版本；不能删除最后一个版本 |
 | POST | `/api/v1/skills/{namespace}/{slug}/versions/{version}/yank` | 撤回已发布版本（namespace ADMIN 或 owner；可选 body `{"reason"}`；API Token 需 `skill:publish`） |
 | POST | `/api/v1/skills/{namespace}/{slug}/versions/{version}/rerelease` | 从已发布版本重新发出一个新版本（namespace ADMIN 或 owner） |
 
 当前代码中的 skill 生命周期读模型不再依赖 `latestVersionStatus` / `viewingVersionStatus` 一类拼装字段，而统一使用以下 projection：
 
-- `headlineVersion`：当前页面应展示的主版本
-- `publishedVersion`：当前最新可分发的已发布版本
-- `ownerPreviewVersion`：owner / namespace 管理者可见的 `PENDING_REVIEW` 预览版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
+- `publishedVersion`：当前最新已发布版本；能否安装仍需通过可见性与安全门禁
+- `ownerPreviewVersion`：owner / namespace 管理者可见、比当前已发布版本更新的未发布版本（排除 `YANKED`）；无已发布版本时取最新候选
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 其中：
 
-- 公开详情、公开安装、公开搜索一律只认 `publishedVersion`
+- 默认公开版本展示、安装与搜索以最新已发布版本为候选；显式版本和自定义标签可选择其他 `PUBLISHED` 版本，仍须通过对应入口的授权与就绪检查
 - owner 详情页在没有可展示发布版本时，才允许 `headlineVersion` 落到 `ownerPreviewVersion`
-- 推广到全局一律使用 `publishedVersion.id`
+- 提升到全局可选择属于来源 skill 的任一 `PUBLISHED` 版本，包括历史版本；不要求等于 `publishedVersion.id`
 - `hidden` 是独立治理覆盖层，不属于生命周期状态机
-- 常规版本详情接口只放行 `PUBLISHED`，以及 owner 对自己 `PENDING_REVIEW` 版本的预览；`DRAFT / REJECTED / YANKED` 不通过该接口暴露
+- 常规版本详情与文件预览在技能可见性校验后，允许 owner / namespace `ADMIN` / `OWNER` 查看非发布版本；这不授予安装或下载权限。显式下载另对 `UPLOADED` / `PENDING_REVIEW` 放行有权管理的用户，其他未发布状态不放行。完整边界见 [生命周期文档](./14-skill-lifecycle.md)。
 
 发布成功响应中的 `data` 至少包含以下字段：
 
@@ -264,10 +266,11 @@ Public API 的可见性规则：
 
 发布状态约束：
 
-- 普通用户发布成功后，`status` 为 `PENDING_REVIEW`
-- 持有 `SUPER_ADMIN` 的用户通过 Web、`/api/v1/publish`、`/api/v1/publish` 发布时，`status` 为 `PUBLISHED`，且不要求其必须是目标 namespace 成员
-- 当前版本保持该审核策略，不再提供“全员直发”的运行模式
-- 撤回审核不会删除版本记录，而是 `PENDING_REVIEW → DRAFT`
+- 普通用户上传 PRIVATE 技能：启用扫描时先进入 `SCANNING`，扫描完成后进入 `UPLOADED`；关闭扫描时直接进入 `UPLOADED`。
+- 普通用户上传 PUBLIC / NAMESPACE_ONLY 技能必须启用扫描，先进入 `SCANNING`，扫描完成后进入 `PENDING_REVIEW`。扫描执行失败与扫描发现风险是不同结果，不能把进入待审等同于通过安全验收。
+- `SUPER_ADMIN` 可免人工审核、免 namespace 成员校验而直接创建 `PUBLISHED` 版本，但不绕过 PUBLIC / NAMESPACE_ONLY 的扫描启用要求，也不表示扫描和安装门禁已通过。
+- 撤回审核保留版本记录，将 `PENDING_REVIEW → UPLOADED`；`DRAFT` 是兼容状态，不是当前撤回目标。
+- 确认私有发布、提交审核、扫描重试及安装门禁见 [生命周期文档](./14-skill-lifecycle.md)，不要只根据发布响应的 `status` 判断可安装性。
 
 ## 7.4 Token API（需登录）
 
@@ -282,7 +285,7 @@ Public API 的可见性规则：
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/v1/whoami` | 当前 Bearer Token 对应的用户信息 |
-| POST | `/api/v1/publish` | 发布技能包（普通用户进入审核；`SUPER_ADMIN` 始终直发） |
+| POST | `/api/v1/publish` | 上传技能包（结果受可见性、扫描和发布权限影响，见发布状态约束） |
 | GET | `/api/v1/resolve/{namespace}/{slug}` | 解析版本 |
 | GET | `/api/v1/check/{namespace}/{slug}/{version}` | 本地哈希与远端比对 |
 
@@ -369,16 +372,16 @@ Admin API 按最小权限拆分，不再统一要求 SUPER_ADMIN：
 
 `latest` 自动跟随最新已发布版本，不可手动移动。
 
-- `skill.latest_version_id`：每次审核通过自动更新，始终指向最新 PUBLISHED 版本
+- 对外 `latest` 以 `publishedVersion` 表示的最新已发布版本为准；`skill.latest_version_id` 是内部指针，PRIVATE 上传流程可能指向未发布版本，不能单凭该指针判断已发布或可安装。
 - `yank` 当前最新已发布版本时，需要同步重算 `latest_version_id` 指向下一个最新的 `PUBLISHED` 版本；若不存在则允许为 `null`
-- `latest` 标签：系统保留，只读，自动与 `latest_version_id` 同步
+- `latest` 标签是系统保留、API 不可手动移动的标签。当前 `SkillTagService.listTags` 通过读取授权后，直接按原始 `latest_version_id` 合成该标签，不检查目标版本状态；PRIVATE 未发布指针也可能出现在授权用户的标签列表中。这是列表现状，不代表该版本可以公开下载，解析与下载仍须执行各自门禁。
 - 自定义标签（如 `beta`、`stable-2026q1`）：允许人工创建和移动，用于固定安装通道
 
 | 场景 | 使用字段 | 说明 |
 |------|---------|------|
-| 搜索索引内容 | `publishedVersion` / `latest_version_id` | 外部协议仍叫 latest，但内部语义必须等价于最新已发布版本 |
-| `/download`（不带版本号） | `publishedVersion` / `latest_version_id` | 下载最新已发布版本 |
-| CLI `install @team/skill` | `publishedVersion` / `latest_version_id` | 等同于 `@latest` |
+| 搜索索引内容 | `publishedVersion` | 外部协议仍叫 latest，但内部语义必须等价于最新已发布版本 |
+| `/download`（不带版本号） | `latest_version_id`，再做下载权限和版本检查 | 公开分发只允许可安装的发布版本；管理者受限下载与公开分发分开判断 |
+| CLI `install @team/skill` | `publishedVersion` | 等同于 `@latest` |
 | CLI `install @team/skill@beta` | `skill_tag` 查询 | 自定义标签指向的版本 |
 
 ## 7.9 Resolve 接口说明
@@ -445,7 +448,7 @@ GET /.well-known/clawhub.json
 | GET | `/api/v1/search` | 搜索技能 |
 | GET | `/api/v1/resolve` | 通过 slug + version 解析版本 |
 | GET | `/api/v1/download/{slug}/{version}` | 下载技能 zip 包 |
-| POST | `/api/v1/publish` | 发布技能（multipart/form-data，`SUPER_ADMIN` 直发） |
+| POST | `/api/v1/publish` | 上传技能（multipart/form-data；状态与安装门禁见发布状态约束） |
 
 ### 兼容层请求/响应格式
 

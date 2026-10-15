@@ -2,9 +2,7 @@
 
 ## 1 发布流程
 
-一期采用同步发布模型：上传、校验、存储、持久化在一次请求中同步完成。前端通过异步上传（带进度条）提升用户体验，但后端处理是同步的。
-
-> **设计决策**：一期暂不考虑异步发布（uploadId、publishId、状态轮询、异步转正等）。一期技能包为文本资源包，体积有限（上限 10MB），同步处理足以满足需求。如后续引入大文件或复杂校验流程，再考虑异步模型。
+上传、包校验、对象存储写入和数据库持久化在一次请求中同步完成；接收成功不等于安全扫描和人工审核已经完成。扫描启用时，上传会触发后续扫描，包含直发版本；`PUBLIC` / `NAMESPACE_ONLY` 上传要求扫描器启用。具体状态及分发条件见[生命周期文档](./14-skill-lifecycle.md)。
 
 ### 1.1 当前发布流程基线
 
@@ -29,98 +27,71 @@
     ▼
 ④ 持久化数据
    - 创建或关联 skill 记录（首次发布时创建 skill）
-   - 创建 skill_version（普通用户进入 `PENDING_REVIEW`，`SUPER_ADMIN` 直达 `PUBLISHED`）
+   - 创建 skill_version（普通 PRIVATE 为 `UPLOADED`；普通 PUBLIC/NAMESPACE_ONLY 为 `PENDING_REVIEW`；直发为 `PUBLISHED`）
    - 创建 skill_file 记录
    - 解析 SKILL.md frontmatter → parsed_metadata_json
    - 生成 manifest_json
-   - 直发场景更新 skill.latest_version_id
+   - 直发及 PRIVATE 上传更新 skill.latest_version_id（指针非空不代表可公开分发）
     │
     ▼
 ⑤ 同步写入审计日志
     │
     ▼
-⑥ 异步触发搜索索引写入
+⑥ 按发布分支触发后续处理：扫描启用时触发安全扫描；直发产生发布事件，待审版本等待审核
 ```
 
-当前版本采用审核流，不再区分“Phase 2 直发”与“Phase 3 恢复审核”两套现实实现：
+以下是版本创建时的初始分支；扫描启用时，返回前触发扫描会将非发布版本设为 `SCANNING`，扫描完成后才回到对应的 `UPLOADED` 或 `PENDING_REVIEW`。初始状态不等于响应状态：
 
-- 普通用户发布请求创建 `skill_version(status=PENDING_REVIEW)`
-- 同步创建 `review_task(status=PENDING)`
-- 审核通过后转为 `PUBLISHED`
-- 审核拒绝后转为 `REJECTED`
-- 撤回审核时删除 `PENDING review_task`，并将 `skill_version` 回退到 `DRAFT`
-- 例外：提交人持有 `SUPER_ADMIN` 平台角色时，发布入口直接创建 `skill_version(status=PUBLISHED)`，跳过 `review_task` 创建，同时不再要求其必须是目标 namespace 成员
-- 上述例外必须对 Web、`/api/v1/publish`、`/api/v1/publish` 保持一致
-- 若重传新版本时发现旧的 `PENDING_REVIEW` 版本，旧版本会被自动降回 `DRAFT`，再创建新的待审版本
+- 普通 `PRIVATE` 上传创建 `UPLOADED` 版本，不创建审核任务；保存私有版本不等于公开发布。
+- 普通 `PUBLIC` / `NAMESPACE_ONLY` 上传创建 `PENDING_REVIEW` 版本及 `PENDING` 审核任务。
+- 审核通过转为 `PUBLISHED`，审核拒绝转为 `REJECTED`；扫描与可分发条件仍需分别检查。
+- 撤回审核将 `PENDING_REVIEW` 版本变为 `UPLOADED`，删除关联待审任务。
+- 提交人持有 `SUPER_ADMIN` 时，上传直接创建 `PUBLISHED`，跳过审核任务及目标 namespace 成员检查；内部 `forceAutoPublish` 路径也可直发。直发不等于跳过所有安全扫描与下载就绪检查。
+- Web 与 CLI 发布入口共用上述发布语义。
+- 普通重传遇到旧 `PENDING_REVIEW` 版本时，先撤回旧审核并将其改为 `UPLOADED`，再按新请求的可见性及直发条件创建版本。
 
 ### 1.2 生命周期读模型
 
 当前代码中的 skill 生命周期展示与操作判断，不再依赖旧的 `latestVersionStatus`、`viewingVersionStatus` 一类拼装字段，而统一基于以下 projection：
 
-- `headlineVersion`：当前详情页/我的技能列表主展示版本
-- `publishedVersion`：当前最新可公开分发的已发布版本
-- `ownerPreviewVersion`：详情 projection 中仅暴露给 owner / namespace 管理者的 `PENDING_REVIEW` 版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
+- `publishedVersion`：当前已发布版本投影；详情投影与公开列表的就绪过滤存在区别，不能只凭字段非空判定可下载
+- `ownerPreviewVersion`：详情 projection 中暴露给 owner / namespace 管理者的新一轮非公开版本；排除 `PUBLISHED`、`YANKED`，按创建时间及 ID 选择最新，且须比已有已发布版本更新
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 业务规则：
 
-- 公开入口只认 `publishedVersion`
+- 公开入口以已发布版本为分发候选；`publishedVersion` 不替代各入口的授权与就绪校验
 - owner 进入详情页时，如果没有可用 `publishedVersion`，才允许 `headlineVersion = ownerPreviewVersion`
-- 推广到全局、安装命令、公开下载都只能绑定到 `publishedVersion`
+- 推广、安装及公开分发不能使用未发布预览版本；具体候选版本与下载就绪条件见[生命周期文档](./14-skill-lifecycle.md)
 - `hidden` 是独立治理覆盖层，不属于 skill 生命周期状态机
 
-### 1.3 Skill 可见性与角色访问矩阵
+### 1.3 读取与操作边界
 
-以下矩阵以当前后端实现为准，综合了 `VisibilityChecker`、`SkillQueryService`、`SkillDownloadService`、`ReviewPermissionChecker` 的实际行为。
+完整状态、角色与端点差异以[生命周期文档](./14-skill-lifecycle.md)为准，不能把详情、文件预览、下载、审核与公开解析合并为一张通用权限矩阵：
 
-#### 1.3.1 Skill 容器读取
+| 场景 | 需要分别检查的边界 |
+|------|--------------------|
+| Skill 容器读取 | 可见性、hidden、容器状态及读取入口授权。`latest_version_id` 为空时的限制不能等同于“无 publishedVersion”；PRIVATE 上传也可能将指针设为 `UPLOADED` |
+| 版本列表与详情预览 | 先通过容器授权；管理视角可访问非公开版本，不限于 `PENDING_REVIEW`；详情可读不表示可下载 |
+| 常规下载 | 要求容器 ACTIVE、通过可见性与 namespace 检查；`PUBLISHED` 还须 downloadReady 且未 yank；`UPLOADED` / `PENDING_REVIEW` 仅允许 owner 或 namespace ADMIN/OWNER 下载 |
+| 公开解析与安装 | 使用已发布且符合分发条件的版本，不把 ownerPreviewVersion 当作公开候选 |
+| 审核详情与审核包 | 独立审核权限入口；审核绑定下载不计入公开下载量，不能套用普通详情或普通下载的权限结论 |
+| 治理与提审 | 提审、撤回审核、归档、隐藏、yank 与删除是不同动作；平台角色是否穿透需按实际入口判断，不能从一个入口推广到所有读取路径 |
 
-| 角色 | PUBLIC | NAMESPACE_ONLY | PRIVATE | hidden 任意 visibility | 无 `publishedVersion`（`latest_version_id=null`） |
-|------|--------|----------------|---------|------------------------|-----------------------------------------------|
-| 匿名用户 | 可读 | 不可读 | 不可读 | 不可读 | 不可读 |
-| 登录非成员 | 可读 | 不可读 | 不可读 | 不可读 | 不可读 |
-| namespace MEMBER | 可读 | 可读 | 不可读 | 不可读 | 仅自己是 owner 时可读 |
-| skill owner | 可读 | 可读 | 可读 | 可读 | 可读 |
-| namespace ADMIN / OWNER | 可读 | 可读 | 可读 | 可读 | 不可读，除非本人也是 skill owner |
-| SKILL_ADMIN / SUPER_ADMIN（仅平台角色） | 与普通登录用户一致；普通读路径不会因为平台角色自动穿透 private / hidden / unpublished |
-
-补充：
-- `hidden=true` 时，可读权限会收敛为“skill owner 或 namespace `ADMIN` / `OWNER`”
-- `visibility=PUBLIC` 也不意味着未发布 skill 可见；当 `latest_version_id` 为空时，只有 owner 能读
-
-#### 1.3.2 Version 状态读取
-
-| 场景 / 角色 | DRAFT | PENDING_REVIEW | PUBLISHED | REJECTED | YANKED |
-|------------|-------|----------------|-----------|----------|--------|
-| 普通 skill 详情页主版本投影 | 不展示 | owner / namespace 管理者可作为 `ownerPreviewVersion` 展示 | 展示 | 不展示 | 不展示 |
-| 普通 `listVersions` 访客 | 不可见 | 不可见 | 可见 | 不可见 | 不可见 |
-| `listVersions` 的 owner / namespace ADMIN / OWNER | 可见 | 可见 | 可见 | 可见 | 可见 |
-| 常规 `getVersionDetail` | 不可读 | 仅 owner 可读 | 可读 | 不可读 | 不可读 |
-| 下载 / resolve / tag / 文件读取 | 不可用 | 不可用 | 可用 | 不可用 | 不可用 |
-| review 详情页 | 可见完整快照 | 可见完整快照 | 可见完整快照 | 可见完整快照 | 可见完整快照 |
-
-补充：
-- `YANKED` 版本仍出现在管理视角的版本列表中，但不可下载
-- `yank` 当前最新已发布版本时，会重算 `latest_version_id` 指向下一个最新的 `PUBLISHED` 版本；若没有，则置空
-
-#### 1.3.3 审核 / 推广 / 治理动作
-
-| 角色 | 发布新版本 | 提交审核 | 审核团队空间 | 审核全局空间 | 提交推广 | 审核推广 | hide / unhide | yank 已发布版本 |
-|------|------------|----------|--------------|--------------|----------|----------|---------------|----------------|
-| 匿名用户 | 不可 | 不可 | 不可 | 不可 | 不可 | 不可 | 不可 | 不可 |
-| namespace MEMBER | 可发布到所属 namespace；新版本进入 `PENDING_REVIEW` | 自己作为 owner 时可；不能代别人提审 | 不可 | 不可 | 自己作为 owner 时可 | 不可 | 不可 | 不可 |
-| skill owner | 可 | 可 | 不可 | 不可 | 可 | 不可 | 不可 | 不可 |
-| namespace ADMIN / OWNER | 可 | 可为本空间 skill 提交审核 | 可 | 不可 | 可 | 不可 | 不可 | 不可 |
-| SKILL_ADMIN | 可提交并可代提审；但普通发布仍非直发 | 可 | 可 | 可 | 可 | 可，但不能审自己的 promotion | 不可 | 可 |
-| SUPER_ADMIN | 可跨 namespace 发布且直接 `PUBLISHED`，跳过 membership 检查和 review task | 可 | 可 | 可 | 可 | 可；promotion 和 review 场景下还能审自己的提交 | 可 | 可 |
+`YANKED` 可保留在管理版本列表中，但不允许常规下载。yank 命中当前指针时，重算其余已发布版本；不存在时置空。
 
 ### 对象存储写入策略
 
-一期同步写入正式路径，不使用临时区：
-- 文件直接写入 `skills/{skillId}/{versionId}/{filePath}`
-- 如果数据库事务失败，对象存储中的文件成为孤儿对象
-- 定时 GC 任务：每天扫描对象存储中存在但数据库中无对应 `skill_file` 记录的文件，清理孤儿对象
-- 删除 DRAFT/REJECTED 版本时，同步清理对应的对象存储文件
+对象直接写入正式单文件路径 `skills/{skillId}/{versionId}/{filePath}` 与整包路径 `packages/{skillId}/{versionId}/bundle.zip`。数据库事务不能自动回滚对象存储：
+
+- 发布事务注册完成回调；事务未提交时尝试删除本次登记的对象键。清理失败时通过独立事务入口记录补偿；补偿记录本身失败仍可能遗留对象。
+- 版本删除允许 `DRAFT`、`REJECTED`、`SCAN_FAILED`、`UPLOADED`，但不允许通过该接口删除最后一个版本。正常事务路径在数据库提交后删除对象；整条技能硬删除也采用提交后清理，并保护共用对象。
+- 对象删除失败时调用补偿记录入口。当前提交后回调中的普通补偿记录采用默认事务传播；真实事务下的持久化仍需单独验证，不能仅凭回调或 mock 测试宣称补偿可靠落库。
+- 补偿任务针对已记录的失败，每轮完成后间隔 5 分钟重试，单轮最多 100 条；成功标记完成，失败记录尝试。
+- 当前未发现每日扫描整个正式对象存储并与 `skill_file` 对账的通用 GC。进程崩溃或补偿记录失败等情况仍可能遗留对象，不能承诺自动回收所有孤儿。
+
+实现依据：`SkillPublishService`、`SkillGovernanceService`、`SkillHardDeleteService`、`SkillStorageDeletionCompensationService` 和 `SkillStorageDeletionCompensationTask`。事务验证要求见[事务与外部副作用](../.trellis/spec/backend/transactions-and-concurrency.md)。
 
 ### CLI publish 请求规范
 
@@ -134,11 +105,11 @@ Parts:
 
 一期同步响应：服务端同步完成上传、校验、存储、持久化，返回 `200 OK` + skill_version 信息。
 
-当前 CLI 默认行为：上传 → 进入审核。
-如果调用方持有 `SUPER_ADMIN`，则直接发布为 `PUBLISHED`。
+普通 CLI 上传启用扫描时，响应状态为 `SCANNING`；扫描完成后 PUBLIC/NAMESPACE_ONLY 进入 `PENDING_REVIEW`，PRIVATE 进入 `UPLOADED`。PRIVATE 关闭扫描时直接返回 `UPLOADED`。
+如果调用方持有 `SUPER_ADMIN`，则直接创建 `PUBLISHED` 版本，分发仍受就绪检查约束。
 Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确的审核提示。
 
-`/api/v1/publish` 响应：
+`/api/v1/publish` 直发响应示例（普通上传的 status 按上述扫描与可见性分支返回）：
 
 ```json
 {
@@ -183,7 +154,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 - 全局空间的新 skill 由其 owner 独立管理版本
 - 原团队 skill 可继续独立迭代
 - 两者版本不自动同步。来源 owner 或 namespace 管理员可在团队详情选择已发布版本，再次提交平台提升审核；审核通过后在原全局 skill 上新增版本，不覆盖原有版本
-- 再次提升通过后，全局 skill 的展示名和摘要也更新为审核时来源 skill 的展示信息，使详情页与最新发布内容保持一致
+- 首次或再次提升通过时，全局 skill 的展示名和摘要优先取所选来源版本的 `parsedMetadataJson`（`displayName` / `description`）；该字段为空时回退到审核时来源 skill 的展示信息。非空元数据解析失败会抛错，不会静默回退
 - 申请和审批时均检查目标身份、来源版本状态及全局同号冲突。全局独立上传可以同时待审；不同号版本分别发布，后通过者成为 latest，同号后通过的申请失败
 - 版本号不比较数值高低；例如全局当前 v1.3、团队提交尚未占用的 v1.1，确认提示后仍可提交，审批通过后 v1.1 成为 latest，v1.3 保留在历史
 
@@ -195,7 +166,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 
 提升流程当前严格绑定已发布版本：
 
-- promotion request 的 `source_version_id` 必须指向 `publishedVersion.id`
+- promotion request 的 `source_version_id` 必须属于来源 skill 且状态为 `PUBLISHED`；可以选择历史已发布版本，不要求等于 projection 的 `publishedVersion.id`
 - 不允许直接提升 `ownerPreviewVersion`
 
 ## 3 下载流程
@@ -204,24 +175,29 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 下载请求
     │
     ▼
-① 校验技能状态（ACTIVE）、版本状态（PUBLISHED）
+① 校验技能状态（ACTIVE）与目标版本
+   - PUBLISHED：须 downloadReady 且未 yank
+   - UPLOADED/PENDING_REVIEW：仅 owner 或 namespace ADMIN/OWNER
     │
     ▼
-② 可见性检查
-   - PUBLIC: 任何人（包括匿名用户）
-   - NAMESPACE_ONLY: 该 namespace 的成员（需登录）
-   - PRIVATE: owner 本人 + 该 namespace 的 ADMIN 以上（需登录）
+② 可见性及 namespace 状态检查
+   - PUBLIC、NAMESPACE_ONLY、PRIVATE、hidden 按对应授权规则处理
+   - 不能因版本可读就跳过容器授权
     │
     ▼
-③ 返回预生成包或按文件清单打包
+③ 构建下载结果：优先预生成整包，缺失时按可读取文件重新打包
     │
     ▼
-④ 审计与统计
-   - audit_log 同步写入（记录下载人/IP/版本）
-   - download_count 异步更新（原子 SQL: download_count = download_count + 1）
-   - 匿名下载：审计记录 IP + User-Agent，不关联用户
-   - 已登录下载：审计记录用户 ID
+④ 对 PUBLISHED 同步更新技能和版本下载计数，再发布 SkillDownloadedEvent
+   - 授权的未发布版本下载不计入公开下载量
+    │
+    ▼
+⑤ 控制器返回预签名跳转或流式响应
 ```
+
+计数表示请求通过授权并成功构建下载结果，不证明客户端已完整接收。审核绑定下载是独立授权入口，不计入上述公开下载量。缺失 bundle 时的回退会过滤不存在的单文件，因此“生成 ZIP 成功”也不证明历史包完整；完整性保障需要单独验证。
+
+下载审计仍是业务要求：登录用户记录身份，匿名用户记录 IP / User-Agent 等必要请求信息。当前已核对的普通 Web / CLI 下载链尚未找到对应的同步审计落库；`SkillDownloadedEvent` 仅携带技能与版本 ID，不能替代该审计。覆盖入口、记录时机与失败行为需要独立确认和验证，本次文档对齐不取消此要求。
 
 ### download_count 热点行优化预案
 
@@ -269,19 +245,20 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 
 | 事件 | 触发时机 | 消费方 |
 |------|---------|--------|
-| `SkillPublishedEvent` | 审核通过 | 搜索索引写入 |
-| `SkillYankedEvent` | 版本撤回 | 搜索索引移除 |
-| `SkillDownloadedEvent` | 下载完成 | 下载计数 |
+| `SkillPublishedEvent` | 审核通过或直发等产生已发布版本的路径 | 搜索索引写入 |
+| `SkillVersionYankedEvent` | 已发布版本撤回 | 提交后异步重建该 skill 的搜索文档；无剩余发布版本不代表物理移除索引行，见[索引写入时机](./04-search-architecture.md#4-索引写入时机) |
+| `SkillStatusChangedEvent` | 归档 / 取消归档 | 归档移除搜索文档，取消归档重建；hide/unhide 不走此事件 |
+| `SkillDownloadedEvent` | 已发布版本下载结果构建成功并完成同步计数后 | 当前未发现生产消费者；下载计数由下载服务同步完成 |
 | `SkillStarredEvent` | 收藏/取消 | 收藏计数 |
 | `SkillRatedEvent` | 评分提交 | 评分重算 |
 | `ReviewCompletedEvent` | 审核完成 | 预留给后续通知能力（当前可不消费） |
-| `SkillPromotedEvent` | 提升到全局 | 搜索索引写入（新 skill） |
+| `SkillPublishedEvent`（提升路径） | 首次提升或提升更新审核通过 | 重建目标全局 skill 的搜索文档；不是独立的 `SkillPromotedEvent` |
 
 一期用 Spring ApplicationEvent + `@Async` 实现，后续可替换为消息队列。
 
 ### 审计日志写入策略
 
-审计日志统一同步落库，与业务操作在同一请求内同步写入，不走异步事件。审计是企业内部平台的刚性需求，不可容忍丢失。
+审计要求是同步落库，与业务操作在同一请求内记录，不以异步事件替代。审计是企业内部平台的刚性需求；普通 Web / CLI 下载链的已知实现缺口见第 3 节，不能将本要求视为所有入口均已实现的证明。
 
 异步事件仅用于搜索索引、计数器等可容忍延迟的场景。如果后续需要更强一致性，引入 outbox 模式，不依赖 ApplicationEvent + @Async 承担可靠性。
 
@@ -289,7 +266,7 @@ Web 端与 CLI 保持同一发布语义，只是在交互上可提供更明确�
 
 Spring ApplicationEvent + @Async 存在 Pod 被杀时事件丢失的风险。补充以下兜底机制：
 
-- 搜索索引：定时任务每小时检查 `skill_version.status = PUBLISHED` 但 `skill_search_document` 中无对应记录的版本，补建索引
+- 搜索索引：每小时检查已发布 skill 的缺失文档并补建，是待实现的兜底目标；当前已具备重建接口，但未发现对应定时调度，不能作为事件丢失后的自动恢复保证
 - 计数器：可接受少量丢失，定时任务每天凌晨从 `skill_star` / `skill_rating` 表重算修正
 - 优雅停机：`@Async` 线程池配置 `awaitTerminationSeconds=25`，配合 30s shutdown timeout
 
