@@ -42,3 +42,23 @@ CI 另做多平台和 Node 产物运行，其实际必需检查不因本地按�
 [身份优先级](../../../cli/test/integration/auth-resolution.test.ts)、
 [多进程并发](../../../cli/test/integration/concurrency.test.ts)。mock registry 的通过仅证明 CLI 消费契约，
 不能标为真实服务端验收。公共 API 变化追加[后端接口契约](../backend/api-contracts.md)和[测试入口](../testing/index.md)。
+
+### 例：修改参数错误或身份配置解析
+
+| 改动 | 现有代表用例与结果 | 容易漏掉的验证 |
+|---|---|---|
+| 未知命令的 JSON 输出 | `runCli(['foo', '--json'])`：退出码 `5`，stderr 可解析为 `{ok: false, message: 'unknown command "foo" for "skillhub"', exitCode: 5}` | 只匹配错误文字会漏掉 JSON 前混入提示或退出码被改成 `0` |
+| token 优先级 | fake registry 仅接受显式参数的假 token，环境变量放另一假值；`whoami` 应成功返回该 registry 的用户 | 只测 resolver，不能证明命令将参数传入了 resolver |
+| registry 优先级 | 两个 fake registry 使用不同用户和 token；显式 registry 胜过环境变量，环境变量胜过 config | 不同 registry 返回相同 fixture 会掩盖请求发往错误服务的问题 |
+
+上表来自链接的集成测试；新增 stdout 纯净性等断言时另行实现，不把表格当成所有检查都已有覆盖。
+在已按 CLI 工具链安装依赖的环境，从仓库根目录执行局部反馈：
+
+```bash
+cd cli
+bun run test test/integration/error-output.test.ts test/integration/auth-resolution.test.ts
+```
+
+`bun run test` 保留 package.json 的 pretest 元数据生成步骤；测试会派生本地 CLI 进程、
+启动本地 fake HTTP registry 并使用临时配置，不应访问真实 registry。
+此命令验证这两种行为，不能代替 CLI 行为改动所需的完整 lint/typecheck/test/build。

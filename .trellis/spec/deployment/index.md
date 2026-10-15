@@ -71,6 +71,38 @@ Flyway 是 schema 变更入口，应用容器启动会执行迁移；具体规�
 
 ## 分层验收与收尾
 
+### 例：修改 Web 子路径配置
+
+本例说明如何落实“配置声明到实际使用”的检查；不是新的部署默认值。
+涉及 `SKILLHUB_WEB_BASE_PATH`、同源 `SKILLHUB_WEB_API_BASE_URL` 或公开地址时，联读
+[校验脚本](../../../scripts/validate-release-config.sh)、[Compose 透传](../../../compose.release.yml)、
+[容器入口](../../../web/docker-entrypoint.d/20-base-path.sh)与[Nginx 模板](../../../web/nginx.conf.template)。
+
+| 代表输入 | 应检查的结果 |
+|---|---|
+| Web base `/skillhub/`，同源 API base `/skillhub`，公开地址 `https://skillhub.example.com/skillhub` | 路径一致；生成带前缀的静态资源与 Nginx 路由 |
+| Web base `/skillhub/`，同源 API base `/other` | 配置校验及运行入口拒绝，不静默使用另一 API 路径 |
+| Web base `/api/` 或 `/foo/../bar/` | 拒绝保留前缀或点路径，避免遮蔽服务器路由或路径归一化后失配 |
+| 根路径 `/` | 不生成重复子路径 location；静态资源保持根路径 |
+
+不要只改 Compose 加一个变量就判定完成；也不能仅校验字符串末尾相同就接受公开地址的路径。
+例如 `/other/skillhub` 与 `/skillhub` 不等价。独立 API 主机的绝对 URL 是允许的例外，不能套同源路径相等规则。
+
+从仓库根目录运行已有代表检查：
+
+```bash
+sh scripts/tests/web-base-path-routing-test.sh
+bash scripts/tests/validate-release-config-test.sh
+```
+
+前者使用临时 HTML 和配置文件检查容器入口生成结果，不启动 Nginx；后者使用假配置，
+依赖 Docker Compose 的 `config` 渲染但不启动服务。它们均不是读取真实 `.env.release` 的交付校验，
+也不能证明浏览器、OAuth 回调或反向代理实际可用。
+需要容器 HTTP 验证时再读取[子路径 Smoke](../../../scripts/tests/web-base-path-nginx-smoke-test.sh)，
+核对它的镜像、容器创建与清理范围后执行。
+
+### 证据层次
+
 1. 静态配置和构建：证明配置结构、产物可构建，未证明部署可用。
 2. 启动与健康：证明服务就绪、依赖连通，未证明权限和业务闭环。
 3. 真实业务 Smoke：检查受影响入口、读写、权限拒绝与结果状态；结合

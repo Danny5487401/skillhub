@@ -28,3 +28,32 @@
 [outbox测试](../../../server/skillhub-app/src/test/java/com/iflytek/skillhub/task/ScanTaskOutboxDispatcherTest.java)
 用于检查调度行为。
 这些是回归锚点，不意味着本次已运行或真实 Redis/Scanner 链路已验收。
+
+## Python Scanner 本体
+
+修改 [skillhub_scanner_app.py](../../../scanner/skillhub_scanner_app.py) 的并发限制、取消、超时、响应脱敏或临时目录时，
+先读 [本体测试](../../../scanner/tests/test_skillhub_scanner_app.py)，不只运行 Java consumer 测试。
+
+| 场景 | 当前行为与可观察结果 | 测试名 |
+|---|---|---|
+| 扫描容量已满 | 新请求返回 503，`Retry-After: 30`，不启动额外扫描 | `test_excess_scan_is_rejected` |
+| 客户端取消，但底层扫描尚未结束 | 容量仍被占用，新请求仍拒绝；原扫描结束后释放容量 | `test_client_disconnect_keeps_slot_until_scan_finishes` |
+| 扫描超过硬超时 | 调用重启处理；真实实现记录 critical、关闭日志并退出进程 | `test_hard_timeout_requests_process_restart`（替换重启函数，未真正退出进程） |
+| 响应 findings 含敏感文本 | 脱敏但保留原响应契约与正常文本 | `test_scan_findings_redact_credentials_without_changing_response_contract`、`test_safe_scan_findings_are_unchanged` |
+| 初始化临时目录 | 仅重建私有运行目录，不清理父目录 | `test_import_recreates_private_runtime_temp_root_without_touching_parent` |
+
+反例：HTTP 请求一取消就释放并发槽位，但底层线程仍扫描；再次重试会绕过容量限制。
+沿用现有 shield/等待与 finally 释放路径；不要将客户端断开等同于计算已停止。
+
+日志使用现有 `logging.getLogger(__name__)` 与参数化消息，新增日志不得包含 API key、上传包全文或未脱敏 findings。
+当前包装层源码未配置 JSON formatter；不能把“结构化 JSON 日志”写成已具备的保证。
+日志格式或容器退出恢复变化还需检查 [监控手册](../../../scanner/docs/monitoring-guide.md) 和运行配置。
+
+仓库根目录运行现有 [CI](../../../.github/workflows/pr-scripts.yml) 使用的命令：
+
+```bash
+python3 -m unittest discover -s scanner/tests -p 'test_*.py'
+```
+
+期望所选用例全部通过。此套测试用替身隔离上游服务，不能证明 Cisco 扫描引擎、真实 HTTP 断连、容器重启或 Redis 链路已验收；
+这些边界发生变化时按 [部署规范](../deployment/index.md) 补环境验证。

@@ -39,6 +39,7 @@
 | 修改 API 消费、类型或生成 schema | [类型安全](./type-safety.md) |
 | 修改架构、路由或共享模式 | [前端架构](../../../docs/08-frontend-architecture.md) |
 | 涉及版本状态、权限或公开分发 | [生命周期契约](../../../docs/14-skill-lifecycle.md)，并核对相关源码与测试 |
+| 新增日志、错误诊断或排查凭证泄漏 | [前端验收：日志与诊断](./quality-guidelines.md#日志与诊断) |
 | 组件交互、视觉与页面验收 | [前端验收](./quality-guidelines.md) |
 
 ## 验证与补充参考

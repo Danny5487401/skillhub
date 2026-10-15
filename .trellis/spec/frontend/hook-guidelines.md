@@ -14,6 +14,31 @@
 - Mutation 成功后按影响更新详情、列表、计数或权限缓存；检查当前筛选/分页是否仍成立。
   错误处理遵守当前局部与全局处理边界，避免重复弹提示。
 
+## 具体例子：列表排序与联动刷新
+
+[usePromotionList](../../../web/src/features/promotion/use-promotion-list.ts)先把默认分页、状态与排序
+归一化为 `normalizedParams`，同一个对象用于 `['promotions', normalizedParams]` 和 API 调用。
+因此 `sortDirection: 'ASC'` 与 `'DESC'` 的结果不会共用一个缓存身份。
+
+```ts
+// 正例：请求条件与缓存身份使用同一份归一化参数
+queryKey: ['promotions', normalizedParams],
+queryFn: () => promotionApi.list(normalizedParams),
+
+// 反例：请求已改变排序，键却不区分，可能复用另一排序的结果
+queryKey: ['promotions'],
+queryFn: () => promotionApi.list(normalizedParams),
+```
+
+同文件的审批/拒绝成功回调同时失效 `['promotions']` 和 `['governance']`，因为治理面板也消费
+该结果。添加新的消费者时先定位其 query key；只刷新按钮所在列表可能让另一个页面保留旧状态。
+这不是要求所有 mutation 都刷新这两个前缀，而是要求写出“受影响消费者 → 缓存键”的实际对应关系。
+
+验证排序变更时分别断言 API 参数含 ASC/DESC、两个 query key 不相同；验证 mutation 变更时
+断言实际受影响的缓存失效，不能只断言 mutation 请求成功。现有
+[列表测试](../../../web/src/features/promotion/use-promotion-list.test.ts)覆盖前三者中的参数/键，
+不覆盖 mutation 刷新或真实 QueryClient 竞态，按此次修改补足对应边界。
+
 ## 接口与行为契约
 
 1. 快速切换 A→B 后，A 的迟到结果不能作为 B 显示或写入 B 的缓存。正确 query key 之外，

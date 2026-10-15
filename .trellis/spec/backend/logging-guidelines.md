@@ -15,3 +15,21 @@
 [请求ID测试](../../../server/skillhub-app/src/test/java/com/iflytek/skillhub/filter/RequestIdFilterTest.java)、
 [请求日志实现](../../../server/skillhub-app/src/main/java/com/iflytek/skillhub/filter/RequestLoggingFilter.java)、
 [请求日志测试](../../../server/skillhub-app/src/test/java/com/iflytek/skillhub/filter/RequestLoggingFilterTest.java)。
+
+## 场景：关键业务操作的审计随重构丢失
+
+修改发布、下载、删除、授权及审核流程时，即使没有改日志代码，也必须检查审计链路。
+先在旧调用链定位事件生产位置，记录 action、目标类型/ID、可信操作者、请求上下文以及记录发生在成功还是失败分支；
+新调用链必须保留所需语义。匿名下载等场景应遵循原契约，不能自行伪造用户身份。
+找不到原记录或业务文档与实现不一致时报告缺口，不能宣称已有覆盖，也不借规范整理擅自新增业务政策。
+
+具体参考：[PromotionPortalAppServiceTest](../../../server/skillhub-app/src/test/java/com/iflytek/skillhub/service/PromotionPortalAppServiceTest.java)
+的 `approvePromotion_recordsSelfReviewAuditDetailForSuperAdminSelfApproval`：除了调用成功，
+还验证 `PROMOTION_APPROVE`、`PROMOTION_REQUEST`、目标 ID、操作者与 `selfReview` 明细。
+[AuditLogService](../../../server/skillhub-domain/src/main/java/com/iflytek/skillhub/domain/audit/AuditLogService.java)
+及其 [测试](../../../server/skillhub-domain/src/test/java/com/iflytek/skillhub/domain/audit/AuditLogServiceTest.java)
+是公共记录入口，不要在各服务自行拼接另一套审计持久化方式。
+
+反例：重构后 HTTP 仍返回 200，因而删除旧审计调用；或用一条 `log.info("deleted")` 替代业务审计。
+验收：对受影响操作补/保留 action、目标、操作者与必要明细断言，检查拒绝/失败分支不会记录虚假的成功事件。
+mock 的 `record` 断言只能证明调用参数；改动审计持久化或事务时还需验证实际提交/回滚结果。

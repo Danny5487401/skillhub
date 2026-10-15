@@ -22,6 +22,21 @@
 - 取消/重试：只在此次改动涉及这些能力时验证其语义，不能用 signal 参数存在作为完成证据。
 - 国际化：新增用户可见文字进入翻译资源，检查插值、空/长内容以及中英文布局；错误消息同样可翻译。
 
+## 日志与诊断
+
+- 需要记录的错误用 `console.error`，弃用提示用 `console.warn`；避免在生产代码遗留
+  `console.log` 调试输出。日志不能替代用户可见的失败提示，也不要在客户端和调用方重复记录同一错误。
+- 禁止输出 token、Cookie、Authorization、密码及包含这些字段的完整请求/响应对象。
+  `console.error(error)` 也不是天然安全：先检查异常 message、cause 和附带上下文是否包含敏感数据。
+- 需要定位请求失败时只选择已确认安全的字段，如操作名、HTTP 状态码；不要直接打印登录请求体、
+  token 创建结果或完整 URL 查询参数。示例：`console.error('Token creation failed', { status: 500 })`；
+  反例：`console.error('Token creation failed', response)`，后者可能带新生成的 token。
+- 日志修改的验收：检查所有成功/失败分支的实际参数；涉及脱敏逻辑时用明显的假凭证标记驱动错误分支，
+  spy 日志输出并断言该标记未出现。不能用真实凭证做 fixture。
+
+当前 [ESLint 配置](../../../web/.eslintrc.cjs)没有 `no-console` 规则；lint 通过不代表完成上述检查。
+日志级别与字段限制需在变更 diff 中审查，本页不宣称已有自动脱敏或前端日志平台。
+
 ## 动效验收
 
 涉及动效变化时，读取[交互动效规范入口](./motion-guidelines.md)及其正文，

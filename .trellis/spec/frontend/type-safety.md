@@ -12,6 +12,32 @@
 - 后端 OpenAPI 契约变化后通过 `make generate-api` 生成类型，生成文件随契约修改交付；不手改生成结果。
   命令实现以 [Makefile](../../../Makefile) 为准，检查前确认所用服务来自本次代码。
 
+## 改接口字段时怎么落地
+
+例如调整当前用户字段，先查看 [API 类型入口](../../../web/src/api/types.ts) 的 `User`，
+再追到生成 schema 的 `AuthMeResponse`。当前 `User` 用 `Omit` 后重声明部分字段；这属于已有
+适配边界，不是服务端自动保证所有字段必填的证据。新增必填假设应核对响应及缺失值处理。
+
+```ts
+// 消费既有类型，不在组件内复制一份 User 协议
+import type { User } from '@/api/types'
+type UserLabelProps = Pick<User, 'userId' | 'displayName'>
+
+// 反例：用户身份可能包含非数字字符，转换会破坏身份
+// const userId = Number(user.userId)
+// 反例：断言只改变编译器看法，不能验证接口返回
+// const user = response as User
+```
+
+新增测试数据可参考
+[晋升列表 fixture](../../../web/src/features/promotion/use-promotion-list.test.ts) 的
+`{ ... } satisfies PromotionTask`：缺字段时修复 fixture 或核实契约，不用 `as PromotionTask` 绕过检查。
+`Partial<T>` 可表达真正的局部编辑状态，但不能用来掩盖最终提交协议所需字段。
+
+字段变更后的检查顺序：核对后端响应/schema → 更新已有类型或适配 → 检查消费方和 fixture →
+运行 `pnpm -C web typecheck` 与相关测试。仅类型变化不需要引入新的运行时校验库；
+若此次需求涉及不可信输入，则在对应边界明确验证及失败行为。
+
 ## 现有边界
 
 [客户端](../../../web/src/api/client.ts)同时包含 openapi-fetch 与手写 convenience wrapper，
