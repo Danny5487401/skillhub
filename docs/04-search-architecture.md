@@ -57,7 +57,7 @@ WHERE (visibility = 'PUBLIC')
 
 ## 3 搜索文档表 skill_search_document
 
-一个 skill 对应一条搜索文档，但文档内容的来源语义应严格收敛为“当前最新已发布版本”。实现上仍可由 `latest_version_id` 作为缓存指针承载，但它只允许指向 `PUBLISHED` 版本；搜索层不能再把它当作泛化的“当前版本”。
+一个 skill 对应一条搜索文档，但文档内容的来源语义应严格收敛为“当前最新已发布版本”。搜索消费方必须验证发布与可安装条件，不能仅凭 `latest_version_id` 非空认定可公开分发；该原始指针存在 PRIVATE 上传例外，见[生命周期 Latest 约束](14-skill-lifecycle.md#31-latest)。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -79,16 +79,19 @@ PostgreSQL 全文搜索索引：表增加 `search_vector tsvector` 生成列，�
 
 ## 4 索引写入时机
 
-以下场景触发搜索文档更新（upsert by skill_id）：
-- 审核通过（`PENDING_REVIEW → PUBLISHED`）：重算“最新已发布版本”指针，并用该发布版本内容更新搜索文档
-- 已发布版本被撤回（`PUBLISHED → YANKED`）：重算“最新已发布版本”指针；若不存在任何已发布版本，则移除搜索文档
-- 技能状态变更（隐藏/归档/恢复）：更新搜索文档的 status 字段
+当前 `SearchIndexEventListener` 在事务提交后异步消费以下事件：
+- `SkillPublishedEvent`（审核通过、直发等）：重建该 skill 的搜索文档。生命周期服务负责更新版本指针，索引监听器不负责重算指针。
+- `SkillVersionYankedEvent`：撤回服务重算发布指针，监听器调用 `rebuildBySkill`。当前重建器即使找不到版本，仍可按 skill 信息生成文档，不会因此直接移除索引行；索引行存在不等于公开可检索。
+- `SkillStatusChangedEvent`：归档时移除搜索文档，取消归档时重建。
+- hide/unhide 当前不发上述状态事件，不靠索引 status 更新生效；查询端关联 skill 并过滤 `hidden`，公开搜索还检查发布状态和下载就绪。
+
+实现依据：`SearchIndexEventListener`、`PostgresSearchRebuildService.rebuildBySkill/toDocument` 和 `PostgresFullTextQueryService`。撤回后无发布版本应对公众不可检索，但不能将这一结果写成已物理删除搜索文档。
 
 ## 5 搜索演进路线
 
 ### 5.1 一期数据建模约束
 
-一期“每个 skill 一条搜索文档、内容永远取最新已发布版本”是有意的简化。当前实现仍使用 `latest_version_id` 作为持久化指针，但这里的语义已经收敛为 latest published pointer。这个模型在以下场景下会不够用：
+一期“每个 skill 一条搜索文档、内容永远取最新已发布版本”是有意的简化。公开搜索的 latest 语义是 latest published；原始持久化指针的例外不能改变这个公开契约。这个模型在以下场景下会不够用：
 
 - 版本级检索（搜索某个旧版本的内容）
 - 自定义标签/通道检索（搜索 `@beta` 标签指向的版本内容）

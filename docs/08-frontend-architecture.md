@@ -34,7 +34,7 @@
 | 技能详情页 | `/@{namespace}/{slug}` | README 渲染、版本、评分、收藏、下载 |
 | 版本历史 | `/@{namespace}/{slug}/versions` | 版本列表 + changelog |
 
-门户区所有 PUBLIC 技能匿名可浏览和下载，无需登录。
+门户区对符合读取条件的 PUBLIC 技能开放匿名浏览；PUBLIC 本身不保证可下载。隐藏及可见性检查、下载时容器须为 ACTIVE、目标版本的发布和可安装门禁仍然生效，归档技能的元数据可读不代表可下载。
 
 ### 2.2 个人中心（需登录）
 
@@ -77,15 +77,15 @@ SUPER_ADMIN 可访问所有管理页面。路由守卫检查用户是否持有�
 
 前端不再从 `status + hidden + latestVersionStatus + viewingVersionStatus` 拼装 skill 生命周期，而统一消费后端返回的 projection：
 
-- `headlineVersion`：当前页面主展示版本
+- `headlineVersion`：projection 的默认主展示候选；前端可按选中版本或管理预览选择展示内容，不保证每个页面都直接显示该字段
 - `publishedVersion`：当前最新已发布版本
-- `ownerPreviewVersion`：owner / namespace 管理者可见的待审核版本
+- `ownerPreviewVersion`：owner / namespace 管理者可见的新一轮未发布版本；不限于待审核状态，选择规则见[生命周期读模型](14-skill-lifecycle.md#32-lifecycle-projection)。展示投影不等于下载或操作权限。
 - `resolutionMode`：`PUBLISHED` / `OWNER_PREVIEW` / `NONE`
 
 约束：
 
-- 详情页和“我的技能”列表统一以 `headlineVersion` 作为主展示版本
-- 安装、下载、promotion 等公开分发相关操作只允许绑定 `publishedVersion`
+- 详情页根据选中版本展示对应信息；“我的技能”卡片在有不同于已发布版本且非 YANKED 的 `ownerPreviewVersion` 时，优先显示其标题、摘要与状态，点击进入该预览版本。标题/摘要缺省时回退到 skill 展示信息，状态再回退到 `headlineVersion.status` / skill 状态；隐藏筛选或归档/隐藏容器状态优先覆盖版本状态，隐藏筛选下卡片不跳转
+- 默认安装/下载以最新已发布版本为候选；显式版本或自定义标签可指向其他已发布版本。promotion 可选择属于来源 skill 的任一 `PUBLISHED` 版本，不限于 `publishedVersion`；各操作仍须通过对应授权与就绪检查
 - `hidden` 是独立治理覆盖层，不属于版本生命周期状态机
 
 ## 4 登录与鉴权

@@ -65,7 +65,7 @@
 | source_skill_id | bigint | 派生来源（团队技能提升到全局时记录原 skill ID），nullable |
 | visibility | enum | `PUBLIC` / `NAMESPACE_ONLY` / `PRIVATE` |
 | status | enum | `ACTIVE` / `ARCHIVED` |
-| latest_version_id | bigint | latest published pointer，仅指向最新 `PUBLISHED` 版本；若不存在已发布版本则可为 `null` |
+| latest_version_id | bigint | 内部生命周期指针；PRIVATE 上传可指向未发布版本。对外最新发布版本由 `publishedVersion` 解析，不直接以此字段授权 |
 | download_count | bigint | |
 | star_count | int | |
 | rating_avg | decimal(3,2) | 平均评分 |
@@ -77,7 +77,7 @@
 
 - 唯一约束：`(namespace_id, slug, owner_id)`；面向公众的同名冲突还须按已发布记录检查不同 owner，避免地址解析歧义
 - `status` 表示 skill 容器生命周期，不再承载“隐藏”语义。隐藏是独立的治理覆盖层，由 `hidden` / `hidden_at` / `hidden_by` 表达
-- 当前代码下的实际可见性判定以 `VisibilityChecker` 为准，规则如下：
+- 容器可见性判定以 `VisibilityChecker` 为准；传入 `SUPER_ADMIN` 平台角色时该检查短路放行，但不表示所有调用方都传入角色，也不绕过调用方的其他限制。普通调用规则如下：
   - 若 `hidden=true`：仅 skill owner 或该 namespace 的 `ADMIN` / `OWNER` 可读
   - 若 `latest_version_id is null`：仅 skill owner 可读；即使 `visibility=PUBLIC` 也不会对外公开
   - `PUBLIC`：任意人可读 skill 容器与已发布版本
@@ -103,38 +103,19 @@
 | changelog | text | |
 | manifest_json | json | 文件清单 |
 | parsed_metadata_json | json | SKILL.md frontmatter 解析结果 |
-| status | enum | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `REJECTED` / `YANKED` |
+| status | enum | `DRAFT` / `SCANNING` / `SCAN_FAILED` / `UPLOADED` / `PENDING_REVIEW` / `PUBLISHED` / `REJECTED` / `YANKED` |
 | reject_reason | varchar(512) | 拒绝原因 |
 | published_by | varchar(128) | |
 | published_at | datetime | |
 | created_at | datetime | |
 
 - `status` 表示 version 发布生命周期，和 skill 容器状态、review task 状态分离
-- 当前代码下的实际迁移约束：
-  - 普通用户首次上传/重传新版本后，版本直接进入 `PENDING_REVIEW`
-  - `SUPER_ADMIN` 直发时可直接进入 `PUBLISHED`
-  - 审核通过：`PENDING_REVIEW → PUBLISHED`
-  - 审核拒绝：`PENDING_REVIEW → REJECTED`
-  - 撤回审核：`PENDING_REVIEW → DRAFT`
-  - 已发布撤回：`PUBLISHED → YANKED`
-- 唯一约束：`(skill_id, version)` 防止重复发布
-- `YANKED` 状态：已发布后撤回
-- 当前代码下的实际读权限补充：
-  - 普通详情 / 下载 / resolve / tag / 文件读取，只接受 `PUBLISHED`
-  - owner 可通过常规版本详情预览自己的 `PENDING_REVIEW` 版本
-  - owner / namespace `ADMIN` / `OWNER` 在版本列表中可看到全部五种状态：`PUBLISHED / PENDING_REVIEW / DRAFT / REJECTED / YANKED`
-  - 但常规版本详情接口并不会放行 `DRAFT / REJECTED / YANKED`
-  - 审核详情页走独立 review 读路径，可查看待审版本及完整版本快照
-
-版本号不可变性规则：
-
-| 版本状态 | 版本号处理 |
-|---------|-----------|
-| DRAFT | 可删除该版本记录，重新使用同版本号 |
-| PENDING_REVIEW | 可撤回到 DRAFT |
-| REJECTED | 可删除该版本记录，重新使用同版本号 |
-| PUBLISHED | 版本号永久占用，不可复用 |
-| YANKED | 版本号永久占用，不可复用，版本列表中显示但标记为不可下载 |
+- 完整状态定义、上传/扫描/审核转换和治理操作以 [生命周期文档](./14-skill-lifecycle.md) 为准；`DRAFT` 保留为旧数据兼容状态，当前撤回审核回到 `UPLOADED`。
+- 上传结果取决于请求可见性、扫描配置与发布权限，不能统一描述为“普通用户直接待审”或“超管发布即代表可安装”。
+- 唯一约束：`(skill_id, version)` 防止重复版本记录；已发布版本不可原地覆盖。允许删除的未发布版本删除后可复用版本号，但不能删除技能的最后一个版本。
+- `YANKED` 表示已发布后撤回，版本记录和版本号仍保留，不可下载。
+- 版本列表、详情/文件预览、下载与公共分发是不同权限路径：管理者能预览的版本不一定能下载，`UPLOADED` / `PENDING_REVIEW` 的受限下载也不代表对外发布。具体边界见 [生命周期文档的对外协议与权限章节](./14-skill-lifecycle.md)。
+- 审核详情使用独立 review 读路径，可查看审核快照；不能由普通详情的访问规则推导审核权限。
 
 ### skill_file
 
@@ -163,7 +144,7 @@
 | updated_by | varchar(128) | |
 | updated_at | datetime | |
 
-- `latest` 是系统保留标签，只读，自动跟随 `skill.latest_version_id`；其语义严格等价于“最新已发布版本”，不允许 API 手动移动
+- `latest` 是系统保留标签，不允许 API 手动移动。当前标签列表在读取授权后按原始 `latest_version_id` 动态合成，不检查目标版本状态，因此 PRIVATE 上传的未发布指针也可能反映到授权用户的列表中；标签存在不等于可公开分发，下载仍需通过授权、版本状态与就绪检查
 - 自定义标签（如 `beta`、`stable-2026q1`）允许人工创建和移动
 - 唯一约束：`(skill_id, tag_name)`
 - `target_version_id` 必须指向 `status = PUBLISHED` 的版本，应用层校验
@@ -185,7 +166,7 @@
 
 - 仅用于普通发布审核，"提升到全局"使用独立的 `promotion_request` 表
 - `version` 字段用于乐观锁，防止多 Pod 并发审核
-- 业务约束：同一 `skill_version_id` 在 `status=PENDING` 时只能存在一条记录，重复提交返回 409 Conflict。撤回时删除 `PENDING` review_task，并将 `skill_version` 回退到 `DRAFT`
+- 业务约束：同一 `skill_version_id` 在 `status=PENDING` 时只能存在一条记录，重复提交返回 409 Conflict。撤回时删除 `PENDING` review_task，并将 `skill_version` 回退到 `UPLOADED`
 - PostgreSQL 并发约束落地：通过唯一索引 `(skill_version_id)` + 软删除标记实现。`review_task` 表增加 `deleted` 字段（bigint, 默认 0），唯一索引改为 `(skill_version_id, deleted)`。撤回时将 `deleted` 设为 `id`（非零值），新提交时 `deleted=0`，利用唯一索引防止并发重复提交。或者采用更简单的方案：撤回时物理删除 review_task 记录，依赖 `INSERT` 的唯一约束 `(skill_version_id)` 防并发。PostgreSQL 还支持 partial unique index 方案：`CREATE UNIQUE INDEX ON review_task (skill_version_id) WHERE status = 'PENDING'`，更优雅地实现"PENDING 状态唯一"约束
 
 ### promotion_request
@@ -383,7 +364,7 @@
 
 ### skill_search_document
 
-一个 skill 对应一条搜索文档，内容取“最新已发布版本”。实现上可由 `latest_version_id` 作为缓存指针承载，但其语义只能是 latest published pointer。
+一个 skill 对应一条搜索文档，内容取 `publishedVersion` 表示的“最新已发布版本”。内部 `latest_version_id` 可能在 PRIVATE 上传时指向未发布版本，不能不校验状态就用于公开搜索。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
