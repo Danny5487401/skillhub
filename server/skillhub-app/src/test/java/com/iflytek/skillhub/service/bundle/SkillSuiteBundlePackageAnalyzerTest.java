@@ -62,6 +62,21 @@ class SkillSuiteBundlePackageAnalyzerTest {
     }
 
     @Test
+    void rejectsInvalidDisplayNamesInNewBundlePackages() throws Exception {
+        for (String invalidValue : new String[] {"123", "中".repeat(201)}) {
+            String skill = "---\nname: first\ndescription: Test\nversion: 1.0.0\nmetadata:\n  display-name: "
+                    + invalidValue + "\n---\nBody";
+            SkillSuiteBundlePackageAnalyzer.BundleAnalysis result = analyzer.analyze(List.of(
+                    entry("SUITE.yaml", manifest(packageMember("first"), "@global/first")),
+                    entry("skills/first/SKILL.md", skill)
+            ));
+
+            assertThat(result.packageMembers()).singleElement().satisfies(member ->
+                    assertThat(member.validation().passed()).isFalse());
+        }
+    }
+
+    @Test
     void reportsMissingRootSkillMdAndDoesNotPromoteNestedOne() throws Exception {
         SkillSuiteBundlePackageAnalyzer.BundleAnalysis result = analyzer.analyze(List.of(
                 entry("SUITE.yaml", manifest(packageMember("missing"), "@global/missing")),

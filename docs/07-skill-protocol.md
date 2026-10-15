@@ -41,6 +41,7 @@ description: When to use    # 必需，1-2 句话
 - `name` 和 `description` 为必需字段，缺失则校验失败
 - `name` 映射为 `skill.slug`（首次发布时），后续版本不可变更
 - 可选的 `metadata.display-name` 映射为 `skill.display_name`，不参与 slug 生成。必须是字符串，去除首尾空白后最多 200 个字符；缺失、null 或空白时回退到 `name`。展示名沿用版本发布/审核流程，待审核更新不覆盖已发布标题；撤下最新版本并回退到旧版本时，标题和摘要同步恢复到该旧版本。
+- 上述类型和长度限制在新上传解析时检查。读取历史版本快照时，非字符串或超长的旧 `display-name` 回退到该版本的 `name`，原始 frontmatter 保留，避免阻塞审核、提升或版本撤回。
 - `description` 映射为 `skill.summary`
 - frontmatter 完整解析结果存入 `skill_version.parsed_metadata_json`
 

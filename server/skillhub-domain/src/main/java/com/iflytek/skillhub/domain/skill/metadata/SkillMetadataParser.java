@@ -59,7 +59,24 @@ public class SkillMetadataParser {
             version = extractNestedOptionalField(frontmatter, "metadata", "version");
         }
 
+        validateDisplayName(frontmatter);
         return new SkillMetadata(name, description, version, body, frontmatter);
+    }
+
+    private void validateDisplayName(Map<String, Object> frontmatter) {
+        if (!(frontmatter.get("metadata") instanceof Map<?, ?> metadata)) {
+            return;
+        }
+        Object value = metadata.get("display-name");
+        if (value == null) {
+            return;
+        }
+        if (!(value instanceof String text)) {
+            throw new DomainBadRequestException("error.skill.metadata.displayName.invalid");
+        }
+        if (text.strip().length() > 200) {
+            throw new DomainBadRequestException("error.skill.metadata.displayName.tooLong", 200);
+        }
     }
 
     private Map<String, Object> parseFrontmatter(String yamlContent) {

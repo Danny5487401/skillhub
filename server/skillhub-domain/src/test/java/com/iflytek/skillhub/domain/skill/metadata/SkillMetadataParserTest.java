@@ -43,6 +43,25 @@ class SkillMetadataParserTest {
     }
 
     @Test
+    void readsLegacyDisplayNameSnapshotsWithoutDiscardingRawValues() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (Object legacyValue : new Object[] {123, true, java.util.List.of("one", "two"),
+                Map.of("label", "test"), "中".repeat(201)}) {
+            String snapshot = mapper.writeValueAsString(Map.of(
+                    "name", "old-skill", "description", "Historical summary",
+                    "frontmatter", Map.of("metadata", Map.of("display-name", legacyValue))));
+
+            SkillMetadata metadata = mapper.readValue(snapshot, SkillMetadata.class);
+
+            assertEquals("old-skill", metadata.displayName());
+            assertEquals(legacyValue,
+                    ((Map<?, ?>) metadata.frontmatter().get("metadata")).get("display-name"));
+            assertEquals(mapper.readTree(snapshot).get("frontmatter"),
+                    mapper.readTree(mapper.writeValueAsString(metadata)).get("frontmatter"));
+        }
+    }
+
+    @Test
     void rejectsNonStringDisplayNames() {
         for (String value : new String[] {"123", "true", "[one, two]", "{label: test}"}) {
             DomainBadRequestException error = assertThrows(DomainBadRequestException.class,

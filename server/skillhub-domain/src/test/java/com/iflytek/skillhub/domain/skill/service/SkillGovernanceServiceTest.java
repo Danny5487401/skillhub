@@ -255,8 +255,8 @@ class SkillGovernanceServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void yankVersion_restoresLatestPublishedMetadata(boolean hasDisplayName) throws Exception {
+    @ValueSource(strings = {"missing", "custom", "number", "tooLong"})
+    void yankVersion_restoresLatestPublishedMetadata(String displayNameCase) throws Exception {
         SkillVersion yanked = new SkillVersion(2L, "2.0.0", "owner");
         setField(yanked, "id", 22L);
         yanked.setStatus(SkillVersionStatus.PUBLISHED);
@@ -269,9 +269,12 @@ class SkillGovernanceServiceTest {
         fallback.setParsedMetadataJson(new ObjectMapper().writeValueAsString(Map.of(
                 "name", "example-skill",
                 "description", "Published summary from v1",
-                "frontmatter", hasDisplayName
-                        ? Map.of("metadata", Map.of("display-name", "示例技能一"))
-                        : Map.of())));
+                "frontmatter", switch (displayNameCase) {
+                    case "custom" -> Map.of("metadata", Map.of("display-name", "示例技能一"));
+                    case "number" -> Map.of("metadata", Map.of("display-name", 123));
+                    case "tooLong" -> Map.of("metadata", Map.of("display-name", "中".repeat(201)));
+                    default -> Map.of();
+                })));
 
         Skill skill = new Skill(1L, "demo", "owner", com.iflytek.skillhub.domain.skill.SkillVisibility.PUBLIC);
         setField(skill, "id", 2L);
@@ -288,7 +291,7 @@ class SkillGovernanceServiceTest {
         service.yankVersion(22L, "admin", "127.0.0.1", "JUnit", "broken");
 
         assertThat(skill.getLatestVersionId()).isEqualTo(11L);
-        assertThat(skill.getDisplayName()).isEqualTo(hasDisplayName ? "示例技能一" : "example-skill");
+        assertThat(skill.getDisplayName()).isEqualTo(displayNameCase.equals("custom") ? "示例技能一" : "example-skill");
         assertThat(skill.getSummary()).isEqualTo("Published summary from v1");
         verify(skillRepository).save(skill);
     }
