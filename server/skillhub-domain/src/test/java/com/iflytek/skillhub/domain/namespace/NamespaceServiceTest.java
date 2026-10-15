@@ -6,6 +6,7 @@ import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
 import com.iflytek.skillhub.domain.review.PromotionRequestRepository;
 import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
 import com.iflytek.skillhub.domain.skill.SkillRepository;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -42,6 +43,8 @@ class NamespaceServiceTest {
 
     @Mock
     private PromotionRequestRepository promotionRequestRepository;
+    @Mock
+    private UserAccountRepository userAccountRepository;
 
     @InjectMocks
     private NamespaceService namespaceService;
@@ -218,7 +221,7 @@ class NamespaceServiceTest {
         Long namespaceId = 1L;
         String operatorUserId = "owner-1";
         Namespace namespace = new Namespace("team-a", "Team A", "owner-1");
-        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findLockedById(namespaceId)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.OWNER)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, operatorUserId))
@@ -238,7 +241,7 @@ class NamespaceServiceTest {
         Long namespaceId = 1L;
         String operatorUserId = "admin-1";
         Namespace namespace = new Namespace("team-a", "Team A", "owner-1");
-        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findLockedById(namespaceId)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.ADMIN)).thenReturn(false);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, operatorUserId))
@@ -256,7 +259,7 @@ class NamespaceServiceTest {
         Long namespaceId = 1L;
         String operatorUserId = "owner-1";
         Namespace namespace = new Namespace("team-a", "Team A", "owner-1");
-        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findLockedById(namespaceId)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.OWNER)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, operatorUserId))
@@ -298,7 +301,7 @@ class NamespaceServiceTest {
         String owner = "owner-1";
         Namespace namespace = new Namespace("draft-team", "Draft Team", owner);
         setField(namespace, "id", namespaceId);
-        when(namespaceRepository.findById(namespaceId)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findLockedById(namespaceId)).thenReturn(Optional.of(namespace));
         when(namespaceAccessPolicy.canDelete(namespace, NamespaceRole.OWNER)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(namespaceId, owner))
                 .thenReturn(Optional.of(new NamespaceMember(namespaceId, owner, NamespaceRole.OWNER)));

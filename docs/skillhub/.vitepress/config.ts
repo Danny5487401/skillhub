@@ -39,6 +39,7 @@ export default defineConfig({
             text: '核心功能',
             items: [
               { text: 'Skill 发布与版本管理', link: '/guide/skill-publish' },
+              { text: '技能头像与图片审核接入', link: '/guide/skill-avatars' },
               { text: 'Suite Bundle 批量导入', link: '/guide/suite-bundle' },
               { text: 'Skill 搜索与发现', link: '/guide/skill-discovery' },
               { text: '命名空间与团队管理', link: '/guide/namespace' },

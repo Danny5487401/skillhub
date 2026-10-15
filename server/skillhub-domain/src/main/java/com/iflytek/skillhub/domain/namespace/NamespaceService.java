@@ -6,6 +6,7 @@ import com.iflytek.skillhub.domain.review.ReviewTaskRepository;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.shared.exception.DomainForbiddenException;
 import com.iflytek.skillhub.domain.skill.SkillRepository;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class NamespaceService {
     private final SkillDraftRepository skillDraftRepository;
     private final ReviewTaskRepository reviewTaskRepository;
     private final PromotionRequestRepository promotionRequestRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public NamespaceService(NamespaceRepository namespaceRepository,
                            NamespaceMemberRepository namespaceMemberRepository,
@@ -31,7 +33,8 @@ public class NamespaceService {
                            SkillRepository skillRepository,
                            SkillDraftRepository skillDraftRepository,
                            ReviewTaskRepository reviewTaskRepository,
-                           PromotionRequestRepository promotionRequestRepository) {
+                           PromotionRequestRepository promotionRequestRepository,
+                           UserAccountRepository userAccountRepository) {
         this.namespaceRepository = namespaceRepository;
         this.namespaceMemberRepository = namespaceMemberRepository;
         this.namespaceAccessPolicy = namespaceAccessPolicy;
@@ -39,6 +42,7 @@ public class NamespaceService {
         this.skillDraftRepository = skillDraftRepository;
         this.reviewTaskRepository = reviewTaskRepository;
         this.promotionRequestRepository = promotionRequestRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     /**
@@ -47,6 +51,7 @@ public class NamespaceService {
      */
     @Transactional
     public Namespace createNamespace(String slug, String displayName, String description, String creatorUserId) {
+        userAccountRepository.findLockedById(creatorUserId);
         SlugValidator.validate(slug);
 
         if (namespaceRepository.findBySlug(slug).isPresent()) {
@@ -123,7 +128,8 @@ public class NamespaceService {
      */
     @Transactional
     public void deleteNamespace(Long namespaceId, String operatorUserId) {
-        Namespace namespace = getNamespace(namespaceId);
+        Namespace namespace = namespaceRepository.findLockedById(namespaceId)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.id.notFound", namespaceId));
         assertNotImmutable(namespace);
 
         NamespaceRole role = requireRole(namespaceId, operatorUserId);

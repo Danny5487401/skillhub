@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { isRedirect } from '@tanstack/react-router'
 
 // The router module captures window.location.search at module load time.
 // We test the exported ORIGINAL_URL_SEARCH constant and the buildReturnTo
@@ -50,5 +51,24 @@ describe('router', () => {
     const children = (router.routeTree.children ?? []) as Array<{ fullPath?: string; path?: string }>
     const childPaths = children.map((route) => route.fullPath ?? route.path)
     expect(childPaths).toContain('/device')
+  })
+
+  it('returns unauthenticated invitation visitors to /join even with a query and deployment base path', async () => {
+    const children = (router.routeTree.children ?? []) as Array<{
+      fullPath?: string
+      options?: { beforeLoad?: (context: { location: { pathname: string; searchStr: string; hash: string } }) => Promise<unknown> }
+    }>
+    const join = children.find((route) => route.fullPath === '/join')
+    expect(join?.options?.beforeLoad).toBeDefined()
+
+    await expect(join!.options!.beforeLoad!({
+      location: { pathname: '/skillhub/join', searchStr: '?x=1', hash: '#invitation-token' },
+    })).rejects.toSatisfy((error: unknown) => {
+      expect(isRedirect(error)).toBe(true)
+      if (!isRedirect(error)) return false
+      expect(error.options.to).toBe('/login')
+      expect(error.options.search).toEqual({ returnTo: '/join' })
+      return true
+    })
   })
 })

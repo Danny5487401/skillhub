@@ -70,7 +70,7 @@ public class JpaReviewProgressQueryRepository implements ReviewProgressQueryRepo
                    COALESCE(skill.slug, suite.slug) AS subject_slug
             FROM latest
             LEFT JOIN skill
-              ON latest.subject_type = 'SKILL_VERSION' AND skill.id = latest.subject_id
+              ON latest.subject_type IN ('SKILL_VERSION', 'SKILL_METADATA') AND skill.id = latest.subject_id
             LEFT JOIN skill_suite suite
               ON latest.subject_type = 'SUITE_VERSION' AND suite.id = latest.subject_id
             JOIN namespace ON namespace.id = latest.namespace_id
@@ -80,23 +80,23 @@ public class JpaReviewProgressQueryRepository implements ReviewProgressQueryRepo
                     OR LOWER(namespace.slug) LIKE :queryPattern
                   )
               AND (:status = '' OR latest.status = :status)
-              AND (:subjectType = '' OR latest.subject_type = :subjectType)
+              AND (:subjectType = '' OR latest.subject_type = :subjectType OR :subjectType = 'SKILL_VERSION' AND latest.subject_type = 'SKILL_METADATA')
             ORDER BY latest.submitted_at DESC, latest.id DESC
             OFFSET :offset ROWS FETCH NEXT :size ROWS ONLY
             """;
 
     private static final String MY_PROGRESS_SUMMARY_SQL = RANKED_CTE + """
             SELECT COUNT(*) FILTER (WHERE (:status = '' OR latest.status = :status)
-                                     AND (:subjectType = '' OR latest.subject_type = :subjectType)) AS filtered_total,
+                                     AND (:subjectType = '' OR latest.subject_type = :subjectType OR :subjectType = 'SKILL_VERSION' AND latest.subject_type = 'SKILL_METADATA')) AS filtered_total,
                    COUNT(*) FILTER (WHERE latest.status = 'PENDING'
-                                     AND (:subjectType = '' OR latest.subject_type = :subjectType)) AS pending_count,
+                                     AND (:subjectType = '' OR latest.subject_type = :subjectType OR :subjectType = 'SKILL_VERSION' AND latest.subject_type = 'SKILL_METADATA')) AS pending_count,
                    COUNT(*) FILTER (WHERE latest.status = 'APPROVED'
-                                     AND (:subjectType = '' OR latest.subject_type = :subjectType)) AS approved_count,
+                                     AND (:subjectType = '' OR latest.subject_type = :subjectType OR :subjectType = 'SKILL_VERSION' AND latest.subject_type = 'SKILL_METADATA')) AS approved_count,
                    COUNT(*) FILTER (WHERE latest.status = 'REJECTED'
-                                     AND (:subjectType = '' OR latest.subject_type = :subjectType)) AS rejected_count
+                                     AND (:subjectType = '' OR latest.subject_type = :subjectType OR :subjectType = 'SKILL_VERSION' AND latest.subject_type = 'SKILL_METADATA')) AS rejected_count
             FROM latest
             LEFT JOIN skill
-              ON latest.subject_type = 'SKILL_VERSION' AND skill.id = latest.subject_id
+              ON latest.subject_type IN ('SKILL_VERSION', 'SKILL_METADATA') AND skill.id = latest.subject_id
             LEFT JOIN skill_suite suite
               ON latest.subject_type = 'SUITE_VERSION' AND suite.id = latest.subject_id
             JOIN namespace ON namespace.id = latest.namespace_id

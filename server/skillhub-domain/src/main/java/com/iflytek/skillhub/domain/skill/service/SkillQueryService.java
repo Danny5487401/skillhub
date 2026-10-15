@@ -116,7 +116,9 @@ public class SkillQueryService {
             SkillLifecycleProjectionService.VersionProjection publishedVersion,
             SkillLifecycleProjectionService.VersionProjection ownerPreviewVersion,
             String ownerPreviewReviewComment,
-            String resolutionMode
+            String resolutionMode,
+            Long activeAvatarId,
+            SkillVisibility activeAvatarAudience
     ) {}
 
     public record SkillVersionDetailDTO(
@@ -249,7 +251,9 @@ public class SkillQueryService {
                 publishedVersion,
                 ownerPreviewVersion,
                 ownerPreviewReviewComment,
-                projection.resolutionMode().name()
+                projection.resolutionMode().name(),
+                skill.getActiveAvatarId(),
+                skill.getActiveAvatarAudience()
         );
     }
 

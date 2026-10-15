@@ -50,7 +50,9 @@ test.describe('Batch Import Members (Real API)', () => {
       }
 
       await page.goto(`/dashboard/namespaces/${namespace.slug}/members`)
-      await expect(page.getByRole('heading', { name: 'Member Management' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: namespace.displayName, exact: true })).toBeVisible()
+      await expect(page.getByRole('navigation', { name: 'Space management' })
+        .getByRole('link', { name: 'Members', exact: true })).toHaveAttribute('aria-current', 'page')
 
       const batchButton = page.getByRole('button', { name: 'Batch Import' })
       await expect(batchButton).toBeVisible()

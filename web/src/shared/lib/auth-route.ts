@@ -53,13 +53,13 @@ export function createRedirectAuthenticated(getCurrentUser: () => Promise<unknow
   }
 }
 
-export function createRequireAuth(getCurrentUser: () => Promise<unknown>) {
+export function createRequireAuth(getCurrentUser: () => Promise<unknown>, returnTo?: string) {
   return async function requireAuth({ location }: { location: RouteLocationLike }) {
     const user = await getCurrentUser()
     if (!user) {
       throw redirect({
         to: '/login',
-        search: { returnTo: buildReturnTo(location) },
+        search: { returnTo: returnTo ?? buildReturnTo(location) },
       })
     }
     return { user }

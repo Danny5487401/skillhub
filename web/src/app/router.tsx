@@ -7,6 +7,7 @@ import { RouteError } from '@/shared/components/route-error'
 import { createRedirectAuthenticated, createRequireAuth, isSafeAuthReturnTo } from '@/shared/lib/auth-route'
 import { clearDynamicImportReloadGuard, recoverFromDynamicImportError } from '@/shared/lib/dynamic-import-recovery'
 import { normalizeSearchQuery } from '@/shared/lib/search-query'
+import { captureInvitationFragment } from '@/shared/lib/namespace-invitation'
 
 /**
  * Central route registry for the SkillHub web app.
@@ -16,6 +17,7 @@ import { normalizeSearchQuery } from '@/shared/lib/search-query'
  */
 // Capture original URL before TanStack Router rewrites it
 const ORIGINAL_URL_SEARCH = typeof window !== 'undefined' ? window.location.search : ''
+captureInvitationFragment()
 
 // Export for use in cli-auth page
 export { ORIGINAL_URL_SEARCH }
@@ -95,6 +97,7 @@ const SuitesPage = createLazyRouteComponent(() => import('@/pages/suites'), 'Sui
 const SuiteDetailPage = createLazyRouteComponent(() => import('@/pages/suite-detail'), 'SuiteDetailPage')
 const TermsOfServicePage = createLazyRouteComponent(() => import('@/pages/terms'), 'TermsOfServicePage')
 const NamespacePage = createLazyRouteComponent(() => import('@/pages/namespace'), 'NamespacePage')
+const JoinPage = createLazyRouteComponent(() => import('@/pages/join'), 'JoinPage')
 const SkillDetailPage = createLazyRouteComponent(() => import('@/pages/skill-detail'), 'SkillDetailPage')
 const SkillVersionComparePage = createLazyRouteComponent(() => import('@/pages/skill-version-compare'), 'SkillVersionComparePage')
 const dashboardRouteOptions = { silentFallback: true } satisfies LazyRouteOptions
@@ -137,6 +140,9 @@ const MyNamespacesPage = createLazyRouteComponent(
   'MyNamespacesPage',
   dashboardRouteOptions,
 )
+const NamespaceManagementPage = createLazyRouteComponent(() => import('@/pages/dashboard/namespace-management'), 'NamespaceManagementPage')
+const NamespaceSettingsPage = createLazyRouteComponent(() => import('@/pages/dashboard/namespace-settings'), 'NamespaceSettingsPage')
+
 const NamespaceMembersPage = createLazyRouteComponent(
   () => import('@/pages/dashboard/namespace-members'),
   'NamespaceMembersPage',
@@ -233,6 +239,7 @@ const rootRoute = createRootRoute({
 })
 
 const requireAuth = createRequireAuth(getCurrentUser)
+const requireJoinAuth = createRequireAuth(getCurrentUser, '/join')
 const redirectAuthenticated = createRedirectAuthenticated(getCurrentUser)
 
 const landingRoute = createRoute({
@@ -323,6 +330,13 @@ const namespaceRoute = createRoute({
   component: NamespacePage,
 })
 
+const joinRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'join',
+  beforeLoad: requireJoinAuth,
+  component: JoinPage,
+})
+
 const skillDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/space/$namespace/$slug',
@@ -370,11 +384,15 @@ const dashboardPublishRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): {
     namespace?: string
     visibility?: string
+    updateName?: string
+    updateSkill?: string
     resubmitSkill?: string
     resubmitVersion?: string
   } => ({
     namespace: typeof search.namespace === 'string' && search.namespace ? search.namespace : undefined,
     visibility: typeof search.visibility === 'string' && search.visibility ? search.visibility : undefined,
+    updateName: typeof search.updateName === 'string' && search.updateName ? search.updateName : undefined,
+    updateSkill: typeof search.updateSkill === 'string' && search.updateSkill ? search.updateSkill : undefined,
     resubmitSkill: typeof search.resubmitSkill === 'string' && search.resubmitSkill
       ? search.resubmitSkill
       : undefined,
@@ -463,6 +481,20 @@ const dashboardNamespacesRoute = createRoute({
   path: 'dashboard/namespaces',
   beforeLoad: requireAuth,
   component: MyNamespacesPage,
+})
+
+const dashboardNamespaceManagementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/namespaces/$slug',
+  beforeLoad: requireAuth,
+  component: NamespaceManagementPage,
+})
+
+const dashboardNamespaceSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/namespaces/$slug/settings',
+  beforeLoad: requireAuth,
+  component: NamespaceSettingsPage,
 })
 
 const dashboardNamespaceMembersRoute = createRoute({
@@ -678,6 +710,7 @@ const routeTree = rootRoute.addChildren([
   suiteDetailRoute,
   termsRoute,
   namespaceRoute,
+  joinRoute,
   skillDetailRoute,
   skillVersionCompareRoute,
   dashboardRoute,
@@ -690,6 +723,8 @@ const routeTree = rootRoute.addChildren([
   dashboardSuiteEditRoute,
   dashboardSuiteVersionCreateRoute,
   dashboardNamespacesRoute,
+  dashboardNamespaceManagementRoute,
+  dashboardNamespaceSettingsRoute,
   dashboardNamespaceMembersRoute,
   dashboardNamespaceReviewsRoute,
   dashboardNamespaceReviewDetailRoute,

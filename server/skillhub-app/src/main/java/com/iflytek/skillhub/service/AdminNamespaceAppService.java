@@ -7,6 +7,7 @@ import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberService;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
+import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceService;
 import com.iflytek.skillhub.domain.namespace.NamespaceStatus;
 import com.iflytek.skillhub.domain.namespace.NamespaceType;
@@ -48,6 +49,7 @@ public class AdminNamespaceAppService {
     private final NamespaceGovernanceService namespaceGovernanceService;
     private final NamespaceMemberService namespaceMemberService;
     private final NamespaceMemberRepository namespaceMemberRepository;
+    private final NamespaceRepository namespaceRepository;
     private final NamespaceMemberCandidateService namespaceMemberCandidateService;
     private final NamespaceAccessPolicy namespaceAccessPolicy;
     private final UserAccountRepository userAccountRepository;
@@ -57,6 +59,7 @@ public class AdminNamespaceAppService {
                                     NamespaceGovernanceService namespaceGovernanceService,
                                     NamespaceMemberService namespaceMemberService,
                                     NamespaceMemberRepository namespaceMemberRepository,
+                                    NamespaceRepository namespaceRepository,
                                     NamespaceMemberCandidateService namespaceMemberCandidateService,
                                     NamespaceAccessPolicy namespaceAccessPolicy,
                                     UserAccountRepository userAccountRepository) {
@@ -65,6 +68,7 @@ public class AdminNamespaceAppService {
         this.namespaceGovernanceService = namespaceGovernanceService;
         this.namespaceMemberService = namespaceMemberService;
         this.namespaceMemberRepository = namespaceMemberRepository;
+        this.namespaceRepository = namespaceRepository;
         this.namespaceMemberCandidateService = namespaceMemberCandidateService;
         this.namespaceAccessPolicy = namespaceAccessPolicy;
         this.userAccountRepository = userAccountRepository;
@@ -139,7 +143,7 @@ public class AdminNamespaceAppService {
 
     @Transactional
     public MemberResponse addMember(String slug, MemberRequest request, String actorUserId) {
-        Namespace namespace = requireMutableTeamNamespace(slug);
+        Namespace namespace = lockedMutableTeamNamespace(slug, List.of(request.userId()));
         if (request.role() == NamespaceRole.OWNER) {
             throw new DomainBadRequestException("error.namespace.member.owner.assignDirect");
         }
@@ -152,7 +156,7 @@ public class AdminNamespaceAppService {
 
     @Transactional
     public BatchMemberResponse batchAddMembers(String slug, BatchMemberRequest request, String actorUserId) {
-        Namespace namespace = requireMutableTeamNamespace(slug);
+        Namespace namespace = lockedMutableTeamNamespace(slug, request.members().stream().map(MemberRequest::userId).toList());
         List<BatchMemberResult> results = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
@@ -178,7 +182,7 @@ public class AdminNamespaceAppService {
 
     @Transactional
     public MemberResponse updateMemberRole(String slug, String userId, UpdateMemberRoleRequest request, String actorUserId) {
-        Namespace namespace = requireMutableTeamNamespace(slug);
+        Namespace namespace = lockedMutableTeamNamespace(slug, List.of(userId));
         if (request.role() == NamespaceRole.OWNER) {
             throw new DomainBadRequestException("error.namespace.member.owner.setDirect");
         }
@@ -194,7 +198,7 @@ public class AdminNamespaceAppService {
 
     @Transactional
     public MessageResponse removeMember(String slug, String userId, String actorUserId) {
-        Namespace namespace = requireMutableTeamNamespace(slug);
+        Namespace namespace = lockedMutableTeamNamespace(slug, List.of(userId));
         NamespaceMember member = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.getId(), userId)
                 .orElseThrow(() -> new DomainBadRequestException("error.namespace.member.notFound"));
         if (member.getRole() == NamespaceRole.OWNER) {
@@ -206,7 +210,12 @@ public class AdminNamespaceAppService {
 
     @Transactional
     public MessageResponse transferOwnership(String slug, String newOwnerId, String actorUserId) {
-        Namespace namespace = requireMutableTeamNamespace(slug);
+        Long namespaceId = namespaceRepository.findIdBySlug(slug)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.slug.notFound", slug));
+        String oldOwnerId = namespaceMemberRepository.findByNamespaceIdAndRoleIn(namespaceId, List.of(NamespaceRole.OWNER))
+                .stream().findFirst().map(NamespaceMember::getUserId)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.owner.current.notFound"));
+        Namespace namespace = lockedMutableTeamNamespace(slug, List.of(oldOwnerId, newOwnerId));
         NamespaceMember currentOwner = namespaceMemberRepository.findByNamespaceIdAndRoleIn(namespace.getId(), List.of(NamespaceRole.OWNER))
                 .stream()
                 .findFirst()
@@ -295,15 +304,19 @@ public class AdminNamespaceAppService {
                 .collect(Collectors.toMap(NamespaceMember::getNamespaceId, NamespaceMember::getRole));
     }
 
-    private Namespace requireMutableTeamNamespace(String slug) {
-        Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        if (namespaceAccessPolicy.isImmutable(namespace)) {
-            throw new DomainBadRequestException("error.namespace.system.immutable", namespace.getSlug());
+    private Namespace lockedMutableTeamNamespace(String slug, List<String> userIds) {
+        Long namespaceId = namespaceRepository.findIdBySlug(slug)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.slug.notFound", slug));
+        userIds.stream().distinct().sorted().forEach(userAccountRepository::findLockedById);
+        Namespace locked = namespaceRepository.findLockedById(namespaceId)
+                .orElseThrow(() -> new DomainBadRequestException("error.namespace.slug.notFound", slug));
+        if (namespaceAccessPolicy.isImmutable(locked)) {
+            throw new DomainBadRequestException("error.namespace.system.immutable", slug);
         }
-        if (!namespaceAccessPolicy.canManageMembers(namespace)) {
-            throw new DomainBadRequestException("error.namespace.readonly", namespace.getSlug());
+        if (!namespaceAccessPolicy.canManageMembers(locked)) {
+            throw new DomainBadRequestException("error.namespace.readonly", slug);
         }
-        return namespace;
+        return locked;
     }
 
     private NamespaceStatus parseStatus(String status) {

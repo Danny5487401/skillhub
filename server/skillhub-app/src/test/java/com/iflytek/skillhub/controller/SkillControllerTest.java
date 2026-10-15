@@ -186,7 +186,9 @@ class SkillControllerTest {
                         null,
                         new com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService.VersionProjection(11L, "1.1.0", "PENDING_REVIEW"),
                         null,
-                        "OWNER_PREVIEW"
+                        "OWNER_PREVIEW",
+                        null,
+                        null
                 ));
         SkillSuiteReferenceResponse suiteReference = new SkillSuiteReferenceResponse(
                 9L, "team", "demo-suite", "Demo Suite", "2.0.0", 3,

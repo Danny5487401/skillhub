@@ -164,7 +164,7 @@ export function ReviewsPage() {
                   </span>
                   {review.namespace}/{review.subjectSlug || review.skillSlug}
                 </TableCell>
-                <TableCell>{review.version}</TableCell>
+                <TableCell>{review.subjectType === 'SKILL_METADATA' ? t(review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : review.version}</TableCell>
                 <TableCell>{review.submittedByName || review.submittedBy}</TableCell>
                 {status === 'PENDING' ? (
                   <TableCell>{formatDate(review.submittedAt)}</TableCell>
@@ -264,6 +264,7 @@ export function ReviewsPage() {
   return (
     <div className="space-y-8 animate-fade-up">
       <DashboardPageHeader title={t('reviews.title')} subtitle={t('reviews.subtitle')} />
+
 
       {showTypeTabs ? (
         <Tabs value={activeType} onValueChange={handleTypeChange}>

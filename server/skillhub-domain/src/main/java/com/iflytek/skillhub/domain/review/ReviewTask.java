@@ -33,6 +33,17 @@ public class ReviewTask {
     @Column(name = "subject_version", nullable = false, length = 64)
     private String subjectVersion;
 
+    @Column(name = "avatar_candidate_id")
+    private Long avatarCandidateId;
+
+    @Column(name = "avatar_removal_active_id")
+    private Long avatarRemovalActiveId;
+    @Column(name = "avatar_removal_pending_id")
+    private Long avatarRemovalPendingId;
+
+    @Column(name = "avatar_removal", nullable = false)
+    private boolean avatarRemoval;
+
     @Column(name = "namespace_id", nullable = false)
     private Long namespaceId;
 
@@ -98,6 +109,28 @@ public class ReviewTask {
         task.submittedBy = submittedBy;
         return task;
     }
+
+    public static ReviewTask forSkillMetadata(Long skillId, Long namespaceId, String actor, Long candidateId) {
+        ReviewTask task = new ReviewTask();
+        task.skillId = skillId;
+        task.subjectType = ReviewSubjectType.SKILL_METADATA;
+        task.subjectId = skillId;
+        task.subjectVersion = "avatar:" + candidateId;
+        task.namespaceId = namespaceId;
+        task.submittedBy = actor;
+        task.avatarCandidateId = candidateId;
+        return task;
+    }
+
+    public Long getAvatarCandidateId() { return avatarCandidateId; }
+    public void setAvatarCandidateId(Long candidateId) { this.avatarCandidateId = candidateId; }
+    public Long getAvatarRemovalActiveId() { return avatarRemovalActiveId; }
+    public Long getAvatarRemovalPendingId() { return avatarRemovalPendingId; }
+    public void prepareAvatarRemoval(Long active, Long pending) {
+        avatarRemoval = true; avatarRemovalActiveId = active; avatarRemovalPendingId = pending;
+    }
+    public boolean isAvatarRemoval() { return avatarRemoval; }
+    public void setAvatarRemoval(boolean removal) { this.avatarRemoval = removal; }
 
     public Long getId() { return id; }
 

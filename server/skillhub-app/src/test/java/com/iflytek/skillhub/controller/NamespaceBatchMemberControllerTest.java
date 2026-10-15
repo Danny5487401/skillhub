@@ -17,6 +17,7 @@ import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.service.NamespaceMemberCandidateService;
 import com.iflytek.skillhub.service.NamespacePortalCommandAppService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -31,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -79,6 +81,11 @@ class NamespaceBatchMemberControllerTest {
 
     @MockBean
     private UserAccountRepository userAccountRepository;
+
+    @BeforeEach
+    void setUpNamespaceLookup() {
+        given(namespaceRepository.findIdBySlug("team-a")).willReturn(Optional.of(1L));
+    }
 
     @Test
     void batchAddMembers_partialSuccess_returnsResultsPerRow() throws Exception {

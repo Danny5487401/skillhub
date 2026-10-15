@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 import * as mod from './skill-card'
 import { SkillCard } from './skill-card'
 
+vi.mock('@/api/client', () => ({ buildApiUrl: (url: string) => url }))
+
 vi.mock('@/features/auth/use-auth', () => ({
   useAuth: () => ({
     isAuthenticated: false,

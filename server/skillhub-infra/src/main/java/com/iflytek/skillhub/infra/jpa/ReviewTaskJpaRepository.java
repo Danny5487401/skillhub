@@ -22,6 +22,8 @@ import java.util.Optional;
 @Repository
 public interface ReviewTaskJpaRepository extends JpaRepository<ReviewTask, Long>, ReviewTaskRepository {
 
+    List<ReviewTask> findByAvatarCandidateIdAndStatus(Long candidateId, ReviewTaskStatus status);
+
     Optional<ReviewTask> findBySkillVersionIdAndStatus(Long skillVersionId, ReviewTaskStatus status);
 
     @Override

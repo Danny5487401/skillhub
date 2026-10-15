@@ -78,10 +78,11 @@ function invalidateNamespaceQueries(queryClient: ReturnType<typeof useQueryClien
   queryClient.invalidateQueries({ queryKey: ['reviews'] })
 }
 
-export function useMyNamespaces() {
+export function useMyNamespaces(enabled = true) {
   return useQuery({
     queryKey: ['namespaces', 'my'],
     queryFn: getMyNamespaces,
+    enabled,
   })
 }
 

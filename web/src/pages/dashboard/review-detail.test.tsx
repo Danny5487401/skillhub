@@ -138,8 +138,9 @@ vi.mock('@/features/auth/use-auth', () => ({
 }))
 
 // Mock hooks used directly by the review-detail page for file browser sidebar
+const reviewFileMock = vi.fn((_taskId?: number, _path?: string | null, _enabled?: boolean) => ({ data: null, isLoading: false, error: null }))
 vi.mock('@/features/review/use-review-file', () => ({
-  useReviewFile: () => ({ data: null, isLoading: false, error: null }),
+  useReviewFile: (...args: [number?, (string | null)?, boolean?]) => reviewFileMock(...args),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -152,6 +153,7 @@ import { NamespaceReviewDetailPage, ReviewDetailPage } from './review-detail'
 describe('ReviewDetailPage', () => {
   beforeEach(() => {
     navigateMock.mockReset()
+    reviewFileMock.mockClear()
     userMock.platformRoles = ['SKILL_ADMIN']
     useReviewDetailMock.mockReset()
     useReviewSkillDetailMock.mockReset()
@@ -371,4 +373,58 @@ describe('ReviewDetailPage', () => {
     expect(html).toContain('review.approveDisabledScanning')
     expect(html).toContain('disabled=""')
   })
+
+  function metadataDetail(readyForApproval = true, removal = false) {
+    useReviewDetailMock.mockReturnValue({ data: {
+      id: 13, namespace: 'global', skillSlug: 'demo-skill', subjectType: 'SKILL_METADATA',
+      skillVersionId: null, version: null, status: 'PENDING', submittedBy: 'owner', submittedAt: '2026-03-19T00:00:00Z',
+    }, isLoading: false })
+    useReviewSkillDetailMock.mockReturnValue({ data: {
+      skill: { id: 1, displayName: 'Demo Skill', slug: 'demo-skill', namespace: 'global' },
+      versions: [], files: [], documentationPath: null, documentationContent: null, downloadUrl: null, activeVersion: null,
+      avatarChange: { candidateId: removal ? null : 42, currentAvatarUrl: '/current', candidatePreviewUrl: removal ? null : '/candidate', machineStatus: readyForApproval ? 'PASSED' : 'PROCESSING', reviewStatus: 'PENDING', readyForApproval, removal },
+    }, isLoading: false, error: null })
+  }
+
+  it('renders metadata in the same task detail without package, file or version actions', () => {
+    metadataDetail()
+    const html = renderToStaticMarkup(<ReviewDetailPage />)
+    expect(html.match(/<h2[^>]*>review.avatarUpdate<\/h2>/g)).toHaveLength(1)
+    expect(html).not.toMatch(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*<div\b/)
+    expect(html).toContain('review.metadataChange')
+    expect(html).toContain('review.currentAvatar')
+    expect(html).toContain('src="/candidate"')
+    expect(html).toContain('review.approve')
+    expect(html).not.toContain('review.downloadSkillZip')
+    expect(html).not.toContain('review.activeReviewVersion')
+    expect(html).not.toContain('review.skillDetailTitle')
+    expect(html).not.toContain('fileTree.title')
+    expect(reviewFileMock).toHaveBeenCalledWith(13, null, false)
+  })
+
+  it('blocks the shared approval action while avatar moderation is not ready', () => {
+    metadataDetail(false)
+    const html = renderToStaticMarkup(<ReviewDetailPage />)
+    expect(html).toContain('review.approveDisabledAvatar')
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>review.approve<\/button>/)
+    expect(html).toContain('review.reject')
+  })
+
+  it('shows avatar removal as returning to the default avatar without a candidate preview', () => {
+    metadataDetail(true, true)
+    const html = renderToStaticMarkup(<ReviewDetailPage />)
+    expect(html).toContain('review.avatarRemoval')
+    expect(html).not.toContain('src="/candidate"')
+    expect(html).not.toContain('review.downloadSkillZip')
+  })
+
+  it('requires an explicit comment to override a machine-blocked avatar', () => {
+    metadataDetail()
+    const detail = useReviewSkillDetailMock() as { data: { avatarChange: Record<string, unknown> }; isLoading: boolean; error: null }
+    useReviewSkillDetailMock.mockReturnValue({ ...detail, data: { ...detail.data, avatarChange: { ...detail.data.avatarChange, machineStatus: 'BLOCKED' } } })
+    const html = renderToStaticMarkup(<ReviewDetailPage />)
+    expect(html).toContain('review.avatarOverrideReason')
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>review.approve<\/button>/)
+  })
+
 })

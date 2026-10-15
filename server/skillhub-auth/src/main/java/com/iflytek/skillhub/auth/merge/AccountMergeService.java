@@ -12,6 +12,7 @@ import com.iflytek.skillhub.auth.repository.IdentityBindingRepository;
 import com.iflytek.skillhub.auth.repository.UserRoleBindingRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
+import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
 import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
@@ -49,6 +50,7 @@ public class AccountMergeService {
     private final UserRoleBindingRepository userRoleBindingRepository;
     private final ApiTokenRepository apiTokenRepository;
     private final NamespaceMemberRepository namespaceMemberRepository;
+    private final NamespaceRepository namespaceRepository;
     private final Clock clock;
 
     public AccountMergeService(AccountMergeRequestRepository mergeRequestRepository,
@@ -58,6 +60,7 @@ public class AccountMergeService {
                                UserRoleBindingRepository userRoleBindingRepository,
                                ApiTokenRepository apiTokenRepository,
                                NamespaceMemberRepository namespaceMemberRepository,
+                               NamespaceRepository namespaceRepository,
                                Clock clock) {
         this.mergeRequestRepository = mergeRequestRepository;
         this.userAccountRepository = userAccountRepository;
@@ -66,6 +69,7 @@ public class AccountMergeService {
         this.userRoleBindingRepository = userRoleBindingRepository;
         this.apiTokenRepository = apiTokenRepository;
         this.namespaceMemberRepository = namespaceMemberRepository;
+        this.namespaceRepository = namespaceRepository;
         this.clock = clock;
     }
 
@@ -287,6 +291,8 @@ public class AccountMergeService {
 
     private void migrateNamespaceMemberships(String primaryUserId, String secondaryUserId) {
         List<NamespaceMember> secondaryMemberships = namespaceMemberRepository.findByUserId(secondaryUserId);
+        secondaryMemberships.stream().map(NamespaceMember::getNamespaceId).distinct().sorted()
+            .forEach(namespaceRepository::findLockedById);
         for (NamespaceMember secondaryMembership : secondaryMemberships) {
             Optional<NamespaceMember> existingPrimaryMembership = namespaceMemberRepository
                 .findByNamespaceIdAndUserId(secondaryMembership.getNamespaceId(), primaryUserId);

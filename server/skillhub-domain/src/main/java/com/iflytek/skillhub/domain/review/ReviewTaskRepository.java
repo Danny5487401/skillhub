@@ -10,6 +10,7 @@ import java.util.Optional;
  * Domain repository contract for moderation review tasks and their state transitions.
  */
 public interface ReviewTaskRepository {
+    default List<ReviewTask> findByAvatarCandidateIdAndStatus(Long candidateId, ReviewTaskStatus status) { return List.of(); }
     ReviewTask save(ReviewTask reviewTask);
     Optional<ReviewTask> findById(Long id);
     Optional<ReviewTask> findBySkillVersionIdAndStatus(Long skillVersionId, ReviewTaskStatus status);

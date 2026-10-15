@@ -217,6 +217,7 @@ function ProgressItem({
   const attemptsQuery = useMyReviewAttempts(expanded ? item.latestReviewTaskId : null)
   const status = item.latestStatus
   const isSuite = item.subjectType === 'SUITE_VERSION'
+  const isMetadata = item.subjectType === 'SKILL_METADATA'
   const slug = item.subjectSlug || item.skillSlug || ''
 
   return (
@@ -238,7 +239,7 @@ function ProgressItem({
             </Link>}
             <span className="text-xs text-muted-foreground">{t(isSuite ? 'suite.workspace.resourceSuite' : 'suite.workspace.resourceSkill')}</span>
             <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground">
-              v{item.skillVersion}
+              {isMetadata ? t('review.metadataChange') : `v${item.skillVersion}`}
             </span>
             <span className={cn('rounded-full border px-2.5 py-1 text-xs font-medium', statusClassNames[status])}>
               {t(`reviewProgress.status${status === 'PENDING' ? 'Pending' : status === 'APPROVED' ? 'Approved' : 'Rejected'}`)}
@@ -262,8 +263,7 @@ function ProgressItem({
               to="/dashboard/publish"
               search={{
                 namespace: item.namespace,
-                resubmitSkill: slug,
-                resubmitVersion: item.skillVersion,
+                ...(isMetadata ? { updateSkill: slug } : { resubmitSkill: slug, resubmitVersion: item.skillVersion }),
               }}
               className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}
             >

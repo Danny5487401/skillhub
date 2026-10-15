@@ -7,144 +7,12 @@ import { Card } from '@/shared/ui/card'
 import { NamespaceBadge } from '@/shared/components/namespace-badge'
 import { EmptyState } from '@/shared/components/empty-state'
 import { Pagination } from '@/shared/components/pagination'
-import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { CreateNamespaceDialog } from '@/features/namespace/create-namespace-dialog'
-import {
-  useArchiveNamespace,
-  useDeleteNamespace,
-  useFreezeNamespace,
-  useMyNamespacesPage,
-  useRestoreNamespace,
-  useUnfreezeNamespace,
-} from '@/shared/hooks/use-namespace-queries'
-import { toast } from '@/shared/lib/toast'
+import { useMyNamespacesPage } from '@/shared/hooks/use-namespace-queries'
+export { executeNamespaceAction, resolveNamespaceActionCopy } from '@/features/namespace/namespace-actions'
 
-type PendingNamespaceAction =
-  | { action: 'freeze'; slug: string; name: string }
-  | { action: 'unfreeze'; slug: string; name: string }
-  | { action: 'archive'; slug: string; name: string }
-  | { action: 'restore'; slug: string; name: string }
-  | { action: 'delete'; slug: string; name: string }
-
-type NamespaceActionCopy = {
-  title: string
-  description: string
-  confirmText: string
-  successTitle: string
-  successDescription: string
-  errorTitle: string
-  variant: 'default' | 'destructive'
-}
-
-type NamespaceActionMutation = {
-  mutateAsync: (input: { slug: string }) => Promise<unknown>
-}
-
-type NamespaceActionMutations = {
-  freeze: NamespaceActionMutation
-  unfreeze: NamespaceActionMutation
-  archive: NamespaceActionMutation
-  restore: NamespaceActionMutation
-  delete: NamespaceActionMutation
-}
-
-type NamespaceActionToast = {
-  success: (title: string, description?: string) => void
-  error: (title: string, description?: string) => void
-}
-
-export function resolveNamespaceActionCopy(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  action: PendingNamespaceAction['action'],
-  name: string,
-): NamespaceActionCopy {
-  if (action === 'freeze') {
-    return {
-      title: t('myNamespaces.freezeConfirmTitle'),
-      description: t('myNamespaces.freezeConfirmDescription', { name }),
-      confirmText: t('myNamespaces.freeze'),
-      successTitle: t('myNamespaces.freezeSuccessTitle'),
-      successDescription: t('myNamespaces.freezeSuccessDescription', { name }),
-      errorTitle: t('myNamespaces.freezeErrorTitle'),
-      variant: 'default',
-    }
-  }
-  if (action === 'unfreeze') {
-    return {
-      title: t('myNamespaces.unfreezeConfirmTitle'),
-      description: t('myNamespaces.unfreezeConfirmDescription', { name }),
-      confirmText: t('myNamespaces.unfreeze'),
-      successTitle: t('myNamespaces.unfreezeSuccessTitle'),
-      successDescription: t('myNamespaces.unfreezeSuccessDescription', { name }),
-      errorTitle: t('myNamespaces.unfreezeErrorTitle'),
-      variant: 'default',
-    }
-  }
-  if (action === 'archive') {
-    return {
-      title: t('myNamespaces.archiveConfirmTitle'),
-      description: t('myNamespaces.archiveConfirmDescription', { name }),
-      confirmText: t('myNamespaces.archive'),
-      successTitle: t('myNamespaces.archiveSuccessTitle'),
-      successDescription: t('myNamespaces.archiveSuccessDescription', { name }),
-      errorTitle: t('myNamespaces.archiveErrorTitle'),
-      variant: 'destructive',
-    }
-  }
-  if (action === 'delete') {
-    return {
-      title: t('myNamespaces.deleteConfirmTitle'),
-      description: t('myNamespaces.deleteConfirmDescription', { name }),
-      confirmText: t('myNamespaces.delete'),
-      successTitle: t('myNamespaces.deleteSuccessTitle'),
-      successDescription: t('myNamespaces.deleteSuccessDescription', { name }),
-      errorTitle: t('myNamespaces.deleteErrorTitle'),
-      variant: 'destructive',
-    }
-  }
-  return {
-    title: t('myNamespaces.restoreConfirmTitle'),
-    description: t('myNamespaces.restoreConfirmDescription', { name }),
-    confirmText: t('myNamespaces.restore'),
-    successTitle: t('myNamespaces.restoreSuccessTitle'),
-    successDescription: t('myNamespaces.restoreSuccessDescription', { name }),
-    errorTitle: t('myNamespaces.restoreErrorTitle'),
-    variant: 'default',
-  }
-}
-
-export async function executeNamespaceAction(
-  pendingAction: PendingNamespaceAction,
-  mutations: NamespaceActionMutations,
-  copy: NamespaceActionCopy,
-  notifications: NamespaceActionToast,
-) {
-  try {
-    if (pendingAction.action === 'freeze') {
-      await mutations.freeze.mutateAsync({ slug: pendingAction.slug })
-    } else if (pendingAction.action === 'unfreeze') {
-      await mutations.unfreeze.mutateAsync({ slug: pendingAction.slug })
-    } else if (pendingAction.action === 'archive') {
-      await mutations.archive.mutateAsync({ slug: pendingAction.slug })
-    } else if (pendingAction.action === 'delete') {
-      await mutations.delete.mutateAsync({ slug: pendingAction.slug })
-    } else {
-      await mutations.restore.mutateAsync({ slug: pendingAction.slug })
-    }
-
-    notifications.success(copy.successTitle, copy.successDescription)
-  } catch (error) {
-    notifications.error(copy.errorTitle, error instanceof Error ? error.message : '')
-    throw error
-  }
-}
-
-/**
- * Dashboard page for namespaces the current user can manage or review. It owns
- * namespace lifecycle actions because each action combines permissions, copy,
- * and optimistic follow-up behavior that are specific to this route.
- */
+/** Namespace summaries; management actions live inside the namespace. */
 const PAGE_SIZE = 10
 
 export function MyNamespacesPage() {
@@ -152,7 +20,6 @@ export function MyNamespacesPage() {
   const { t } = useTranslation()
   const { hasRole } = useAuth()
   const canCreateNamespace = hasRole('SKILL_ADMIN') || hasRole('SUPER_ADMIN')
-  const [pendingAction, setPendingAction] = useState<PendingNamespaceAction | null>(null)
   const [page, setPage] = useState(0)
   const { data: namespacePage, isLoading } = useMyNamespacesPage({ page, size: PAGE_SIZE })
   const namespaces = namespacePage?.items ?? []
@@ -163,24 +30,8 @@ export function MyNamespacesPage() {
       setPage(Math.max(totalPages - 1, 0))
     }
   }, [page, totalPages])
-  const freezeMutation = useFreezeNamespace()
-  const unfreezeMutation = useUnfreezeNamespace()
-  const archiveMutation = useArchiveNamespace()
-  const restoreMutation = useRestoreNamespace()
-  const deleteMutation = useDeleteNamespace()
-
   const handleNamespaceClick = (slug: string) => {
-    navigate({ to: `/space/${encodeURIComponent(slug)}` })
-  }
-
-  const handleMembersClick = (slug: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/members` })
-  }
-
-  const handleReviewsClick = (slug: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}/reviews` })
+    navigate({ to: `/dashboard/namespaces/${encodeURIComponent(slug)}` })
   }
 
   const resolveStatusLabel = (status: string) => {
@@ -216,27 +67,6 @@ export function MyNamespacesPage() {
     return t('myNamespaces.activeHint')
   }
 
-  const handleNamespaceAction = async () => {
-    if (!pendingAction) {
-      return
-    }
-
-    const copy = resolveNamespaceActionCopy(t, pendingAction.action, pendingAction.name)
-    await executeNamespaceAction(
-      pendingAction,
-      {
-        freeze: freezeMutation,
-        unfreeze: unfreezeMutation,
-        archive: archiveMutation,
-        restore: restoreMutation,
-        delete: deleteMutation,
-      },
-      copy,
-      toast,
-    )
-    setPendingAction(null)
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-4 animate-fade-up">
@@ -266,8 +96,7 @@ export function MyNamespacesPage() {
             <Card
               key={namespace.id}
               data-testid={`namespace-card-${namespace.slug}`}
-              className={`flex h-full flex-col p-5 cursor-pointer group animate-fade-up delay-${Math.min(idx + 1, 6)}`}
-              onClick={() => handleNamespaceClick(namespace.slug)}
+              className={`flex h-full flex-col p-5 group animate-fade-up delay-${Math.min(idx + 1, 6)}`}
             >
               <div className="flex h-full flex-col gap-5">
                 <div className="flex flex-1 items-start">
@@ -292,88 +121,14 @@ export function MyNamespacesPage() {
                       {resolveHint(namespace.status, namespace.type)}
                     </div>
                     <div className="mt-3 border-t border-border/50 pt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
-                      {t('myNamespaces.roleLabel')}: {namespace.currentUserRole ?? t('myNamespaces.roleUnknown')}
+                      {t('myNamespaces.roleLabel')}: {namespace.currentUserRole === 'OWNER' ? t('members.roleOwner') : namespace.currentUserRole === 'ADMIN' ? t('members.roleAdmin') : namespace.currentUserRole === 'MEMBER' ? t('members.roleMember') : t('myNamespaces.roleUnknown')}
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 border-t border-border/50 pt-4">
-                  {namespace.type === 'TEAM' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => handleMembersClick(namespace.slug, e)}
-                    >
-                      {t('myNamespaces.manageMembers')}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => handleReviewsClick(namespace.slug, e)}
-                  >
-                    {t('myNamespaces.reviewTasks')}
+                <div className="border-t border-border/50 pt-4">
+                  <Button variant="outline" size="sm" onClick={() => handleNamespaceClick(namespace.slug)}>
+                    {t('namespaceManagement.enter')}
                   </Button>
-                  {namespace.canFreeze && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPendingAction({ action: 'freeze', slug: namespace.slug, name: namespace.displayName })
-                      }}
-                    >
-                      {t('myNamespaces.freeze')}
-                    </Button>
-                  )}
-                  {namespace.canUnfreeze && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPendingAction({ action: 'unfreeze', slug: namespace.slug, name: namespace.displayName })
-                      }}
-                    >
-                      {t('myNamespaces.unfreeze')}
-                    </Button>
-                  )}
-                  {namespace.canArchive && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPendingAction({ action: 'archive', slug: namespace.slug, name: namespace.displayName })
-                      }}
-                    >
-                      {t('myNamespaces.archive')}
-                    </Button>
-                  )}
-                  {namespace.canRestore && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPendingAction({ action: 'restore', slug: namespace.slug, name: namespace.displayName })
-                      }}
-                    >
-                      {t('myNamespaces.restore')}
-                    </Button>
-                  )}
-                  {namespace.canDelete && (
-                    <Button
-                      data-testid={`delete-namespace-${namespace.slug}`}
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPendingAction({ action: 'delete', slug: namespace.slug, name: namespace.displayName })
-                      }}
-                    >
-                      {t('myNamespaces.delete')}
-                    </Button>
-                  )}
                 </div>
               </div>
             </Card>
@@ -387,29 +142,14 @@ export function MyNamespacesPage() {
         <EmptyState
           title={t('myNamespaces.emptyTitle')}
           description={t('myNamespaces.emptyDescription')}
-          action={(
+          action={canCreateNamespace ? (
             <CreateNamespaceDialog>
               <Button>{t('myNamespaces.create')}</Button>
             </CreateNamespaceDialog>
-          )}
+          ) : undefined}
         />
       )}
 
-      <ConfirmDialog
-        open={!!pendingAction}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingAction(null)
-          }
-        }}
-        title={pendingAction ? resolveNamespaceActionCopy(t, pendingAction.action, pendingAction.name).title : ''}
-        description={pendingAction ? resolveNamespaceActionCopy(t, pendingAction.action, pendingAction.name).description : ''}
-        confirmText={pendingAction ? resolveNamespaceActionCopy(t, pendingAction.action, pendingAction.name).confirmText : undefined}
-        variant={pendingAction ? resolveNamespaceActionCopy(t, pendingAction.action, pendingAction.name).variant : 'default'}
-        contentTestId={pendingAction ? `namespace-action-dialog-${pendingAction.action}` : undefined}
-        confirmButtonTestId={pendingAction ? `namespace-action-confirm-${pendingAction.action}` : undefined}
-        onConfirm={handleNamespaceAction}
-      />
     </div>
   )
 }

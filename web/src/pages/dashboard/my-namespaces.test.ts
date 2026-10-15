@@ -125,12 +125,14 @@ describe('MyNamespacesPage', () => {
     expect(typeof MyNamespacesPage).toBe('function')
   })
 
-  it('renders the delete action when the namespace is deletable', () => {
+  it('keeps lifecycle actions out of cards even when permitted', () => {
     mockNamespaces = [buildNamespace({ canDelete: true })]
 
     const html = renderToStaticMarkup(createElement(MyNamespacesPage))
 
-    expect(html).toContain('myNamespaces.delete')
+    expect(html).not.toContain('myNamespaces.delete')
+    expect(html).not.toContain('myNamespaces.freeze')
+    expect(html).toContain('namespaceManagement.enter')
   })
 
   it('hides the delete action when the namespace is not deletable', () => {

@@ -18,6 +18,8 @@ import { getHeadlineVersion, getPublishedVersion, getOwnerPreviewVersion, hasPen
 import { formatCompactCount } from '@/shared/lib/number-format'
 import { toast } from '@/shared/lib/toast'
 import { buildReturnTo } from '@/shared/lib/auth-route'
+import { SkillAvatar } from '@/features/skill/skill-avatar'
+import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
 import { ApiError } from '@/api/client'
 import { getMySkillEmptyStateKey, getMySkillFilters, type MySkillFilter } from './my-skill-filters'
 
@@ -109,10 +111,10 @@ export function MySkillsPage() {
     updateSearch({ q: undefined, namespace: undefined, page: 0 })
   }
 
-  const handleUpdateSkill = (namespace: string, visibility?: string) => {
+  const handleUpdateSkill = (namespace: string, slug: string, name: string, visibility?: string) => {
     navigate({
       to: '/dashboard/publish',
-      search: { namespace, visibility: visibility || 'PUBLIC' },
+      search: { namespace, updateSkill: slug, updateName: name, visibility: visibility || 'PUBLIC' },
     })
   }
 
@@ -379,11 +381,15 @@ export function MySkillsPage() {
                     className={`p-5 group animate-fade-up delay-${Math.min(idx + 1, 6)} ${filter === 'HIDDEN' ? '' : 'cursor-pointer'}`}
                     onClick={filter === 'HIDDEN' ? undefined : () => handleSkillClick(skill.namespace, skill.slug)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold font-heading text-lg mb-1 group-hover:text-primary transition-colors">
-                          {skill.displayName}
-                        </h3>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-3 flex items-center gap-3">
+                          <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
+                          <h3 className="min-w-0 break-words font-heading text-lg font-semibold group-hover:text-primary transition-colors">
+                            {skill.displayName}
+                          </h3>
+                        </div>
+                        {skill.status === 'ACTIVE' && filter !== 'HIDDEN' && <SkillAvatarManager namespace={skill.namespace} slug={skill.slug} previewOnly />}
                         {skill.summary && (
                           <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{skill.summary}</p>
                         )}
@@ -420,7 +426,7 @@ export function MySkillsPage() {
                           ) : null}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 pl-4">
+                      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:max-w-[45%] sm:justify-end">
                         {canRestoreHidden ? (
                           <Button
                             size="sm"
@@ -438,7 +444,7 @@ export function MySkillsPage() {
                             variant="outline"
                             onClick={(event) => {
                               event.stopPropagation()
-                              handleUpdateSkill(skill.namespace, skill.visibility ?? 'PUBLIC')
+                              handleUpdateSkill(skill.namespace, skill.slug, skill.displayName, skill.visibility ?? 'PUBLIC')
                             }}
                           >
                             {t('mySkills.update')}

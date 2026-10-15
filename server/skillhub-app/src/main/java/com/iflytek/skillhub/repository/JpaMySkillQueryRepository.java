@@ -13,6 +13,7 @@ import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.dto.SkillLifecycleVersionResponse;
 import com.iflytek.skillhub.dto.SkillSummaryResponse;
+import com.iflytek.skillhub.service.SkillAvatarUrls;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -145,7 +146,8 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
                 toLifecycleVersion(ownerPreviewVersion),
                 projection.resolutionMode().name(),
                 null,
-                null
+                null,
+                SkillAvatarUrls.current(skill, namespace != null ? namespace.getSlug() : "")
         );
     }
 

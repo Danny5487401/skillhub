@@ -73,6 +73,15 @@ Discover a security issue in the namespace and temporarily freeze all publish op
 5. Select a role (Owner / Admin / Member)
 6. Confirm to add
 
+**Invite with a link**:
+
+1. An Owner or Admin opens the Members page of an ACTIVE team space and selects "Invite member".
+2. Share the copied link securely. It expires after 24 hours and can be redeemed once by one person who is not already a member.
+3. The recipient must first pass the usual SkillHub login and account access rules. The page shows the space, current account, and MEMBER permissions. Joining happens only after explicit confirmation.
+4. "Revoke invitation" invalidates the link immediately. Creating a new link asks for confirmation before replacing a still usable one; existing members remain members.
+
+Anyone who obtains the link can use it after normal account admission. Do not post it in a public channel. The login return URL does not contain the invitation token; the current browser tab stores it temporarily until joining or terminal invalidation.
+
 **Manage Permissions**:
 
 1. Find the target user in the member list
@@ -166,6 +175,16 @@ Content-Type: application/json
 ```bash
 POST /api/v1/namespaces/{slug}/unfreeze
 ```
+
+## Invite Members and View History
+
+Team Owners and Admins can create a link from **Members → Invite members**. It expires after 24 hours and permits one new member to join. The recipient must sign in, meet existing admission rules, and confirm joining. Replacing an active link or revoking it requires confirmation and does not remove existing members.
+
+The dialog includes a read-only history (five records per page, up to 240px tall) showing the creator, creation and expiration times, status, and the account that successfully joined. Snapshot names are displayed first; full account IDs are available on hover, with abbreviated IDs used when names are missing. Each generated invitation has its own record. Replacement, revocation, expiration, or a member leaving does not erase history. History cannot restore expired links and does not indicate current membership. Only the space's Owner/Admin can view it; platform roles do not bypass this restriction. Frozen or archived spaces retain a history-only entry.
+
+An upgrade imports only the provable current invitation, marked as a legacy record; earlier links are not reconstructed from incomplete audit data. History remains while the space exists and is deleted when the space is permanently deleted. Existing audit records follow their original retention rules.
+
+The history endpoint requires a browser session: `GET /api/v1/namespaces/{slug}/invitations/history?page=0&size=10`. Page sizes are bounded to 1–50; tokens and hashes are never returned.
 
 ## Notes
 

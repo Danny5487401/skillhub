@@ -51,6 +51,7 @@ public class SkillSuiteBundleEventListener {
     }
 
     private void advanceBoundOperations(Long skillVersionId) {
+        if (skillVersionId == null) { return; }
         memberRepository.findBySkillVersionId(skillVersionId).stream()
                 .map(member -> member.getOperationId())
                 .distinct()

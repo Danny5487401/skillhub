@@ -25,6 +25,8 @@ import com.iflytek.skillhub.dto.SkillVersionResponse;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.ratelimit.RateLimit;
 import com.iflytek.skillhub.service.SkillLabelAppService;
+import com.iflytek.skillhub.service.SkillAvatarUrls;
+import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.service.ComplianceSnapshotProjectionService;
 import com.iflytek.skillhub.service.SkillSuiteAppService;
 import org.springframework.core.io.InputStreamResource;
@@ -127,7 +129,11 @@ public class SkillController extends BaseApiController {
                 memberOfSuites.items().stream()
                         .filter(SkillSuiteReferenceResponse::currentSkillEntry)
                         .toList(),
-                memberOfSuites
+                memberOfSuites,
+                SkillVisibility.PRIVATE == SkillVisibility.valueOf(detail.visibility())
+                        && !detail.ownerId().equals(userId) ? null
+                        : SkillAvatarUrls.current(detail.activeAvatarId(), detail.activeAvatarAudience(),
+                                SkillVisibility.valueOf(detail.visibility()), namespace, detail.slug())
         );
 
         return ok("response.success.read", response);

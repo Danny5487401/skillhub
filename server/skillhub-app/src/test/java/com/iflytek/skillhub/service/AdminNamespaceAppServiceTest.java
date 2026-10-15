@@ -16,6 +16,7 @@ import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberService;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
+import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceService;
 import com.iflytek.skillhub.domain.namespace.NamespaceStatus;
 import com.iflytek.skillhub.domain.namespace.NamespaceType;
@@ -40,6 +41,7 @@ class AdminNamespaceAppServiceTest {
     private final NamespaceGovernanceService namespaceGovernanceService = mock(NamespaceGovernanceService.class);
     private final NamespaceMemberService namespaceMemberService = mock(NamespaceMemberService.class);
     private final NamespaceMemberRepository namespaceMemberRepository = mock(NamespaceMemberRepository.class);
+    private final NamespaceRepository namespaceRepository = mock(NamespaceRepository.class);
     private final NamespaceMemberCandidateService namespaceMemberCandidateService = mock(NamespaceMemberCandidateService.class);
     private final NamespaceAccessPolicy namespaceAccessPolicy = mock(NamespaceAccessPolicy.class);
     private final UserAccountRepository userAccountRepository = mock(UserAccountRepository.class);
@@ -49,6 +51,7 @@ class AdminNamespaceAppServiceTest {
             namespaceGovernanceService,
             namespaceMemberService,
             namespaceMemberRepository,
+            namespaceRepository,
             namespaceMemberCandidateService,
             namespaceAccessPolicy,
             userAccountRepository
@@ -84,6 +87,8 @@ class AdminNamespaceAppServiceTest {
         Namespace namespace = namespace(1L, "team-a", NamespaceStatus.ACTIVE, NamespaceType.TEAM);
         NamespaceMember saved = member(10L, 1L, "user-2", NamespaceRole.ADMIN);
         when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(namespace);
+        when(namespaceRepository.findLockedById(1L)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canManageMembers(namespace)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndUserId(1L, "user-2")).thenReturn(Optional.empty());
@@ -100,6 +105,8 @@ class AdminNamespaceAppServiceTest {
     void updateMemberRoleRejectsDirectOwnerAssignment() {
         Namespace namespace = namespace(1L, "team-a", NamespaceStatus.ACTIVE, NamespaceType.TEAM);
         when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(namespace);
+        when(namespaceRepository.findLockedById(1L)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canManageMembers(namespace)).thenReturn(true);
 
@@ -118,6 +125,8 @@ class AdminNamespaceAppServiceTest {
         NamespaceMember currentOwner = member(10L, 1L, "owner-1", NamespaceRole.OWNER);
         NamespaceMember newOwner = member(11L, 1L, "admin-1", NamespaceRole.ADMIN);
         when(namespaceService.getNamespaceBySlug("team-a")).thenReturn(namespace);
+        when(namespaceRepository.findLockedById(1L)).thenReturn(Optional.of(namespace));
+        when(namespaceRepository.findIdBySlug("team-a")).thenReturn(Optional.of(1L));
         when(namespaceAccessPolicy.isImmutable(namespace)).thenReturn(false);
         when(namespaceAccessPolicy.canManageMembers(namespace)).thenReturn(true);
         when(namespaceMemberRepository.findByNamespaceIdAndRoleIn(1L, List.of(NamespaceRole.OWNER)))
@@ -138,6 +147,8 @@ class AdminNamespaceAppServiceTest {
     void globalNamespaceCannotBeMutatedFromAdminMemberApi() {
         Namespace global = namespace(1L, "global", NamespaceStatus.ACTIVE, NamespaceType.GLOBAL);
         when(namespaceService.getNamespaceBySlug("global")).thenReturn(global);
+        when(namespaceRepository.findLockedById(1L)).thenReturn(Optional.of(global));
+        when(namespaceRepository.findIdBySlug("global")).thenReturn(Optional.of(1L));
         when(namespaceAccessPolicy.isImmutable(global)).thenReturn(true);
 
         assertThatThrownBy(() -> service.addMember(

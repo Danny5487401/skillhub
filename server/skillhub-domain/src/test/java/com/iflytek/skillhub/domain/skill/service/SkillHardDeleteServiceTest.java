@@ -64,6 +64,8 @@ class SkillHardDeleteServiceTest {
     @Mock
     private SkillVersionStatsRepository skillVersionStatsRepository;
     @Mock
+    private com.iflytek.skillhub.domain.skill.SkillAvatarCandidateRepository avatarCandidates;
+    @Mock
     private ObjectStorageService objectStorageService;
     @Mock
     private SkillStorageDeletionCompensationService compensationService;
@@ -94,6 +96,7 @@ class SkillHardDeleteServiceTest {
                 skillRatingRepository,
                 skillReportRepository,
                 skillVersionStatsRepository,
+                avatarCandidates,
                 objectStorageService,
                 compensationService,
                 securityScanService,

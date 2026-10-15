@@ -1,6 +1,6 @@
 import createClient from 'openapi-fetch'
 import { BASE_PATH } from '@/shared/lib/base-path'
-import type { paths } from './generated/schema'
+import type { components, paths } from './generated/schema'
 import type {
   ChangePasswordRequest,
   PasswordResetConfirmRequest,
@@ -36,6 +36,8 @@ import type {
   AuthMethod,
   LocalAuthCapabilities,
   SystemAuthSettings,
+  AvatarReviewSettings,
+  SkillAvatarStatus,
   ExternalRoleGrantRule,
   PlatformRole,
   OAuthProvider,
@@ -46,6 +48,7 @@ import type {
   Namespace,
   CreateNamespaceRequest,
   NamespaceMember,
+  NamespaceInvitationHistoryPage,
   NamespaceCandidateUser,
   NotificationItem,
   NotificationPreferenceItem,
@@ -459,6 +462,17 @@ export const authApi = {
 }
 
 export const systemConfigApi = {
+  getAvatarReview(): Promise<AvatarReviewSettings> {
+    return fetchJson<AvatarReviewSettings>('/api/v1/admin/system-config/avatar-review')
+  },
+
+  updateAvatarReview(request: Pick<AvatarReviewSettings, 'machineEnabled' | 'manualEnabled' | 'version'>): Promise<AvatarReviewSettings> {
+    return fetchJson<AvatarReviewSettings>('/api/v1/admin/system-config/avatar-review', {
+      method: 'PUT',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(request),
+    })
+  },
   getLocalAuth(): Promise<SystemAuthSettings> {
     return fetchJson<SystemAuthSettings>('/api/v1/admin/system-config/auth/local')
   },
@@ -499,6 +513,64 @@ export const systemConfigApi = {
     return fetchJson<ExternalRoleGrantRule>(`/api/v1/admin/system-config/role-grants/${id}?version=${version}`, {
       method: 'DELETE',
       headers: getCsrfHeaders(),
+    })
+  },
+}
+
+function avatarPath(namespace: string, slug: string): string {
+  return `/api/v1/skills/${encodeURIComponent(namespace)}/${encodeURIComponent(slug)}/avatar`
+}
+
+export const skillAvatarApi = {
+  stage(file: Blob): Promise<components['schemas']['SkillAvatarUploadResponse']> {
+    const body = new FormData()
+    body.append('file', file, 'avatar.png')
+    return fetchJson(`${WEB_API_PREFIX}/skills/avatar-uploads`, {
+      method: 'POST', headers: getCsrfHeaders(), body,
+    })
+  },
+  submit(namespace: string, slug: string, uploadId: string): Promise<SkillAvatarStatus> {
+    return fetchJson(`${WEB_API_PREFIX}/skills/${encodeURIComponent(namespace)}/${encodeURIComponent(slug)}/avatar`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ uploadId }),
+    })
+  },
+  status(namespace: string, slug: string): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/status`)
+  },
+  upload(namespace: string, slug: string, file: Blob): Promise<SkillAvatarStatus> {
+    const body = new FormData()
+    body.append('file', file, 'avatar.png')
+    return fetchJson<SkillAvatarStatus>(avatarPath(namespace, slug), {
+      method: 'POST', headers: getCsrfHeaders(), body,
+    })
+  },
+  delete(namespace: string, slug: string): Promise<void> {
+    return fetchJson<void>(avatarPath(namespace, slug), { method: 'DELETE', headers: getCsrfHeaders() })
+  },
+  appeal(namespace: string, slug: string, candidateId: number): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/appeal`, {
+      method: 'POST', headers: getCsrfHeaders(),
+    })
+  },
+  retry(namespace: string, slug: string, candidateId: number): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/retry`, {
+      method: 'POST', headers: getCsrfHeaders(),
+    })
+  },
+  queue(): Promise<SkillAvatarStatus[]> {
+    return fetchJson<SkillAvatarStatus[]>('/api/v1/skills/avatar-review/queue')
+  },
+  decide(namespace: string, slug: string, candidateId: number, approved: boolean, reason: string): Promise<SkillAvatarStatus> {
+    return fetchJson<SkillAvatarStatus>(`${avatarPath(namespace, slug)}/candidates/${candidateId}/decision`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ approved, reason }),
+    })
+  },
+  takedown(namespace: string, slug: string, reason: string): Promise<void> {
+    return fetchJson<void>(`${avatarPath(namespace, slug)}/takedown`, {
+      method: 'POST', headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ reason }),
     })
   },
 }
@@ -747,6 +819,42 @@ export const labelApi = {
 }
 
 export const namespaceApi = {
+  async invitationHistory(slug: string, page = 0, size = 10): Promise<NamespaceInvitationHistoryPage> {
+    const params = new URLSearchParams({ page: String(page), size: String(size) })
+    return fetchJson<NamespaceInvitationHistoryPage>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations/history?${params}`)
+  },
+
+  async invitationStatus(slug: string): Promise<{ active: boolean }> {
+    return fetchJson<{ active: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`)
+  },
+
+  async createInvitation(slug: string, replace: boolean): Promise<{ token: string; expiresAt: string; replaced: boolean }> {
+    return fetchJson<{ token: string; expiresAt: string; replaced: boolean }>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ replace }),
+    })
+  },
+
+  async revokeInvitation(slug: string): Promise<void> {
+    await fetchJson<void>(`${WEB_API_PREFIX}/namespaces/${normalizeNamespaceSlug(slug)}/invitations`, {
+      method: 'DELETE', headers: await ensureCsrfHeaders(),
+    })
+  },
+
+  async previewInvitation(token: string): Promise<{ namespaceSlug: string; namespaceDisplayName: string; namespaceAvatarUrl: string | null; outcome: 'CONFIRM_REQUIRED' | 'ALREADY_MEMBER'; expiresAt: string }> {
+    return fetchJson<{ namespaceSlug: string; namespaceDisplayName: string; namespaceAvatarUrl: string | null; outcome: 'CONFIRM_REQUIRED' | 'ALREADY_MEMBER'; expiresAt: string }>(`${WEB_API_PREFIX}/namespace-invitations/preview`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ token }),
+    })
+  },
+
+  async acceptInvitation(token: string): Promise<{ namespaceSlug: string; outcome: 'JOINED' | 'ALREADY_MEMBER' }> {
+    return fetchJson<{ namespaceSlug: string; outcome: 'JOINED' | 'ALREADY_MEMBER' }>(`${WEB_API_PREFIX}/namespace-invitations/accept`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ token }),
+    })
+  },
+
   async create(request: CreateNamespaceRequest): Promise<Namespace> {
     const namespace = await fetchJson<Namespace>('/api/v1/namespaces', {
       method: 'POST',

@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const useSearchMock = vi.fn()
 const selectRecords: Array<{ value?: string }> = []
 
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }), useQuery: () => ({ data: null, isLoading: false, isError: false }) }))
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useSearch: () => useSearchMock(),
@@ -19,6 +21,8 @@ vi.mock('react-i18next', async () => {
     }),
   }
 })
+
+vi.mock('@/features/skill/skill-avatar-editor', () => ({ SkillAvatarEditor: () => null, KEEP_AVATAR: { action: 'KEEP', ready: true } }))
 
 vi.mock('@/features/publish/upload-zone', () => ({
   UploadZone: () => null,
@@ -49,6 +53,7 @@ vi.mock('@/shared/ui/card', () => ({
 }))
 
 vi.mock('@/shared/hooks/use-skill-queries', () => ({
+  useSkillDetail: () => ({ data: null, isLoading: false, isError: false }),
   usePublishSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 

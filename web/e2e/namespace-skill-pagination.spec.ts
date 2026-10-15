@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test'
 import { setEnglishLocale } from './helpers/auth-fixtures'
-import { registerSession } from './helpers/session'
+import { loginWithCredentials } from './helpers/session'
 import { E2eTestDataBuilder } from './helpers/test-data-builder'
 
 test.describe('Namespace Skill List Pagination (Real API)', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     await setEnglishLocale(page)
-    await registerSession(page, testInfo)
+    await loginWithCredentials(page, {
+      username: process.env.E2E_ADMIN_USERNAME ?? process.env.BOOTSTRAP_ADMIN_USERNAME ?? 'admin',
+      password: process.env.E2E_ADMIN_PASSWORD ?? process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'ChangeMe!2026',
+    }, testInfo)
   })
 
   test('shows namespace page with skills and no pagination when under 20 skills', async ({ page }, testInfo) => {
@@ -14,17 +17,28 @@ test.describe('Namespace Skill List Pagination (Real API)', () => {
     await builder.init()
 
     try {
-      const namespace = await builder.ensureWritableNamespace()
+      const namespace = await builder.createNamespace('e2e-pagination-small')
       await builder.publishSkill(namespace.slug)
 
+      const searchResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return url.pathname === '/api/web/skills'
+          && url.searchParams.get('namespace') === namespace.slug
+      })
       await page.goto(`/space/${namespace.slug}`)
+      const searchResponse = await searchResponsePromise
+      expect(searchResponse.ok()).toBeTruthy()
+      const search: { data: { total: number } } = await searchResponse.json()
+      expect(search.data.total).toBeLessThanOrEqual(20)
 
       await expect(page.getByText(`@${namespace.slug}`).first()).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible()
 
-      // Verify pagination controls do not appear when there are fewer than 20 skills
-      await expect(page.getByRole('button', { name: 'Previous' })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
+      // Fresh namespace keeps this fixture independent of previous tests.
+      const skillList = page.getByRole('heading', { name: 'Skills', exact: true }).locator('..')
+      await expect(skillList.getByRole('navigation', { name: 'Pagination', exact: true })).toHaveCount(0)
+      await expect(skillList.getByRole('button', { name: 'Previous', exact: true })).toHaveCount(0)
+      await expect(skillList.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0)
     } finally {
       await builder.cleanup()
     }
@@ -35,7 +49,7 @@ test.describe('Namespace Skill List Pagination (Real API)', () => {
     await builder.init()
 
     try {
-      const namespace = await builder.ensureWritableNamespace()
+      const namespace = await builder.createNamespace('e2e-pagination-many')
 
       // Build a fake skill list to simulate >20 skills without hitting rate limits.
       const fakeSkill = (i: number) => ({
@@ -77,8 +91,10 @@ test.describe('Namespace Skill List Pagination (Real API)', () => {
       await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible()
 
       // Verify pagination controls appear
-      const previousButton = page.getByRole('button', { name: 'Previous' }).first()
-      const nextButton = page.getByRole('button', { name: 'Next' }).first()
+      const skillList = page.getByRole('heading', { name: 'Skills', exact: true }).locator('..')
+      const pagination = skillList.getByRole('navigation', { name: 'Pagination', exact: true })
+      const previousButton = pagination.getByRole('button', { name: 'Previous', exact: true })
+      const nextButton = pagination.getByRole('button', { name: 'Next', exact: true })
 
       await expect(previousButton).toBeVisible()
       await expect(nextButton).toBeVisible()
@@ -87,16 +103,22 @@ test.describe('Namespace Skill List Pagination (Real API)', () => {
       await expect(previousButton).toBeDisabled()
       await expect(nextButton).toBeEnabled()
 
+      await expect(skillList.getByText('Fake Skill 0', { exact: true })).toBeVisible()
       // Navigate to second page
       await nextButton.click()
 
       // Second page: Previous should be enabled
       await expect(previousButton).toBeEnabled()
+      await expect(nextButton).toBeDisabled()
+      await expect(skillList.getByText('Fake Skill 20', { exact: true })).toBeVisible()
+      await expect(skillList.getByText('Fake Skill 0', { exact: true })).toHaveCount(0)
+      await expect(pagination.getByRole('button', { name: 'Go to page 2', exact: true })).toHaveAttribute('aria-current', 'page')
 
       // Navigate back to first page
       await previousButton.click()
       await expect(previousButton).toBeDisabled()
       await expect(nextButton).toBeEnabled()
+      await expect(skillList.getByText('Fake Skill 0', { exact: true })).toBeVisible()
     } finally {
       await builder.cleanup()
     }

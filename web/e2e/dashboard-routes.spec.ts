@@ -43,6 +43,8 @@ test.describe('Dashboard Routes (Real API)', () => {
     await expect(page.getByRole('heading', { name: 'Namespace not found' })).toBeVisible()
 
     await page.goto('/dashboard/namespaces/e2e-missing-namespace/reviews')
-    await expect(page.getByRole('heading', { name: 'Namespace Reviews' })).toBeVisible()
+    const reviewSection = page.getByRole('region', { name: 'Namespace Reviews' })
+    await expect(reviewSection).toBeVisible()
+    await expect(reviewSection.getByText('No review records', { exact: true })).toBeVisible()
   })
 })

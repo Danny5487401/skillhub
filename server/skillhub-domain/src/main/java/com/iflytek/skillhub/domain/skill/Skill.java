@@ -42,6 +42,16 @@ public class Skill {
     @Column(name = "latest_version_id")
     private Long latestVersionId;
 
+    @Column(name = "active_avatar_id")
+    private Long activeAvatarId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_avatar_audience", length = 32)
+    private SkillVisibility activeAvatarAudience;
+
+    @Column(name = "pending_avatar_id")
+    private Long pendingAvatarId;
+
     @Column(name = "download_count", nullable = false)
     private Long downloadCount = 0L;
 
@@ -141,6 +151,12 @@ public class Skill {
         return latestVersionId;
     }
 
+    public Long getActiveAvatarId() { return activeAvatarId; }
+
+    public SkillVisibility getActiveAvatarAudience() { return activeAvatarAudience; }
+
+    public Long getPendingAvatarId() { return pendingAvatarId; }
+
     public Long getDownloadCount() {
         return downloadCount;
     }
@@ -213,6 +229,18 @@ public class Skill {
     public void setLatestVersionId(Long latestVersionId) {
         this.latestVersionId = latestVersionId;
     }
+
+    public void activateAvatar(Long activeAvatarId, SkillVisibility audience) {
+        this.activeAvatarId = activeAvatarId;
+        this.activeAvatarAudience = audience;
+    }
+
+    public void clearAvatar() {
+        this.activeAvatarId = null;
+        this.activeAvatarAudience = null;
+    }
+
+    public void setPendingAvatarId(Long pendingAvatarId) { this.pendingAvatarId = pendingAvatarId; }
 
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;

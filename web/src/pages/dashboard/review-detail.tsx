@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { toast } from '@/shared/lib/toast'
 import { cn } from '@/shared/lib/utils'
 import { resolveReviewActionErrorDescription } from '@/features/review/review-error'
+import { ReviewAvatarChangeSection } from '@/features/review/review-avatar-change-section'
 import { ReviewSkillDetailSection } from '@/features/review/review-skill-detail-section'
 import { ReviewAttemptTimeline } from '@/features/review/review-attempt-timeline'
 import { SecurityAuditSection } from '@/features/security-audit/security-audit-section'
@@ -62,6 +63,7 @@ function ReviewDetailScreen({
     isError: isReviewAttemptsError,
   } = useReviewAttempts(taskId)
   const isSuiteReview = review?.subjectType === 'SUITE_VERSION'
+  const isMetadataReview = review?.subjectType === 'SKILL_METADATA'
   const {
     data: reviewSkillDetail,
     isLoading: isLoadingReviewSkillDetail,
@@ -70,7 +72,7 @@ function ReviewDetailScreen({
   const { data: reviewSuiteDetail, isLoading: isLoadingReviewSuiteDetail } = useSuiteDetail(
     review?.namespace || '',
     review?.subjectSlug || '',
-    review?.version,
+    review?.version ?? undefined,
     isSuiteReview,
   )
   const approveMutation = useApproveReview({
@@ -111,7 +113,7 @@ function ReviewDetailScreen({
   const { data: previewContent, isLoading: isLoadingPreview, error: previewError } = useReviewFile(
     taskId,
     previewNode?.path || null,
-    previewDialogOpen && !!previewNode
+    previewDialogOpen && !!previewNode && !isMetadataReview
   )
 
   const handleFileClick = (node: FileTreeNode) => {
@@ -146,6 +148,7 @@ function ReviewDetailScreen({
   }, [navigate, review, shouldRedirectToNamespaceRoute])
 
   const handleApprove = async () => {
+    if (isApprovalBlocked) return
     approveMutation.mutate({ taskId, comment: comment || undefined })
   }
 
@@ -199,7 +202,11 @@ function ReviewDetailScreen({
   const activeReviewVersion = reviewSkillDetail?.versions?.find(
     (version) => version.version === reviewSkillDetail.activeVersion
   )
-  const isApprovalBlockedByScanning = activeReviewVersion?.status === 'SCANNING'
+  const isApprovalBlockedByScanning = !isMetadataReview && activeReviewVersion?.status === 'SCANNING'
+  const isApprovalBlockedByAvatar = reviewSkillDetail?.avatarChange?.readyForApproval === false
+  const isAvatarOverrideReasonRequired = reviewSkillDetail?.avatarChange?.machineStatus === 'BLOCKED' && !comment.trim()
+  const isApprovalBlocked = isApprovalBlockedByScanning || isApprovalBlockedByAvatar || isAvatarOverrideReasonRequired
+    || (!isSuiteReview && (isLoadingReviewSkillDetail || !!reviewSkillDetailError || !reviewSkillDetail))
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8 animate-fade-up">
@@ -230,7 +237,7 @@ function ReviewDetailScreen({
             <Label className="text-xs text-muted-foreground uppercase tracking-wider">{t('review.version')}</Label>
             <p className="font-semibold">
               <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-sm font-mono">
-                {review.version}
+                {isMetadataReview ? t('review.metadataChange') : review.version}
               </span>
             </p>
           </div>
@@ -291,6 +298,8 @@ function ReviewDetailScreen({
         )}
       </Card>
 
+      {reviewSkillDetail?.avatarChange && <ReviewAvatarChangeSection change={reviewSkillDetail.avatarChange} name={reviewSkillDetail.skill.displayName || review.skillSlug || ''} />}
+
       {review.status === 'PENDING' && (
         <Card className="p-8 space-y-6">
           <h2 className="text-xl font-bold font-heading">{t('review.actions')}</h2>
@@ -309,12 +318,12 @@ function ReviewDetailScreen({
           <div className="flex gap-3">
             <Button
               onClick={() => {
-                if (isApprovalBlockedByScanning) {
+                if (isApprovalBlocked) {
                   return
                 }
                 setApproveDialog(true)
               }}
-              disabled={approveMutation.isPending || rejectMutation.isPending || isApprovalBlockedByScanning}
+              disabled={approveMutation.isPending || rejectMutation.isPending || isApprovalBlocked}
             >
               {t('review.approve')}
             </Button>
@@ -356,13 +365,17 @@ function ReviewDetailScreen({
             <p className="text-sm text-muted-foreground">{t('review.approveDisabledScanning')}</p>
           )}
 
+          {isAvatarOverrideReasonRequired && <p className="text-sm text-muted-foreground">{t('review.avatarOverrideReason')}</p>}
+
+          {isApprovalBlockedByAvatar && <p className="text-sm text-muted-foreground">{t('review.approveDisabledAvatar')}</p>}
+
           {showRejectForm && !comment.trim() && (
             <p className="text-sm text-destructive">{t('review.rejectReasonRequired')}</p>
           )}
         </Card>
       )}
 
-      {!isSuiteReview && (() => {
+      {!isSuiteReview && !isMetadataReview && (() => {
         const skillId = reviewSkillDetail?.skill?.id
         const versionId =
           reviewSkillDetail?.versions?.find((v) => v.version === review.version)?.id ??
@@ -404,14 +417,14 @@ function ReviewDetailScreen({
             <p className="text-sm text-destructive">{t('suite.reviewSnapshotFailed')}</p>
           )}
         </Card>
-      ) : (
+      ) : !isMetadataReview ? (
         <ReviewSkillDetailSection
           detail={reviewSkillDetail}
           isLoading={isLoadingReviewSkillDetail}
           hasError={Boolean(reviewSkillDetailError)}
           reviewId={taskId}
         />
-      )}
+      ) : null}
 
       <ConfirmDialog
         open={approveDialog}
@@ -434,7 +447,7 @@ function ReviewDetailScreen({
       </div>
 
       {/* Sidebar — file browser for the review-bound active version */}
-      <aside className="w-full lg:w-80 flex-shrink-0 space-y-5">
+      {!isMetadataReview && <aside className="w-full lg:w-80 flex-shrink-0 space-y-5">
         {!isSuiteReview && reviewFiles && reviewFiles.length > 0 && (
           <Card className="p-5 space-y-3">
             <button
@@ -472,10 +485,10 @@ function ReviewDetailScreen({
             </div>
           </Card>
         )}
-      </aside>
+      </aside>}
 
       {/* File preview dialog */}
-      {!isSuiteReview ? <FilePreviewDialog
+      {!isSuiteReview && !isMetadataReview ? <FilePreviewDialog
         open={previewDialogOpen}
         onOpenChange={setPreviewDialogOpen}
         node={previewNode}

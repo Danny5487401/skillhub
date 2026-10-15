@@ -1,5 +1,6 @@
 package com.iflytek.skillhub.domain.review;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.audit.AuditDetail;
 import com.iflytek.skillhub.domain.namespace.Namespace;
@@ -55,6 +56,11 @@ public class ReviewService {
     private final GovernanceNotificationService governanceNotificationService;
     private final EntityManager entityManager;
     private final Clock clock;
+    private ReviewAvatarParticipant avatarParticipant;
+
+    @Autowired
+    public void setAvatarParticipant(ReviewAvatarParticipant participant) { this.avatarParticipant = participant; }
+
 
     public ReviewService(ReviewTaskRepository reviewTaskRepository,
                          SkillVersionRepository skillVersionRepository,
@@ -178,6 +184,15 @@ public class ReviewService {
         ReviewTask task = reviewTaskRepository.findById(reviewTaskId)
                 .orElseThrow(() -> new DomainNotFoundException("review_task.not_found", reviewTaskId));
 
+        if (avatarParticipant != null) {
+            avatarParticipant.lock(task);
+            entityManager.refresh(task);
+        }
+
+        if (avatarParticipant == null && (task.getAvatarCandidateId() != null || task.isAvatarRemoval()
+                || task.getSubjectType() == ReviewSubjectType.SKILL_METADATA)) {
+            throw new IllegalStateException("Avatar review participant unavailable");
+        }
         if (task.getStatus() != ReviewTaskStatus.PENDING) {
             throw new DomainBadRequestException("review.not_pending", reviewTaskId);
         }
@@ -191,6 +206,10 @@ public class ReviewService {
             throw new DomainForbiddenException("review.no_permission");
         }
 
+        if (avatarParticipant != null) { avatarParticipant.validateApproval(task, comment); }
+        if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+            return decideMetadata(task, reviewerId, comment, true);
+        }
         SkillVersion skillVersion = skillVersionRepository.findById(task.getSkillVersionId())
                 .orElseThrow(() -> new DomainNotFoundException("skill_version.not_found", task.getSkillVersionId()));
         if (skillVersion.getStatus() == SkillVersionStatus.SCANNING) {
@@ -233,6 +252,7 @@ public class ReviewService {
         skill.setUpdatedBy(reviewerId);
         skillRepository.save(skill);
 
+        if (avatarParticipant != null) { avatarParticipant.decide(task, true, reviewerId, comment); }
         eventPublisher.publishEvent(new SkillPublishedEvent(
                 skill.getId(), skillVersion.getId(), reviewerId));
         eventPublisher.publishEvent(new ReviewApprovedEvent(
@@ -261,6 +281,15 @@ public class ReviewService {
         ReviewTask task = reviewTaskRepository.findById(reviewTaskId)
                 .orElseThrow(() -> new DomainNotFoundException("review_task.not_found", reviewTaskId));
 
+        if (avatarParticipant != null) {
+            avatarParticipant.lock(task);
+            entityManager.refresh(task);
+        }
+
+        if (avatarParticipant == null && (task.getAvatarCandidateId() != null || task.isAvatarRemoval()
+                || task.getSubjectType() == ReviewSubjectType.SKILL_METADATA)) {
+            throw new IllegalStateException("Avatar review participant unavailable");
+        }
         if (task.getStatus() != ReviewTaskStatus.PENDING) {
             throw new DomainBadRequestException("review.not_pending", reviewTaskId);
         }
@@ -274,6 +303,9 @@ public class ReviewService {
             throw new DomainForbiddenException("review.no_permission");
         }
 
+        if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+            return decideMetadata(task, reviewerId, comment, false);
+        }
         int updated = reviewTaskRepository.updateStatusWithVersion(
                 reviewTaskId, ReviewTaskStatus.REJECTED, reviewerId, comment, task.getVersion());
         if (updated == 0) {
@@ -288,6 +320,7 @@ public class ReviewService {
                 .orElseThrow(() -> new DomainNotFoundException("skill.not_found", skillVersion.getSkillId()));
         skillVersion.setStatus(SkillVersionStatus.REJECTED);
         skillVersionRepository.save(skillVersion);
+        if (avatarParticipant != null) { avatarParticipant.decide(task, false, reviewerId, comment); }
         eventPublisher.publishEvent(new ReviewRejectedEvent(
                 task.getId(), skill.getId(), skillVersion.getId(),
                 reviewerId, task.getSubmittedBy(), comment));
@@ -317,6 +350,7 @@ public class ReviewService {
             throw new DomainForbiddenException("review.withdraw.not_submitter");
         }
 
+        if (avatarParticipant != null) { avatarParticipant.lock(task); avatarParticipant.withdraw(task); }
         reviewTaskRepository.delete(task);
 
         SkillVersion skillVersion = skillVersionRepository.findById(skillVersionId)
@@ -327,6 +361,32 @@ public class ReviewService {
                 .orElseThrow(() -> new DomainNotFoundException("namespace.not_found", skill.getNamespaceId()));
         assertNamespaceActive(namespace);
         return skillGovernanceService.withdrawPendingVersion(skill, skillVersion, userId);
+    }
+
+    private ReviewTask decideMetadata(ReviewTask task, String reviewer, String comment, boolean approved) {
+        if (avatarParticipant == null) { throw new IllegalStateException("Avatar review participant unavailable"); }
+        ReviewTaskStatus status = approved ? ReviewTaskStatus.APPROVED : ReviewTaskStatus.REJECTED;
+        if (reviewTaskRepository.updateStatusWithVersion(task.getId(), status, reviewer, comment, task.getVersion()) == 0) {
+            throw new ConcurrentModificationException("Review task was modified concurrently");
+        }
+        syncReviewTaskState(task, status, reviewer, comment);
+        avatarParticipant.decide(task, approved, reviewer, comment);
+        governanceNotificationService.notifyUser(task.getSubmittedBy(), "REVIEW", "REVIEW_TASK", task.getId(),
+                approved ? "Review approved" : "Review rejected", AuditDetail.of("status", status.name()));
+        return task;
+    }
+
+    @Transactional
+    public void withdrawMetadata(ReviewTask task, String userId) {
+        if (!task.getSubmittedBy().equals(userId)) { throw new DomainForbiddenException("review.withdraw.not_submitter"); }
+        if (avatarParticipant != null) { avatarParticipant.lock(task); entityManager.refresh(task); }
+        if (avatarParticipant == null && (task.getAvatarCandidateId() != null || task.isAvatarRemoval()
+                || task.getSubjectType() == ReviewSubjectType.SKILL_METADATA)) {
+            throw new IllegalStateException("Avatar review participant unavailable");
+        }
+        if (task.getStatus() != ReviewTaskStatus.PENDING) { throw new DomainBadRequestException("review.not_pending", task.getId()); }
+        avatarParticipant.withdraw(task);
+        reviewTaskRepository.delete(task);
     }
 
     public boolean canReviewNamespace(ReviewTask task,

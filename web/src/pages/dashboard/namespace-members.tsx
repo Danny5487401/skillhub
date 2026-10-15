@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, Loader2, Trash2, X } from 'lucide-react'
 import { useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { AddNamespaceMemberDialog } from '@/features/namespace/add-namespace-member-dialog'
 import { BatchImportMembersDialog } from '@/features/namespace/batch-import-members-dialog'
+import { InvitationControls } from '@/features/namespace/invitation-controls'
+import { InvitationHistory } from '@/features/namespace/invitation-history'
+import { NamespaceManagementBack, NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/shared/ui/dialog'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
 import { TransferOwnershipDialog } from '@/features/namespace/transfer-ownership-dialog'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
-import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
 import { Button } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
@@ -47,6 +51,16 @@ export function NamespaceMembersPage() {
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null)
   const [savingRoleUserId, setSavingRoleUserId] = useState<string | null>(null)
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
+  const roleSelectRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const roleToFocus = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (savingRoleUserId === null && roleToFocus.current) {
+      roleSelectRefs.current[roleToFocus.current]?.focus()
+      roleToFocus.current = null
+    }
+  }, [savingRoleUserId])
+
 
   const { data: namespace, isLoading: isLoadingNamespace } = useNamespaceDetail(slug)
   const { data: membersPage, isLoading: isLoadingMembers, error: membersError } = useNamespaceMembers(slug, page, MEMBER_PAGE_SIZE)
@@ -64,6 +78,7 @@ export function NamespaceMembersPage() {
   // Membership changes are only allowed in active team namespaces and only for
   // elevated roles surfaced through the current user's namespace membership.
   const canManageMembers = !isReadOnly && (currentUserRole === 'OWNER' || currentUserRole === 'ADMIN')
+  const canViewInvitations = namespace?.type === 'TEAM' && (currentUserRole === 'OWNER' || currentUserRole === 'ADMIN')
   const canEditNamespace = canManageMembers
   const canTransferOwnership = !isReadOnly && currentUserRole === 'OWNER'
 
@@ -96,6 +111,7 @@ export function NamespaceMembersPage() {
         t('members.updateRoleSuccessTitle'),
         t('members.updateRoleSuccessDescription', { userId, role: nextRole }),
       )
+      roleToFocus.current = userId
       setDraftRoles((current) => {
         const next = { ...current }
         delete next[userId]
@@ -151,11 +167,9 @@ export function NamespaceMembersPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      <DashboardPageHeader
-        title={t('members.title')}
-        subtitle={namespace ? `@${namespace.slug}` : undefined}
-      />
+      <NamespaceManagementBack />
       <NamespaceHeader namespace={namespace} canEdit={canEditNamespace} />
+      <NamespaceManagementNav slug={slug} active="members" />
 
       <div className="space-y-6">
         {readOnlyMessage ? (
@@ -164,7 +178,17 @@ export function NamespaceMembersPage() {
           </Card>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
+        {canViewInvitations ? <div className="flex flex-wrap items-center justify-end gap-2">
+          {canViewInvitations ? (
+            <Dialog>
+              <DialogTrigger asChild><Button variant="outline">{t(canManageMembers ? 'namespaceManagement.invite' : 'invitation.historyTitle')}</Button></DialogTrigger>
+              <DialogContent className="w-[min(calc(100vw-2rem),40rem)] gap-5 p-5 sm:p-6">
+                <DialogTitle>{t(canManageMembers ? 'namespaceManagement.invite' : 'invitation.historyTitle')}</DialogTitle>
+                <DialogDescription className="break-words">{namespace.displayName} <span className="text-muted-foreground">@{slug}</span></DialogDescription>
+                {canManageMembers ? <InvitationControls slug={slug} /> : <InvitationHistory key={slug} slug={slug} />}
+              </DialogContent>
+            </Dialog>
+          ) : null}
           {canTransferOwnership ? (
             <TransferOwnershipDialog namespace={namespace} members={members}>
               <Button variant="outline">{t('members.transferOwnership')}</Button>
@@ -179,10 +203,8 @@ export function NamespaceMembersPage() {
                 <Button>{t('members.addMember')}</Button>
               </AddNamespaceMemberDialog>
             </>
-          ) : (
-            <Button disabled>{t('members.addMember')}</Button>
-          )}
-        </div>
+          ) : null}
+        </div> : null}
 
         {membersError ? (
           <Card className="p-6 text-center text-red-600">
@@ -204,7 +226,7 @@ export function NamespaceMembersPage() {
                     <th className="text-left p-4 font-medium font-heading text-sm text-muted-foreground">{t('members.colEmail')}</th>
                     <th className="text-left p-4 font-medium font-heading text-sm text-muted-foreground">{t('members.colRole')}</th>
                     <th className="text-left p-4 font-medium font-heading text-sm text-muted-foreground">{t('members.colJoinedAt')}</th>
-                    <th className="text-right p-4 font-medium font-heading text-sm text-muted-foreground">{t('members.colActions')}</th>
+                    {canManageMembers ? <th className="text-right p-4 font-medium font-heading text-sm text-muted-foreground">{t('members.colActions')}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -228,6 +250,7 @@ export function NamespaceMembersPage() {
                             <div className="flex items-center gap-2">
                               <Select
                                 value={roleValue}
+                                disabled={isSavingRole || isRemoving}
                                 onValueChange={(value) => {
                                   setDraftRoles((current) => ({
                                     ...current,
@@ -235,7 +258,7 @@ export function NamespaceMembersPage() {
                                   }))
                                 }}
                               >
-                                <SelectTrigger className="w-36">
+                                <SelectTrigger ref={(element) => { roleSelectRefs.current[member.userId] = element }} className="w-36" aria-label={t('members.colRole')}>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -243,18 +266,9 @@ export function NamespaceMembersPage() {
                                   <SelectItem value="ADMIN">{t('members.roleAdmin')}</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={roleValue === member.role || isSavingRole}
-                                onClick={() => handleRoleSave(member.userId, member.role)}
-                              >
-                                {isSavingRole ? t('members.savingRole') : t('members.saveRole')}
-                              </Button>
                             </div>
                           ) : (
-                            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-accent/10 text-accent border border-accent/20">
+                            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-secondary text-foreground border border-border/60">
                               {member.role === 'OWNER'
                                 ? t('members.roleOwner')
                                 : member.role === 'ADMIN'
@@ -263,20 +277,43 @@ export function NamespaceMembersPage() {
                             </span>
                           )}
                         </td>
-                        <td className="p-4 text-sm text-muted-foreground">
+                        <td className="p-4 text-sm whitespace-nowrap text-muted-foreground">
                           {formatLocalDateTime(member.createdAt, i18n.language, { dateStyle: 'medium' })}
                         </td>
-                        <td className="p-4 text-right">
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            disabled={!canManageMembers || isOwner || isRemoving}
-                            onClick={() => setPendingRemoval({ userId: member.userId })}
-                          >
-                            {t('members.remove')}
-                          </Button>
-                        </td>
+                        {canManageMembers ? (
+                          <td className="p-4 text-right">
+                            {!isOwner ? (
+                              <div className="flex items-center justify-end gap-1">
+                                {roleValue !== member.role ? (
+                                  <>
+                                    <Button type="button" variant="ghost" size="icon"
+                                      aria-label={t('members.saveRole')} title={t('members.saveRole')}
+                                      disabled={isSavingRole || isRemoving}
+                                      onClick={() => handleRoleSave(member.userId, member.role)}>
+                                      {isSavingRole ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                                    </Button>
+                                    <Button type="button" variant="ghost" size="icon"
+                                      aria-label={t('members.cancelRole')} title={t('members.cancelRole')}
+                                      disabled={isSavingRole || isRemoving}
+                                      onClick={() => {
+                                        setDraftRoles((current) => { const next = { ...current }; delete next[member.userId]; return next })
+                                        roleSelectRefs.current[member.userId]?.focus()
+                                      }}>
+                                      <X className="h-4 w-4" aria-hidden="true" />
+                                    </Button>
+                                  </>
+                                ) : null}
+                                <Button type="button" variant="ghost" size="icon"
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  aria-label={t('members.remove')} title={t('members.remove')}
+                                  disabled={isRemoving || isSavingRole}
+                                  onClick={() => setPendingRemoval({ userId: member.userId })}>
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                              </div>
+                            ) : null}
+                          </td>
+                        ) : null}
                       </tr>
                     )
                   })}

@@ -11,6 +11,9 @@ import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
 import com.iflytek.skillhub.dto.PublishResponse;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
+import com.iflytek.skillhub.service.SkillPublishAppService;
+import com.iflytek.skillhub.service.AuditRequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 import com.iflytek.skillhub.ratelimit.RateLimit;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,11 +32,11 @@ import java.util.List;
 @RequestMapping({"/api/v1/skills", "/api/web/skills"})
 public class SkillPublishController extends BaseApiController {
 
-    private final SkillPublishService skillPublishService;
+    private final SkillPublishAppService skillPublishService;
     private final SkillPackageArchiveExtractor skillPackageArchiveExtractor;
     private final SkillHubMetrics skillHubMetrics;
 
-    public SkillPublishController(SkillPublishService skillPublishService,
+    public SkillPublishController(SkillPublishAppService skillPublishService,
                                   SkillPackageArchiveExtractor skillPackageArchiveExtractor,
                                   ApiResponseFactory responseFactory,
                                   SkillHubMetrics skillHubMetrics) {
@@ -54,7 +57,10 @@ public class SkillPublishController extends BaseApiController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("visibility") String visibility,
             @RequestParam(value = "confirmWarnings", defaultValue = "false") boolean confirmWarnings,
-            @AuthenticationPrincipal PlatformPrincipal principal) throws IOException {
+            @RequestParam(value = "avatarAction", defaultValue = "KEEP") SkillPublishAppService.AvatarAction avatarAction,
+            @RequestParam(value = "avatarUploadId", required = false) String avatarUploadId,
+            @RequestParam(value = "expectedSlug", required = false) String expectedSlug,
+            @AuthenticationPrincipal PlatformPrincipal principal, HttpServletRequest request) throws IOException {
 
         SkillVisibility skillVisibility = SkillVisibility.valueOf(visibility.toUpperCase());
 
@@ -75,13 +81,13 @@ public class SkillPublishController extends BaseApiController {
                     String.join("\n", extractionWarnings));
         }
 
-        SkillPublishService.PublishResult publishResult = skillPublishService.publishFromEntries(
+        SkillPublishService.PublishResult publishResult = skillPublishService.publish(
                 namespace,
                 entries,
                 principal.userId(),
                 skillVisibility,
                 principal.platformRoles(),
-                confirmWarnings
+                confirmWarnings, avatarAction, avatarUploadId, expectedSlug, AuditRequestContext.from(request)
         );
 
         PublishResponse response = new PublishResponse(
