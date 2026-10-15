@@ -12,6 +12,19 @@ class SkillMetadataParserTest {
     private final SkillMetadataParser parser = new SkillMetadataParser();
 
     @Test
+    void platformOverrideIsVersionedWithoutChangingFrontmatter() throws Exception {
+        SkillMetadata source = parser.parse("---\nname: my-skill\ndescription: Test\nmetadata:\n  display-name: 包内标题\n---\nBody");
+        SkillMetadata result = source.withDisplayNameOverride("  网页标题  ");
+        assertEquals("网页标题", result.displayName());
+        assertEquals(source.frontmatter(), result.frontmatter());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals("网页标题", mapper.readValue(mapper.writeValueAsString(result), SkillMetadata.class).displayName());
+        assertEquals("包内标题", source.withDisplayNameOverride("  ").displayName());
+        assertThrows(DomainBadRequestException.class, () -> source.withDisplayNameOverride("中".repeat(201)));
+        assertEquals("my-skill", mapper.readValue("{\"name\":\"my-skill\",\"frontmatter\":{}}", SkillMetadata.class).displayName());
+    }
+
+    @Test
     void parsesDisplayNameWithoutChangingPackageName() {
         SkillMetadata metadata = parser.parse("""
                 ---

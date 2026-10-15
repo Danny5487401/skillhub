@@ -88,8 +88,8 @@ vi.mock('@/features/admin/use-admin-skills', () => ({
 vi.mock('@/shared/lib/skill-lifecycle', () => ({
   getHeadlineVersion: () => ({ id: 11, version: '1.0.0', status: 'PUBLISHED' }),
   getPublishedVersion: () => ({ id: 11, version: '1.0.0', status: 'PUBLISHED' }),
-  getOwnerPreviewVersion: () => null,
-  hasPendingOwnerPreview: () => false,
+  getOwnerPreviewVersion: (skill: { ownerPreviewVersion?: unknown }) => skill.ownerPreviewVersion ?? null,
+  hasPendingOwnerPreview: (skill: { ownerPreviewVersion?: { status: string } }) => skill.ownerPreviewVersion?.status === 'PENDING_REVIEW',
 }))
 
 vi.mock('@/shared/lib/number-format', () => ({
@@ -292,6 +292,21 @@ describe('MySkillsPage', () => {
     renderToStaticMarkup(createElement(MySkillsPage))
 
     expect(buttonRecords.some((button) => button.label === 'mySkills.restoreHidden')).toBe(false)
+  })
+
+  it('shows pending metadata with exactly one status instead of the published title', () => {
+    useMySkillsMock.mockReturnValue({ data: { items: [{
+      id: 1, namespace: 'team-ai', slug: 'stable-slug', displayName: '旧名称', summary: '旧摘要',
+      status: 'ACTIVE', downloadCount: 0,
+      ownerPreviewVersion: { id: 12, version: '2.0.0', status: 'PENDING_REVIEW', displayName: '待审新名称', summary: '待审新摘要' },
+    }], total: 1, page: 0, size: 10 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(html).toContain('待审新名称')
+    expect(html).toContain('待审新摘要')
+    expect(html).not.toContain('旧名称')
+    expect(html.match(/class="status-pill[^"]*"/g)).toHaveLength(1)
+    expect(html).toContain('mySkills.statusUpdatePendingReview')
+    expect(html).not.toContain('mySkills.statusPublished')
   })
 
   it('exports a named component function', () => {

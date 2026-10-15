@@ -75,7 +75,7 @@ class ReviewSkillDetailAppServiceTest {
         Skill skill = createSkill(101L, 20L, "skill-a");
         SkillVersion pending = createVersion(101L, 101L, "1.2.0", SkillVersionStatus.PENDING_REVIEW);
         pending.setParsedMetadataJson("""
-                {"complianceSnapshot":{"schemaVersion":"1.0","items":[{"standard":"mitre-attack","version":"v19.1","controlId":"T1059","evidence":[]}],"digest":"sha256:demo"}}
+                {"name":"skill-a","description":"待审摘要","displayNameOverride":"网页新标题","complianceSnapshot":{"schemaVersion":"1.0","items":[{"standard":"mitre-attack","version":"v19.1","controlId":"T1059","evidence":[]}],"digest":"sha256:demo"}}
                 """);
         SkillVersion published = createVersion(100L, 101L, "1.1.0", SkillVersionStatus.PUBLISHED);
         SkillFile readme = createFile(1L, 101L, "README.md");
@@ -100,6 +100,9 @@ class ReviewSkillDetailAppServiceTest {
         ReviewSkillDetailResponse response = service.getReviewSkillDetail(42L, "admin", Map.of());
 
         assertThat(response.activeVersion()).isEqualTo("1.2.0");
+        assertThat(response.skill().displayName()).isEqualTo("网页新标题");
+        assertThat(response.skill().summary()).isEqualTo("待审摘要");
+        assertThat(response.skill().ownerPreviewVersion().displayName()).isEqualTo("网页新标题");
         assertThat(response.downloadUrl()).isEqualTo("/api/v1/reviews/42/download");
         assertThat(response.documentationPath()).isEqualTo("README.md");
         assertThat(response.documentationContent()).isEqualTo("# demo");

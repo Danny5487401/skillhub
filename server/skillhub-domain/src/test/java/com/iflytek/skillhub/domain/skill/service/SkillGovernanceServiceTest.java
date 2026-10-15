@@ -255,7 +255,7 @@ class SkillGovernanceServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"missing", "custom", "number", "tooLong"})
+    @ValueSource(strings = {"missing", "custom", "number", "tooLong", "override"})
     void yankVersion_restoresLatestPublishedMetadata(String displayNameCase) throws Exception {
         SkillVersion yanked = new SkillVersion(2L, "2.0.0", "owner");
         setField(yanked, "id", 22L);
@@ -269,6 +269,7 @@ class SkillGovernanceServiceTest {
         fallback.setParsedMetadataJson(new ObjectMapper().writeValueAsString(Map.of(
                 "name", "example-skill",
                 "description", "Published summary from v1",
+                "displayNameOverride", displayNameCase.equals("override") ? "网页旧版标题" : "",
                 "frontmatter", switch (displayNameCase) {
                     case "custom" -> Map.of("metadata", Map.of("display-name", "示例技能一"));
                     case "number" -> Map.of("metadata", Map.of("display-name", 123));
@@ -291,7 +292,7 @@ class SkillGovernanceServiceTest {
         service.yankVersion(22L, "admin", "127.0.0.1", "JUnit", "broken");
 
         assertThat(skill.getLatestVersionId()).isEqualTo(11L);
-        assertThat(skill.getDisplayName()).isEqualTo(displayNameCase.equals("custom") ? "示例技能一" : "example-skill");
+        assertThat(skill.getDisplayName()).isEqualTo(displayNameCase.equals("override") ? "网页旧版标题" : displayNameCase.equals("custom") ? "示例技能一" : "example-skill");
         assertThat(skill.getSummary()).isEqualTo("Published summary from v1");
         verify(skillRepository).save(skill);
     }

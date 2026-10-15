@@ -106,7 +106,7 @@ class PromotionServiceTest {
     private String selectedVersionMetadata(boolean hasDisplayName) {
         return """
                 {"name":"old-package-name","description":"Old version summary",
-                 "frontmatter":{"metadata":{"display-name":"%s"}}}
+                 "frontmatter":{"metadata":{"display-name":"包内标题"}},"displayNameOverride":"%s"}
                 """.formatted(hasDisplayName ? " 旧版标题 " : " ");
     }
 
@@ -699,7 +699,7 @@ class PromotionServiceTest {
             ArgumentCaptor<Skill> skillCaptor = ArgumentCaptor.forClass(Skill.class);
             verify(skillRepository, times(2)).save(skillCaptor.capture());
             Skill newSkill = skillCaptor.getAllValues().get(0);
-            assertEquals(hasDisplayName ? "旧版标题" : "old-package-name", newSkill.getDisplayName());
+            assertEquals(hasDisplayName ? "旧版标题" : "包内标题", newSkill.getDisplayName());
             assertEquals("Old version summary", newSkill.getSummary());
             assertEquals(NEW_VERSION_ID, newSkill.getLatestVersionId());
         }
@@ -842,7 +842,7 @@ class PromotionServiceTest {
             assertEquals(NEW_SKILL_ID, result.getTargetSkillId());
             assertEquals(NEW_VERSION_ID, result.getTargetVersionId());
             assertEquals(NEW_VERSION_ID, target.getLatestVersionId());
-            assertEquals(hasDisplayName ? "旧版标题" : "old-package-name", target.getDisplayName());
+            assertEquals(hasDisplayName ? "旧版标题" : "包内标题", target.getDisplayName());
             assertEquals("Old version summary", target.getSummary());
             verify(promotionRequestRepository).updateStatusWithVersion(
                     PROMOTION_ID, ReviewTaskStatus.APPROVED, REVIEWER_ID, "approved",

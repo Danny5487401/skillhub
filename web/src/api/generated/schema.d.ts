@@ -1602,6 +1602,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/skills/package-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/skills/package-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewPackage_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/web/skills/avatar-uploads": {
         parameters: {
             query?: never;
@@ -6761,6 +6793,21 @@ export interface components {
             /** Format: int64 */
             totalSize?: number;
         };
+        ApiResponseSkillPackagePreviewResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["SkillPackagePreviewResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        SkillPackagePreviewResponse: {
+            name?: string;
+            displayName?: string;
+            description?: string;
+            version?: string;
+        };
         ApiResponseSkillAvatarUploadResponse: {
             /** Format: int32 */
             code?: number;
@@ -7647,6 +7694,8 @@ export interface components {
             id?: number;
             version?: string;
             status?: string;
+            displayName?: string;
+            summary?: string;
         };
         SkillSummaryResponse: {
             /** Format: int64 */
@@ -12585,6 +12634,7 @@ export interface operations {
                 avatarAction?: "KEEP" | "REPLACE" | "REMOVE";
                 avatarUploadId?: string;
                 expectedSlug?: string;
+                displayName?: string;
             };
             header?: never;
             path: {
@@ -12620,6 +12670,7 @@ export interface operations {
                 avatarAction?: "KEEP" | "REPLACE" | "REMOVE";
                 avatarUploadId?: string;
                 expectedSlug?: string;
+                displayName?: string;
             };
             header?: never;
             path: {
@@ -12643,6 +12694,60 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePublishResponse"];
+                };
+            };
+        };
+    };
+    previewPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSkillPackagePreviewResponse"];
+                };
+            };
+        };
+    };
+    previewPackage_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSkillPackagePreviewResponse"];
                 };
             };
         };

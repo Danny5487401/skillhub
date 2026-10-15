@@ -317,6 +317,15 @@ public class SkillPublishService {
         return publishFromEntriesInternal(namespaceSlug, entries, publisherId, visibility, platformRoles, confirmWarnings, false, false);
     }
 
+    @Transactional
+    public PublishResult publishFromEntries(
+            String namespaceSlug, List<PackageEntry> entries, String publisherId,
+            SkillVisibility visibility, Set<String> platformRoles, boolean confirmWarnings,
+            String displayName) {
+        return publishFromEntriesInternal(namespaceSlug, entries, publisherId, visibility, platformRoles,
+                confirmWarnings, false, false, null, displayName);
+    }
+
     /**
      * Publishes one package that was explicitly bound by a confirmed Suite Bundle plan.
      *
@@ -387,8 +396,22 @@ public class SkillPublishService {
                 Set.of(),
                 confirmWarnings,  // confirmWarnings: honour caller's choice for rerelease
                 false,  // forceAutoPublish=false: respect visibility rules
-                true
+                true,
+                null,
+                displayNameOverrideForRerelease(publishedVersion)
         );
+    }
+
+    private String displayNameOverrideForRerelease(SkillVersion source) {
+        if (source.getParsedMetadataJson() == null) {
+            return null;
+        }
+        try {
+            String override = objectMapper.readTree(source.getParsedMetadataJson()).path("displayNameOverride").textValue();
+            return override != null && override.strip().length() <= 200 ? override : null;
+        } catch (java.io.IOException ignored) {
+            return null;
+        }
     }
 
     private PublishResult publishFromEntriesInternal(
@@ -415,6 +438,15 @@ public class SkillPublishService {
             boolean forceAutoPublish,
             boolean bypassMembershipCheck,
             BundlePublicationTarget bundleTarget) {
+        return publishFromEntriesInternal(namespaceSlug, entries, publisherId, visibility, platformRoles,
+                confirmWarnings, forceAutoPublish, bypassMembershipCheck, bundleTarget, null);
+    }
+
+    private PublishResult publishFromEntriesInternal(
+            String namespaceSlug, List<PackageEntry> entries, String publisherId,
+            SkillVisibility visibility, Set<String> platformRoles, boolean confirmWarnings,
+            boolean forceAutoPublish, boolean bypassMembershipCheck,
+            BundlePublicationTarget bundleTarget, String displayName) {
 
         // 1. Find namespace by slug
         Namespace namespace = namespaceRepository.findBySlug(namespaceSlug)
@@ -444,10 +476,10 @@ public class SkillPublishService {
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.publish.skillMd.notFound"));
 
         String skillMdContent = new String(skillMd.content());
-        SkillMetadata metadata = skillMetadataParser.parse(skillMdContent);
+        SkillMetadata metadata = skillMetadataParser.parse(skillMdContent).withDisplayNameOverride(displayName);
         if (metadata.version() == null || metadata.version().isBlank()) {
             String autoVersion = AUTO_VERSION_FORMATTER.format(currentTime());
-            metadata = new SkillMetadata(metadata.name(), metadata.description(), autoVersion, metadata.body(), metadata.frontmatter());
+            metadata = new SkillMetadata(metadata.name(), metadata.description(), autoVersion, metadata.body(), metadata.frontmatter(), metadata.displayNameOverride());
         }
         String skillSlug = SlugValidator.slugify(metadata.name());
         if (bundleTarget != null
@@ -980,6 +1012,7 @@ public class SkillPublishService {
         parsedMetadata.put("version", metadata.version());
         parsedMetadata.put("body", metadata.body());
         parsedMetadata.put("frontmatter", metadata.frontmatter());
+        parsedMetadata.put("displayNameOverride", metadata.displayNameOverride());
         parsedMetadata.put(ComplianceMetadataService.SNAPSHOT_FIELD_NAME, complianceSnapshot);
         return parsedMetadata;
     }

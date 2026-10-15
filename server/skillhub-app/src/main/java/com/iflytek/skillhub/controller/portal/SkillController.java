@@ -496,7 +496,8 @@ public class SkillController extends BaseApiController {
         if (projection == null) {
             return null;
         }
-        return new SkillLifecycleVersionResponse(projection.id(), projection.version(), projection.status());
+        return new SkillLifecycleVersionResponse(projection.id(), projection.version(), projection.status(),
+                projection.displayName(), projection.summary());
     }
 
     private SkillVersionCompareResponse toCompareResponse(SkillQueryService.SkillVersionCompareDTO compare) {

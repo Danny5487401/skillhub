@@ -237,7 +237,8 @@ class ReviewServiceTest {
             skill.setUpdatedBy("previous-reviewer");
             assertDoesNotThrow(() -> sv.setParsedMetadataJson(objectMapper.writeValueAsString(
                     new SkillMetadata("Approved Name", "Approved Summary", "1.0.0", "Body",
-                            hasDisplayName ? Map.of("metadata", Map.of("display-name", "已审核的中文标题")) : Map.of())
+                            hasDisplayName ? Map.of("metadata", Map.of("display-name", "包内标题")) : Map.of(),
+                            hasDisplayName ? "已审核的中文标题" : null)
             )));
 
             when(reviewTaskRepository.findById(REVIEW_TASK_ID)).thenReturn(Optional.of(task));

@@ -307,6 +307,8 @@ export interface AdminLabelInput {
 }
 
 export interface SkillLifecycleVersion {
+  displayName?: string
+  summary?: string
   id: number
   version: string
   status: string

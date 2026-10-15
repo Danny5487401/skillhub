@@ -518,6 +518,8 @@
     "securityDesc": "修改密码和账户安全选项"
   },
   "mySkills": {
+    "versionDifference": "本次 v{{version}} · 当前公开 v{{published}}",
+    "statusUpdatePendingReview": "更新待审核",
     "title": "我的技能",
     "subtitle": "管理你发布的技能",
     "searchPlaceholder": "搜索技能名称、Slug 或描述",
@@ -1042,6 +1044,9 @@
     "emptyDescription": "该命名空间下还没有发布任何技能"
   },
   "skillDetail": {
+    "copyCoordinate": "复制完整技能标识",
+    "unpublishedPreviewTitle": "未公开版本预览",
+    "unpublishedPreviewDescription": "你正在查看尚未发布的版本。名称、摘要和内容仅在现有预览权限范围内可见，公众仍看到已发布版本。",
     "back": "返回上一页",
     "notFound": "技能不存在",
     "notFoundDesc": "该技能可能已被删除或从未存在",
@@ -1825,6 +1830,11 @@
     "copyright": "© 2026 SkillHub. Apache-2.0."
   },
   "publish": {
+    "displayName": "显示名称",
+    "displayNamePlaceholder": "例如：会议纪要助手",
+    "displayNameHelp": "支持中文，最多 200 个字符。默认读取包内名称；修改后随本次版本审核，不改变技能标识或包内文件。留空则使用包内名称。",
+    "readingPackage": "正在读取技能包信息…",
+    "packagePreviewFailed": "无法读取技能包，请检查 SKILL.md 后重新选择，或重试。",
     "title": "发布技能",
     "subtitle": "上传技能包到 SkillHub",
     "reviewNotice": {
