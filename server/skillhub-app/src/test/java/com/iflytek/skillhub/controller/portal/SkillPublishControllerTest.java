@@ -262,6 +262,33 @@ class SkillPublishControllerTest {
     }
 
     @Test
+    void packagePreviewNormalizesNestedSkillAlongsideRootReadmeLikePublish() throws Exception {
+        byte[] archive;
+        try (var output = new ByteArrayOutputStream(); var zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry("README.md"));
+            zip.write("Repository overview".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("foo/SKILL.md"));
+            zip.write("---\nname: foo\ndescription: Nested skill\nversion: 1.0.0\nmetadata:\n  display-name: 嵌套技能\n---\nBody".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.finish();
+            archive = output.toByteArray();
+        }
+        var principal = new PlatformPrincipal("preview_nested", "publisher", "publisher@example.com", "", "local", Set.of());
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        for (String base : List.of("/api/v1", "/api/web")) {
+            mockMvc.perform(multipart(base + "/skills/package-preview")
+                    .file(new MockMultipartFile("file", "skill.zip", "application/zip", archive))
+                    .with(authentication(auth)).with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.name").value("foo"))
+                    .andExpect(jsonPath("$.data.displayName").value("嵌套技能"))
+                    .andExpect(jsonPath("$.data.description").value("Nested skill"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(skillPublishService);
+    }
+
+    @Test
     void packagePreviewRejectsAnonymousWithoutPublishing() throws Exception {
         mockMvc.perform(multipart("/api/v1/skills/package-preview")
                 .file(new MockMultipartFile("file", "skill.zip", "application/zip", buildZipBytes()))

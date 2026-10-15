@@ -11,6 +11,7 @@ import { FileTree } from '@/features/skill/file-tree'
 import { FilePreviewDialog } from '@/features/skill/file-preview-dialog'
 import type { FileTreeNode } from '@/features/skill/file-tree-builder'
 import type { SkillFile } from '@/api/types'
+import { getVersionPresentation } from '@/shared/lib/version-presentation'
 import { CopyButton } from '@/shared/components/copy-button'
 import { InstallCommand } from '@/features/skill/install-command'
 import { ShareButton } from '@/features/skill/share-button'
@@ -200,10 +201,13 @@ export function SkillDetailPage() {
     : headlineVersion?.version ?? versions?.[0]?.version
   const selectedVersionEntry = versions?.find((version) => version.version === selectedVersion) ?? versions?.[0]
   const selectedMetadata = selectedVersion === ownerPreviewVersion?.version ? ownerPreviewVersion
-    : selectedVersion === publishedVersion?.version ? publishedVersion : headlineVersion
-  const selectedDisplayName = selectedMetadata?.displayName ?? skill?.displayName
-  const selectedSummary = selectedMetadata?.summary ?? skill?.summary
-  const showingUnpublishedPreview = selectedMetadata != null && selectedMetadata.status !== 'PUBLISHED'
+    : selectedVersion === publishedVersion?.version ? publishedVersion
+      : selectedVersion === headlineVersion?.version ? headlineVersion : null
+  const { data: selectedVersionDetail } = useSkillVersionDetail(qns, qslug, selectedVersion, skillReady && !selectedMetadata)
+  const historicalMetadata = getVersionPresentation(selectedVersionDetail?.parsedMetadataJson)
+  const selectedDisplayName = selectedMetadata?.displayName ?? historicalMetadata.displayName ?? skill?.displayName
+  const selectedSummary = selectedMetadata?.summary ?? historicalMetadata.summary ?? skill?.summary
+  const showingUnpublishedPreview = selectedVersionEntry != null && selectedVersionEntry.status !== 'PUBLISHED'
 
   const { data: files } = useSkillFiles(qns, qslug, selectedVersion, skillReady)
   const documentationPath = resolveDocumentationFilePath(files)
@@ -1197,7 +1201,7 @@ export function SkillDetailPage() {
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">{t('skillDetail.version')}</div>
             <div className="max-w-[11rem] break-all text-right font-mono font-semibold leading-snug text-foreground">
-              {headlineVersion ? `v${headlineVersion.version}` : '—'}
+              {selectedVersion ? `v${selectedVersion}` : '—'}
             </div>
           </div>
 

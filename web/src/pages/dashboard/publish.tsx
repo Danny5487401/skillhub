@@ -330,7 +330,7 @@ export function PublishPage() {
             <p>{t('publish.packagePreviewFailed')}</p>
             <Button type="button" size="sm" variant="outline" onClick={() => packagePreview.refetch()}>{t('common.retry')}</Button>
           </div>}
-          {selectedFile && packagePreview.data && <p className="break-all font-mono text-xs text-muted-foreground">@{namespaceSlug || '…'}/{packagePreview.data.name}</p>}
+          {selectedFile && packagePreview.data && <p className="break-all text-xs text-muted-foreground">{t('publish.packageName')}: <code>{packagePreview.data.name}</code></p>}
         </div>
 
         <SkillAvatarEditor key={`${namespaceSlug}/${updateSlug}`} name={search.updateName ?? updateSlug} currentUrl={avatarTarget.data?.avatarUrl} canRemove={!!updateSlug} disabled={isBusy || avatarUnavailable} onChange={setAvatarEdit} />

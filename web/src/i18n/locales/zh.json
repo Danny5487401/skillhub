@@ -1830,6 +1830,7 @@
     "copyright": "© 2026 SkillHub. Apache-2.0."
   },
   "publish": {
+    "packageName": "包内名称",
     "displayName": "显示名称",
     "displayNamePlaceholder": "例如：会议纪要助手",
     "displayNameHelp": "支持中文，最多 200 个字符。默认读取包内名称；修改后随本次版本审核，不改变技能标识或包内文件。留空则使用包内名称。",

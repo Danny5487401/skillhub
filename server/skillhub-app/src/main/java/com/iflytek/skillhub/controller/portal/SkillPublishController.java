@@ -49,7 +49,8 @@ public class SkillPublishController extends BaseApiController {
             throw new DomainForbiddenException("error.auth.required");
         }
         try {
-            return ok("response.success.read", packagePreview.preview(skillPackageArchiveExtractor.extract(file)));
+            return ok("response.success.read", packagePreview.preview(
+                    skillPackageArchiveExtractor.extractWithWarnings(file).entries()));
         } catch (IllegalArgumentException exception) {
             throw new DomainBadRequestException("error.skill.publish.package.invalid", exception.getMessage());
         }
