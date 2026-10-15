@@ -23,6 +23,57 @@ assert_rejected() {
   fi
 }
 
+assert_web_upstream() {
+  local manifest=$1
+  local expected=$2
+  [[ $(grep -Fc 'name: SKILLHUB_API_UPSTREAM' "$manifest") -eq 1 ]] \
+    || fail "Web must render exactly one built-in API upstream"
+  grep -A1 -F 'name: SKILLHUB_API_UPSTREAM' "$manifest" \
+    | grep -Fq "value: \"$expected\"" \
+    || fail "Web runtime DNS upstream must be $expected"
+}
+
+# Nginx runtime DNS resolution does not expand the pod's search suffixes.
+render web-dns "$CHART_DIR" --namespace default \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns.yaml"
+assert_web_upstream "$TMP_DIR/web-dns.yaml" \
+  'http://web-dns-skillhub-server.default.svc.cluster.local:8080'
+
+render skillhub "$CHART_DIR" --namespace team-skills \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns-namespace.yaml"
+assert_web_upstream "$TMP_DIR/web-dns-namespace.yaml" \
+  'http://skillhub-server.team-skills.svc.cluster.local:8080'
+
+render web-dns "$CHART_DIR" --namespace team-skills \
+  --set nameOverride=registry \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns-name.yaml"
+assert_web_upstream "$TMP_DIR/web-dns-name.yaml" \
+  'http://web-dns-registry-server.team-skills.svc.cluster.local:8080'
+
+render web-dns "$CHART_DIR" --namespace team-skills \
+  --set fullnameOverride=custom-hub --set server.service.port=9080 \
+  --set web.clusterDomain=k8s.example.internal \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns-custom.yaml"
+assert_web_upstream "$TMP_DIR/web-dns-custom.yaml" \
+  'http://custom-hub-server.team-skills.svc.k8s.example.internal:9080'
+
+# --reuse-values can supply old chart defaults without this newly added key.
+# Model that effective values shape here; a real cross-version upgrade is a
+# separate integration check, not a second render of this chart's new defaults.
+LEGACY_VALUES_CHART="$TMP_DIR/legacy-values-chart"
+cp -R "$CHART_DIR" "$LEGACY_VALUES_CHART"
+sed '/^  clusterDomain:/d' "$CHART_DIR/values.yaml" >"$LEGACY_VALUES_CHART/values.yaml"
+render web-dns "$LEGACY_VALUES_CHART" --namespace team-skills \
+  --set fullnameOverride=custom-hub --set server.service.port=9080 \
+  --show-only templates/web-deployment.yaml >"$TMP_DIR/web-dns-legacy-values.yaml"
+assert_web_upstream "$TMP_DIR/web-dns-legacy-values.yaml" \
+  'http://custom-hub-server.team-skills.svc.cluster.local:9080'
+
+assert_rejected web-dns-empty-domain --set-string web.clusterDomain=
+assert_rejected web-dns-url-domain --set-string web.clusterDomain=https://cluster.local
+assert_rejected web-dns-empty-label --set-string web.clusterDomain=cluster..local
+assert_rejected web-dns-invalid-label --set-string web.clusterDomain=-cluster.local
+
 render verify "$CHART_DIR" >"$TMP_DIR/default.yaml"
 grep -Fq 'name: POSTGRESQL_MAX_CONNECTIONS' "$TMP_DIR/default.yaml"
 grep -Fq 'value: "verify-postgresql"' "$TMP_DIR/default.yaml"

@@ -391,6 +391,9 @@ server:
 # ============================================================================
 web:
   replicaCount: 1
+  # Nginx resolves the API upstream at runtime without pod DNS search suffixes.
+  # Set the cluster DNS domain here instead of duplicating SKILLHUB_API_UPSTREAM in extraEnv.
+  clusterDomain: cluster.local
   image:
     registry: ""
     tag: ""

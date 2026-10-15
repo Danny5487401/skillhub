@@ -32,7 +32,7 @@ spec:
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           env:
             - name: SKILLHUB_API_UPSTREAM
-              value: http://{{ include "skillhub.fullname" . }}-server:{{ .Values.server.service.port }}
+              value: {{ printf "http://%s-server.%s.svc.%s:%v" (include "skillhub.fullname" .) .Release.Namespace (.Values.web.clusterDomain | default "cluster.local") .Values.server.service.port | quote }}
             - name: SKILLHUB_PUBLIC_BASE_URL
               valueFrom:
                 configMapKeyRef:
