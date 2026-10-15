@@ -201,6 +201,10 @@ public class SkillAvatarAppService implements ReviewAvatarParticipant {
     private SkillAvatarStatusResponse createStoredCandidate(Skill skill, String namespaceSlug, String submittedBy,
             String auditActor, String action, String key, String sha256, SkillVisibility audience,
             AuditRequestContext context, ReviewTask review) {
+        if (reviews != null && !"SKILL_AVATAR_SCOPE_REVIEW".equals(action)
+                && reviews.existsBySkillIdAndRequestedVisibilityIsNotNullAndStatus(skill.getId(), ReviewTaskStatus.PENDING)) {
+            throw new DomainConflictException("error.skill.visibility.pending");
+        }
         AvatarReviewSettingsResponse policy = settings.current();
         boolean privateOnly = audience == SkillVisibility.PRIVATE;
         boolean machineEnabled = !privateOnly && policy.machineEnabled();
@@ -462,7 +466,7 @@ public class SkillAvatarAppService implements ReviewAvatarParticipant {
         if (reviews == null) { return; }
         for (var task : reviews.findByAvatarCandidateIdAndStatus(candidate.getId(),
                 ReviewTaskStatus.PENDING)) {
-            if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+            if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA && task.getRequestedVisibility() == null) {
                 log(task.getSubmittedBy(), "SKILL_AVATAR_SUPERSEDE", candidate.getId(), new AuditRequestContext(null, null),
                         AuditDetail.builder().put("reviewTaskId", task.getId()).put("candidateId", candidate.getId())
                                 .put("reason", "replaced-or-removed").put("submittedBy", task.getSubmittedBy())

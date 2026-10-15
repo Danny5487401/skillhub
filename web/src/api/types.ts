@@ -656,7 +656,7 @@ export interface ReviewProgressPage {
 }
 
 export interface ReviewSkillDetail {
-  visibilityChange?: { previousVisibility: string; requestedVisibility: string; scanStatus: string; readyForApproval: boolean }
+  visibilityChange?: components['schemas']['VisibilityChange']
   skill: SkillDetail
   versions: SkillVersion[]
   files: SkillFile[]

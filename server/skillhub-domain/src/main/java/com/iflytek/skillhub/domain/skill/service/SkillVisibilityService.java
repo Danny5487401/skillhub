@@ -52,6 +52,9 @@ public class SkillVisibilityService {
                 || !versions.findBySkillIdAndStatus(skillId, SkillVersionStatus.SCANNING).isEmpty()) {
             throw new DomainConflictException("error.skill.visibility.pending");
         }
+        if (skill.getPendingAvatarId() != null) {
+            throw new DomainConflictException("error.skill.visibility.avatarPending");
+        }
         if (target.ordinal() > skill.getVisibility().ordinal()) {
             apply(skill, target, actor);
             return null;

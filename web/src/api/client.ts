@@ -624,12 +624,12 @@ export const accountApi = {
 export const skillLifecycleApi = {
   async getVisibility(namespace: string, slug: string) {
     const cleanNamespace = namespace.startsWith('@') ? namespace.slice(1) : namespace
-    return fetchJson<{ visibility: string; requestedVisibility?: string; reviewTaskId?: number }>(
+    return fetchJson<components['schemas']['Result']>(
       `${WEB_API_PREFIX}/skills/${encodeURIComponent(cleanNamespace)}/${encodeURIComponent(slug)}/visibility`)
   },
   async changeVisibility(namespace: string, slug: string, visibility: 'PUBLIC' | 'NAMESPACE_ONLY' | 'PRIVATE') {
     const cleanNamespace = namespace.startsWith('@') ? namespace.slice(1) : namespace
-    return fetchJson<{ visibility: string; requestedVisibility?: string; reviewTaskId?: number }>(
+    return fetchJson<components['schemas']['Result']>(
       `${WEB_API_PREFIX}/skills/${encodeURIComponent(cleanNamespace)}/${encodeURIComponent(slug)}/visibility`, {
         method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ visibility }),

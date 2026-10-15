@@ -24,6 +24,8 @@ vi.mock('react-i18next', async () => {
   }
 })
 
+vi.mock('@/features/skill/skill-visibility-dialog', () => ({ SkillVisibilityDialog: () => createElement('span', null, 'visibility-control') }))
+
 vi.mock('@/features/auth/use-auth', () => ({
   useAuth: () => ({ hasRole: (role: string) => role === 'SUPER_ADMIN' && isSuperAdmin }),
 }))

@@ -97,11 +97,11 @@ public class ReviewSkillDetailAppService {
                                                           String userId,
                                                           Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+        if (context.task().getSubjectType() == ReviewSubjectType.SKILL_METADATA && context.task().getRequestedVisibility() == null) {
             return metadataDetail(context);
         }
         SkillQueryService.ReviewSkillSnapshotDTO snapshot =
-                skillQueryService.getReviewSkillSnapshot(context.task().getSkillVersionId());
+                skillQueryService.getReviewSkillSnapshot(reviewVersionId(context.task()));
 
         SkillLifecycleVersionResponse activeVersion = toLifecycleVersion(snapshot.activeVersion());
         SkillDetailResponse skill = new SkillDetailResponse(
@@ -162,7 +162,7 @@ public class ReviewSkillDetailAppService {
                 snapshot.documentationContent(),
                 "/api/v1/reviews/" + reviewId + "/download",
                 snapshot.activeVersion().getVersion(),
-                avatarChange(context)
+                avatarChange(context), visibilityChange(context.task())
         );
     }
 
@@ -170,11 +170,11 @@ public class ReviewSkillDetailAppService {
                                                                     String userId,
                                                                     Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSkillVersionId() == null) {
+        if (reviewVersionId(context.task()) == null) {
             throw new DomainBadRequestException("review.metadata.no_package");
         }
         SkillQueryService.ReviewSkillSnapshotDTO snapshot =
-                skillQueryService.getReviewSkillSnapshot(context.task().getSkillVersionId());
+                skillQueryService.getReviewSkillSnapshot(reviewVersionId(context.task()));
         return skillDownloadService.downloadReviewVersion(snapshot.skill(), snapshot.activeVersion());
     }
 
@@ -188,11 +188,11 @@ public class ReviewSkillDetailAppService {
                                             String userId,
                                             Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSkillVersionId() == null) {
+        if (reviewVersionId(context.task()) == null) {
             throw new DomainBadRequestException("review.metadata.no_package");
         }
         return skillQueryService.getFileContentByVersionId(
-                context.task().getSkillVersionId(),
+                reviewVersionId(context.task()),
                 filePath
         );
     }
@@ -228,6 +228,10 @@ public class ReviewSkillDetailAppService {
                 SkillAvatarUrls.current(skill, context.namespace().getSlug()));
         return new ReviewSkillDetailResponse(detail, List.of(), List.of(), null, null, null, null,
                 avatarChange(context), visibilityChange(context.task()));
+    }
+
+    private Long reviewVersionId(ReviewTask task) {
+        return task.getRequestedVisibility() != null ? task.getVisibilityVersionId() : task.getSkillVersionId();
     }
 
     private ReviewSkillDetailResponse.VisibilityChange visibilityChange(ReviewTask task) {

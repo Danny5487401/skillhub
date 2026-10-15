@@ -74,6 +74,35 @@ class SkillDownloadServiceTest {
     }
 
     @Test
+    void missingDerivedScanBundleIsRebuiltFromEveryStoredFile() throws Exception {
+        SkillVersion version = new SkillVersion(8L, "1.0.0", "owner");
+        setId(version, 42L); version.setFileCount(1);
+        SkillFile file = new SkillFile(42L, "SKILL.md", 3L, "text/markdown", "sha", "source/SKILL.md");
+        when(skillFileRepository.findByVersionId(42L)).thenReturn(List.of(file));
+        when(objectStorageService.exists("packages/8/42/bundle.zip")).thenReturn(false);
+        when(objectStorageService.exists("source/SKILL.md")).thenReturn(true);
+        when(objectStorageService.getObject("source/SKILL.md")).thenReturn(new ByteArrayInputStream(new byte[]{1, 2, 3}));
+        assertEquals("packages/8/42/bundle.zip", service.ensureScanBundle(version));
+        var content = org.mockito.ArgumentCaptor.forClass(InputStream.class);
+        verify(objectStorageService).putObject(eq("packages/8/42/bundle.zip"), content.capture(), anyLong(), eq("application/zip"));
+        try (ZipInputStream zip = new ZipInputStream(content.getValue())) {
+            assertEquals("SKILL.md", zip.getNextEntry().getName());
+            assertArrayEquals(new byte[]{1, 2, 3}, zip.readAllBytes());
+        }
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void incompleteDerivedPackageCannotBeScannedAsPartialBundle() throws Exception {
+        SkillVersion version = new SkillVersion(8L, "1.0.0", "owner");
+        setId(version, 42L); version.setFileCount(1);
+        when(skillFileRepository.findByVersionId(42L)).thenReturn(List.of(
+                new SkillFile(42L, "SKILL.md", 3L, "text/markdown", "sha", "missing/SKILL.md")));
+        assertThrows(DomainBadRequestException.class, () -> service.ensureScanBundle(version));
+        verify(objectStorageService, never()).putObject(anyString(), any(), anyLong(), anyString());
+    }
+
+    @Test
     void testDownloadLatest_Success() throws Exception {
         // Arrange
         String namespaceSlug = "test-ns";

@@ -2773,7 +2773,7 @@
     "current": "Current scope: {{visibility}}",
     "PUBLIC": "Public",
     "NAMESPACE_ONLY": "Namespace members",
-    "PRIVATE": "Only me",
+    "PRIVATE": "Private (owner and authorized administrators)",
     "expanding": "Wider access requires review. Current access stays in effect until approval. Track or withdraw the request in My review progress.",
     "narrowing": "Narrower access takes effect immediately. Previous viewers may lose access to details and downloads.",
     "submit": "Submit for review",

@@ -54,6 +54,11 @@ public class PromotionService {
     private final EntityManager entityManager;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private com.iflytek.skillhub.domain.skill.service.SkillVisibilityService visibilityService;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setVisibilityService(com.iflytek.skillhub.domain.skill.service.SkillVisibilityService service) {
+        this.visibilityService = service;
+    }
 
     public PromotionService(PromotionRequestRepository promotionRequestRepository,
                             SkillRepository skillRepository,
@@ -221,6 +226,9 @@ public class PromotionService {
             }
             // Serialize approval with ordinary uploads that lock target Skill before publishing.
             entityManager.lock(targetSkill, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(targetSkill);
+            assertSkillActive(targetSkill);
+            if (visibilityService != null) { visibilityService.assertNoPendingVisibility(targetSkill.getId()); }
             assertTargetVersionAvailable(targetSkill.getId(), sourceVersion.getVersion());
             applySourceVersionMetadata(targetSkill, sourceSkill, sourceVersion);
         } else {

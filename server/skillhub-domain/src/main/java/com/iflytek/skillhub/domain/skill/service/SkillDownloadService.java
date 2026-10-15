@@ -212,6 +212,20 @@ public class SkillDownloadService {
         return result;
     }
 
+    /** Repairs a derived/legacy version's missing bundle before scanning its full package. */
+    public String ensureScanBundle(SkillVersion version) {
+        String key = String.format("packages/%d/%d/bundle.zip", version.getSkillId(), version.getId());
+        if (objectStorageService.exists(key)) { return key; }
+        List<SkillFile> files = skillFileRepository.findByVersionId(version.getId());
+        if (files.isEmpty() || files.size() != version.getFileCount()
+                || files.stream().anyMatch(file -> !objectStorageService.exists(file.getStorageKey()))) {
+            throw new DomainBadRequestException("error.skill.bundle.notFound");
+        }
+        byte[] bundle = createBundle(files.stream().sorted(Comparator.comparing(SkillFile::getFilePath)).toList());
+        objectStorageService.putObject(key, new ByteArrayInputStream(bundle), bundle.length, "application/zip");
+        return key;
+    }
+
     private String buildBundleStorageKey(Skill skill, SkillVersion version) {
         return String.format("packages/%d/%d/bundle.zip", skill.getId(), version.getId());
     }

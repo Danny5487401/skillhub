@@ -22,6 +22,7 @@ public class SkillVisibilityController extends BaseApiController {
         super(responses); this.service = service;
     }
 
+    @io.swagger.v3.oas.annotations.Operation(operationId = "getSkillVisibility")
     @GetMapping("/{namespace}/{slug}/visibility")
     public ApiResponse<SkillVisibilityAppService.Result> current(@PathVariable String namespace,
             @PathVariable String slug, @RequestAttribute("userId") String actor,
@@ -29,6 +30,7 @@ public class SkillVisibilityController extends BaseApiController {
         return ok("response.success", service.current(namespace, slug, actor, roles));
     }
 
+    @io.swagger.v3.oas.annotations.Operation(operationId = "changeSkillVisibility")
     @PostMapping("/{namespace}/{slug}/visibility")
     public ApiResponse<SkillVisibilityAppService.Result> change(@PathVariable String namespace,
             @PathVariable String slug, @Valid @RequestBody ChangeVisibilityRequest request,

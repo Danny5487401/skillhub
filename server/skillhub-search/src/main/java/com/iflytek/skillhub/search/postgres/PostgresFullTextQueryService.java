@@ -112,10 +112,10 @@ public class PostgresFullTextQueryService implements SearchQueryService {
         }
         sql.append("WHERE 1=1 ");
 
-        // Visibility filtering
-        sql.append("AND (d.visibility = 'PUBLIC' ");
+        // Authorize against the current aggregate, even while its asynchronous index is stale.
+        sql.append("AND (s.visibility = 'PUBLIC' ");
         if (query.visibilityScope().userId() != null) {
-            sql.append("OR (d.visibility = 'NAMESPACE_ONLY' AND d.namespace_id IN :memberNamespaceIds) ");
+            sql.append("OR (s.visibility = 'NAMESPACE_ONLY' AND s.namespace_id IN :memberNamespaceIds) ");
         }
         sql.append(") ");
 

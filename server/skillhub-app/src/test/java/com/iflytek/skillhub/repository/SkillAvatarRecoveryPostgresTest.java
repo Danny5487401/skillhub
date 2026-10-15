@@ -91,6 +91,7 @@ class SkillAvatarRecoveryPostgresTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private com.iflytek.skillhub.task.SkillAvatarCleanupTask cleanup;
     @Autowired private com.iflytek.skillhub.infra.jpa.UserAccountJpaRepository users;
+    @MockBean private com.iflytek.skillhub.domain.skill.service.SkillVisibilityService visibilityChanges;
     @MockBean private ObjectStorageService storage;
     @MockBean private SkillAvatarImageProcessor imageProcessor;
     @MockBean private AvatarReviewSettingsService settings;

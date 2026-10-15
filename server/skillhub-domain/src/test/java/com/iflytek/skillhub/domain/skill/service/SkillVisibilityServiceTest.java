@@ -76,6 +76,16 @@ class SkillVisibilityServiceTest {
     }
 
     @Test
+    void pendingAvatarBlocksScopeChangeWithoutSupersedingIt() {
+        skill.setPendingAvatarId(99L);
+        assertThatThrownBy(() -> service.change(1L, SkillVisibility.PRIVATE, "owner", Map.of(), Set.of()))
+                .hasMessageContaining("error.skill.visibility.avatarPending");
+        assertThat(skill.getPendingAvatarId()).isEqualTo(99L);
+        assertThat(skill.getVisibility()).isEqualTo(SkillVisibility.PUBLIC);
+        verify(reviews, never()).save(any());
+    }
+
+    @Test
     void pendingVersionBlocksChange() {
         when(versions.findBySkillIdAndStatus(1L, SkillVersionStatus.PENDING_REVIEW))
                 .thenReturn(List.of(new SkillVersion(1L, "2.0.0", "owner")));

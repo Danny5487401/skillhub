@@ -19,7 +19,7 @@ export function SkillVisibilityDialog({ namespace, slug, visibility, disabled = 
   const [target, setTarget] = useState<Visibility>('PUBLIC')
   const [error, setError] = useState('')
   const state = useQuery({
-    queryKey: ['skill', namespace, slug, 'visibility'],
+    queryKey: ['skills', namespace, slug, 'visibility'],
     queryFn: () => skillLifecycleApi.getVisibility(namespace, slug),
     enabled: open,
   })

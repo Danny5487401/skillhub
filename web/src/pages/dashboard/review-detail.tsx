@@ -63,7 +63,7 @@ function ReviewDetailScreen({
     isError: isReviewAttemptsError,
   } = useReviewAttempts(taskId)
   const isSuiteReview = review?.subjectType === 'SUITE_VERSION'
-  const isMetadataReview = review?.subjectType === 'SKILL_METADATA'
+  const isMetadataReview = review?.subjectType === 'SKILL_METADATA' && !review.requestedVisibility
   const {
     data: reviewSkillDetail,
     isLoading: isLoadingReviewSkillDetail,
@@ -237,7 +237,7 @@ function ReviewDetailScreen({
             <Label className="text-xs text-muted-foreground uppercase tracking-wider">{t('review.version')}</Label>
             <p className="font-semibold">
               <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-sm font-mono">
-                {isMetadataReview ? t('review.metadataChange') : review.version}
+                {review.requestedVisibility ? t('skillVisibility.title') : isMetadataReview ? t('review.metadataChange') : review.version}
               </span>
             </p>
           </div>

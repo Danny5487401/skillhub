@@ -127,6 +127,10 @@ Status: current code-aligned reference
 - 若仍有其他 `PUBLISHED` 版本，则指向最新一个
 - 若已无任何 `PUBLISHED` 版本，则 `latestVersionId = null`
 
+### 4.9 独立调整已发布技能的可见范围
+
+可见范围属于 Skill 容器，不需要新建 SkillVersion。缩小立即生效；扩大创建 `SKILL_METADATA` 范围申请，与内容待审互斥。原范围、目标范围和发布版本快照保存在 ReviewTask，审核通过才更新范围；旧审批不能覆盖新版本。未扫描的已发布包复用存量 bundle 扫描，保持 PUBLISHED，申请绑定扫描 taskId；未通过不得批准。头像按目标受众复用同一审核申请。范围事件仅刷新搜索，不发送“新内容版本发布”通知。操作和接口详见[使用指南](./skill-visibility.md)。
+
 ## 5. 对外协议约束
 
 ### 5.1 Public / Search / Compat

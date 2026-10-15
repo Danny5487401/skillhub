@@ -354,6 +354,18 @@ class SkillAvatarAppServiceTest {
     }
 
     @Test
+    void pendingVisibilityRequestCannotBeSupersededByANewAvatar() {
+        when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
+        when(skills.findLockedById(11L)).thenReturn(Optional.of(skill));
+        when(reviews.existsBySkillIdAndRequestedVisibilityIsNotNullAndStatus(11L,
+                com.iflytek.skillhub.domain.review.ReviewTaskStatus.PENDING)).thenReturn(true);
+        assertThatThrownBy(() -> service.submitStored("team", "foo", "owner", "new/image.png", "sha",
+                SkillVisibility.PUBLIC, new AuditRequestContext(null, null)))
+                .isInstanceOf(DomainConflictException.class).hasMessageContaining("error.skill.visibility.pending");
+        verifyNoInteractions(candidates, storage);
+    }
+
+    @Test
     void nonOwnerCannotSubmitBeforeWritingToStorage() {
         when(namespaces.findBySlug("team")).thenReturn(Optional.of(namespace));
         assertThatThrownBy(() -> service.submit("team", "foo", "stranger", new byte[] { 1 },

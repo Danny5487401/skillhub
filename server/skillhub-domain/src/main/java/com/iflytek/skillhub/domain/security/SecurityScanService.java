@@ -40,6 +40,10 @@ public class SecurityScanService {
     private final ObjectMapper objectMapper;
     private final String scanMode;
     private final boolean enabled;
+    private com.iflytek.skillhub.domain.skill.service.SkillDownloadService bundles;
+
+    @Autowired
+    public void setBundles(com.iflytek.skillhub.domain.skill.service.SkillDownloadService service) { this.bundles = service; }
 
     @Autowired
     public SecurityScanService(SecurityAuditRepository auditRepository,
@@ -78,8 +82,8 @@ public class SecurityScanService {
         if (version.getStatus() != SkillVersionStatus.PUBLISHED || !version.isBundleReady()) {
             throw new IllegalStateException("Only published bundled versions can be scanned");
         }
-        ScanTask task = new ScanTask(UUID.randomUUID().toString(), version.getId(), null,
-                "packages/" + version.getSkillId() + "/" + version.getId() + "/bundle.zip",
+        String bundleKey = bundles.ensureScanBundle(version);
+        ScanTask task = new ScanTask(UUID.randomUUID().toString(), version.getId(), null, bundleKey,
                 publisherId, System.currentTimeMillis(),
                 Map.of("scannerType", ScannerType.SKILL_SCANNER.getValue()));
         persistScanAttempt(version, task);

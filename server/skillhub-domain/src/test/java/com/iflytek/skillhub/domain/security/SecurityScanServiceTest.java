@@ -67,7 +67,11 @@ class SecurityScanServiceTest {
         setId(version, 42L);
         version.setStatus(SkillVersionStatus.PUBLISHED);
         version.setBundleReady(true);
+        var bundles = org.mockito.Mockito.mock(com.iflytek.skillhub.domain.skill.service.SkillDownloadService.class);
+        given(bundles.ensureScanBundle(version)).willReturn("packages/8/42/bundle.zip");
+        service.setBundles(bundles);
         ScanTask task = service.scanPublishedVersion(version, "publisher-1");
+        verify(bundles).ensureScanBundle(version);
         assertThat(task.bundleKey()).isEqualTo("packages/8/42/bundle.zip");
         assertThat(task.skillPath()).isNull();
         assertThat(version.getStatus()).isEqualTo(SkillVersionStatus.PUBLISHED);
