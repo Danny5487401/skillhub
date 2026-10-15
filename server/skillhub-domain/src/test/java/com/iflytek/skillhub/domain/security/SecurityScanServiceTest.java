@@ -62,6 +62,21 @@ class SecurityScanServiceTest {
     }
 
     @Test
+    void scanPublishedVersionUsesStoredBundleAndKeepsPublishedState() throws Exception {
+        SkillVersion version = new SkillVersion(8L, "1.0.0", "publisher-1");
+        setId(version, 42L);
+        version.setStatus(SkillVersionStatus.PUBLISHED);
+        version.setBundleReady(true);
+        ScanTask task = service.scanPublishedVersion(version, "publisher-1");
+        assertThat(task.bundleKey()).isEqualTo("packages/8/42/bundle.zip");
+        assertThat(task.skillPath()).isNull();
+        assertThat(version.getStatus()).isEqualTo(SkillVersionStatus.PUBLISHED);
+        verify(skillVersionRepository, never()).save(any());
+        verify(scanTaskProducer).publishScanTask(task);
+        verify(auditRepository).save(any(SecurityAudit.class));
+    }
+
+    @Test
     void securityAudit_startsWithSuspiciousUnsafeDefaults() {
         SecurityAudit audit = new SecurityAudit(42L, ScannerType.SKILL_SCANNER);
 

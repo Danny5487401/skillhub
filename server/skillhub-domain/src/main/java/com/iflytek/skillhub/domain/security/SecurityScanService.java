@@ -71,6 +71,21 @@ public class SecurityScanService {
         return enabled;
     }
 
+    /** Scans an immutable published package without changing its availability or version state. */
+    @Transactional
+    public ScanTask scanPublishedVersion(SkillVersion version, String publisherId) {
+        if (!enabled) { throw new IllegalStateException("Security scanner is disabled"); }
+        if (version.getStatus() != SkillVersionStatus.PUBLISHED || !version.isBundleReady()) {
+            throw new IllegalStateException("Only published bundled versions can be scanned");
+        }
+        ScanTask task = new ScanTask(UUID.randomUUID().toString(), version.getId(), null,
+                "packages/" + version.getSkillId() + "/" + version.getId() + "/bundle.zip",
+                publisherId, System.currentTimeMillis(),
+                Map.of("scannerType", ScannerType.SKILL_SCANNER.getValue()));
+        persistScanAttempt(version, task);
+        return task;
+    }
+
     @Transactional
     public ScanTask retryStoredBundleScan(SkillVersion version, String bundleKey, String publisherId) {
         if (!enabled) {

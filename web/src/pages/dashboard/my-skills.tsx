@@ -18,6 +18,7 @@ import { getHeadlineVersion, getPublishedVersion, getOwnerPreviewVersion, hasPen
 import { formatCompactCount } from '@/shared/lib/number-format'
 import { toast } from '@/shared/lib/toast'
 import { buildReturnTo } from '@/shared/lib/auth-route'
+import { SkillVisibilityDialog } from '@/features/skill/skill-visibility-dialog'
 import { SkillAvatar } from '@/features/skill/skill-avatar'
 import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
 import { ApiError } from '@/api/client'
@@ -444,6 +445,10 @@ export function MySkillsPage() {
                           >
                             {t('mySkills.update')}
                           </Button>
+                        )}
+                        {filter !== 'HIDDEN' && skill.status === 'ACTIVE' && publishedVersion && (
+                          <SkillVisibilityDialog namespace={skill.namespace} slug={skill.slug}
+                            visibility={skill.visibility ?? 'PUBLIC'} disabled={hasPendingPreview} />
                         )}
                         {filter === 'HIDDEN' ? null : hasPendingPreview && ownerPreviewVersion ? (
                           <Button

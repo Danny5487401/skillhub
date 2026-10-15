@@ -622,6 +622,8 @@ export interface ReviewTask {
   subjectVersionId?: number | null
   subjectSlug?: string | null
   avatarCandidateId?: number | null
+  previousVisibility?: string
+  requestedVisibility?: string
   avatarRemoval?: boolean
 }
 
@@ -654,6 +656,7 @@ export interface ReviewProgressPage {
 }
 
 export interface ReviewSkillDetail {
+  visibilityChange?: { previousVisibility: string; requestedVisibility: string; scanStatus: string; readyForApproval: boolean }
   skill: SkillDetail
   versions: SkillVersion[]
   files: SkillFile[]

@@ -251,7 +251,9 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                 task.getReviewedAt(),
                 subjectType(task), task.getSubjectId() != null ? task.getSubjectId() : skillId,
                 task.getSubjectVersionId() != null ? task.getSubjectVersionId() : task.getSkillVersionId(),
-                skill.getSlug(), task.getAvatarCandidateId(), task.isAvatarRemoval()
+                skill.getSlug(), task.getAvatarCandidateId(), task.isAvatarRemoval(),
+                task.getPreviousVisibility() == null ? null : task.getPreviousVisibility().name(),
+                task.getRequestedVisibility() == null ? null : task.getRequestedVisibility().name()
         );
     }
 

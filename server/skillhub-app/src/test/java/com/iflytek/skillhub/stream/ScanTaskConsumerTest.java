@@ -813,6 +813,15 @@ class ScanTaskConsumerTest {
     }
 
     private static final class InMemoryReviewTaskRepository implements ReviewTaskRepository {
+        @Override
+        public Optional<ReviewTask> findBySkillIdAndRequestedVisibilityIsNotNullAndStatus(Long skillId, ReviewTaskStatus status) {
+            return existsBySkillIdAndRequestedVisibilityIsNotNullAndStatus(skillId, status) ? Optional.of(savedTask) : Optional.empty();
+        }
+        @Override
+        public boolean existsBySkillIdAndRequestedVisibilityIsNotNullAndStatus(Long skillId, ReviewTaskStatus status) {
+            return savedTask != null && java.util.Objects.equals(skillId, savedTask.getSkillId())
+                    && savedTask.getRequestedVisibility() != null && savedTask.getStatus() == status;
+        }
         private ReviewTask savedTask;
         private ReviewTask deletedTask;
 

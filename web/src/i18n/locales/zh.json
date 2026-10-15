@@ -2765,5 +2765,23 @@
     "archiveHint": "归档后停止空间及其中技能的正常访问。可恢复归档。",
     "restoreHint": "恢复已归档空间。",
     "deleteHint": "永久删除空间，请先处理其中的技能和成员。"
+  },
+  "skillVisibility": {
+    "title": "可见范围",
+    "description": "仅调整访问范围，保留技能标识、内容版本和统计。",
+    "current": "当前范围：{{visibility}}",
+    "PUBLIC": "公开",
+    "NAMESPACE_ONLY": "空间成员可见",
+    "PRIVATE": "仅自己可见",
+    "expanding": "扩大范围需要审核，通过前保持当前范围。可在“我的审核进度”查看或撤回申请。",
+    "narrowing": "缩小范围立即生效，原先可访问的用户可能无法继续查看或下载。",
+    "submit": "提交审核",
+    "submitted": "已提交可见范围审核",
+    "saved": "可见范围已更新",
+    "failed": "更新失败",
+    "scanPENDING": "安全扫描中，完成前不能通过审核。",
+    "scanPASSED": "安全扫描已通过。",
+    "scanFAILED": "安全扫描未通过，当前范围保持不变。请撤回后重试或上传修复版本。",
+    "pending": "已有待审核范围申请：{{visibility}}。请到“我的审核进度”完成或撤回。"
   }
 }

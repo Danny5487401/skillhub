@@ -203,7 +203,7 @@ function ReviewDetailScreen({
     (version) => version.version === reviewSkillDetail.activeVersion
   )
   const isApprovalBlockedByScanning = !isMetadataReview && activeReviewVersion?.status === 'SCANNING'
-  const isApprovalBlockedByAvatar = reviewSkillDetail?.avatarChange?.readyForApproval === false
+  const isApprovalBlockedByAvatar = reviewSkillDetail?.avatarChange?.readyForApproval === false || reviewSkillDetail?.visibilityChange?.readyForApproval === false
   const isAvatarOverrideReasonRequired = reviewSkillDetail?.avatarChange?.machineStatus === 'BLOCKED' && !comment.trim()
   const isApprovalBlocked = isApprovalBlockedByScanning || isApprovalBlockedByAvatar || isAvatarOverrideReasonRequired
     || (!isSuiteReview && (isLoadingReviewSkillDetail || !!reviewSkillDetailError || !reviewSkillDetail))
@@ -298,6 +298,12 @@ function ReviewDetailScreen({
         )}
       </Card>
 
+      {review.requestedVisibility && <section className="rounded-xl border p-5 space-y-2">
+        <h2 className="font-semibold">{t('skillVisibility.title')}</h2>
+        <p>{t(`skillVisibility.${review.previousVisibility}`)} → {t(`skillVisibility.${review.requestedVisibility}`)}</p>
+        {reviewSkillDetail?.visibilityChange && <p>{t(`skillVisibility.scan${reviewSkillDetail.visibilityChange.scanStatus}`)}</p>}
+        <p className="text-sm text-muted-foreground">{t('skillVisibility.expanding')}</p>
+      </section>}
       {reviewSkillDetail?.avatarChange && <ReviewAvatarChangeSection change={reviewSkillDetail.avatarChange} name={reviewSkillDetail.skill.displayName || review.skillSlug || ''} />}
 
       {review.status === 'PENDING' && (

@@ -79,7 +79,7 @@ function ReviewListSection({ namespaceId, slug }: { namespaceId?: number; slug: 
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="font-semibold font-heading">{review.namespace}/{review.skillSlug}</div>
-                <div className="text-sm text-muted-foreground">{review.subjectType === 'SKILL_METADATA' ? t(review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : t('nsReviews.version', { version: review.version })}</div>
+                <div className="text-sm text-muted-foreground">{review.subjectType === 'SKILL_METADATA' ? t(review.requestedVisibility ? 'skillVisibility.title' : review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : t('nsReviews.version', { version: review.version })}</div>
               </div>
               <div className="text-sm text-muted-foreground">
                 {formatLocalDateTime(

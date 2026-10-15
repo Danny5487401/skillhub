@@ -164,7 +164,7 @@ export function ReviewsPage() {
                   </span>
                   {review.namespace}/{review.subjectSlug || review.skillSlug}
                 </TableCell>
-                <TableCell>{review.subjectType === 'SKILL_METADATA' ? t(review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : review.version}</TableCell>
+                <TableCell>{review.subjectType === 'SKILL_METADATA' ? t(review.requestedVisibility ? 'skillVisibility.title' : review.avatarRemoval ? 'review.avatarRemoval' : 'review.avatarUpdate') : review.version}</TableCell>
                 <TableCell>{review.submittedByName || review.submittedBy}</TableCell>
                 {status === 'PENDING' ? (
                   <TableCell>{formatDate(review.submittedAt)}</TableCell>

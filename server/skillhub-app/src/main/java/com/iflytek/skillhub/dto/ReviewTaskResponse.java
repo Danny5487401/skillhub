@@ -21,8 +21,18 @@ public record ReviewTaskResponse(
         Long subjectVersionId,
         String subjectSlug,
         Long avatarCandidateId,
-        boolean avatarRemoval
+        boolean avatarRemoval,
+        String previousVisibility,
+        String requestedVisibility
 ) {
+    public ReviewTaskResponse(Long id, Long skillVersionId, String namespace, String skillSlug, String version,
+            String status, String submittedBy, String submittedByName, String reviewedBy, String reviewedByName,
+            String reviewComment, Instant submittedAt, Instant reviewedAt, String subjectType, Long subjectId,
+            Long subjectVersionId, String subjectSlug, Long avatarCandidateId, boolean avatarRemoval) {
+        this(id, skillVersionId, namespace, skillSlug, version, status, submittedBy, submittedByName,
+                reviewedBy, reviewedByName, reviewComment, submittedAt, reviewedAt, subjectType, subjectId,
+                subjectVersionId, subjectSlug, avatarCandidateId, avatarRemoval, null, null);
+    }
     public ReviewTaskResponse(Long id, Long skillVersionId, String namespace, String skillSlug, String version,
             String status, String submittedBy, String submittedByName, String reviewedBy, String reviewedByName,
             String reviewComment, Instant submittedAt, Instant reviewedAt, String subjectType, Long subjectId,

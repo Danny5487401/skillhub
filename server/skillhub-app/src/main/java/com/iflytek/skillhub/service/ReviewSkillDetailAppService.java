@@ -47,6 +47,11 @@ public class ReviewSkillDetailAppService {
     private final SkillDownloadService skillDownloadService;
     private final ComplianceSnapshotProjectionService complianceSnapshotProjectionService;
     private final ObjectReader metadataReader;
+    private com.iflytek.skillhub.domain.security.SecurityAuditRepository securityAudits;
+    @Autowired
+    public void configureSecurityAudits(com.iflytek.skillhub.domain.security.SecurityAuditRepository audits) {
+        this.securityAudits = audits;
+    }
     private SkillRepository skills;
     private SkillAvatarCandidateJpaRepository candidates;
 
@@ -221,7 +226,19 @@ public class ReviewSkillDetailAppService {
                 skill.getRatingCount(), skill.isHidden(), context.namespace().getSlug(), List.of(), false, false,
                 false, false, null, null, null, null, "REVIEW_TASK", List.of(), new PageResponse<>(List.of(), 0, 0, 20),
                 SkillAvatarUrls.current(skill, context.namespace().getSlug()));
-        return new ReviewSkillDetailResponse(detail, List.of(), List.of(), null, null, null, null, avatarChange(context));
+        return new ReviewSkillDetailResponse(detail, List.of(), List.of(), null, null, null, null,
+                avatarChange(context), visibilityChange(context.task()));
+    }
+
+    private ReviewSkillDetailResponse.VisibilityChange visibilityChange(ReviewTask task) {
+        if (task.getRequestedVisibility() == null) { return null; }
+        var scan = securityAudits.findLatestActiveByVersionIdAndScannerType(task.getVisibilityVersionId(),
+                com.iflytek.skillhub.domain.security.ScannerType.SKILL_SCANNER)
+                .filter(audit -> java.util.Objects.equals(task.getVisibilityScanTaskId(), audit.getTaskId()));
+        String status = scan.isEmpty() ? "FAILED" : scan.get().getScannedAt() == null ? "PENDING"
+                : scan.get().getFailureReason() == null && Boolean.TRUE.equals(scan.get().getIsSafe()) ? "PASSED" : "FAILED";
+        return new ReviewSkillDetailResponse.VisibilityChange(task.getPreviousVisibility().name(),
+                task.getRequestedVisibility().name(), status, "PASSED".equals(status));
     }
 
     private ReviewAccessContext loadAuthorizedContext(Long reviewId,
