@@ -34,7 +34,7 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
 
   return (
     <Card
-      className="group relative h-full cursor-pointer overflow-hidden rounded-md border border-border/60 bg-card p-4 text-card-foreground transition-[transform,box-shadow,border-color] duration-150 ease-out card-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/15"
+      className="group relative h-full min-w-0 cursor-pointer overflow-hidden rounded-md border border-border/60 bg-card p-4 text-card-foreground transition-[transform,box-shadow,border-color] duration-150 ease-out card-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/15"
       style={{ borderColor: 'hsl(var(--border-card))', boxShadow: 'var(--shadow-card)' }}
       onClick={onClick}
       onKeyDown={(event) => {
@@ -51,15 +51,24 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
       tabIndex={isInteractive ? 0 : undefined}
     >
       <div className="flex h-full flex-col">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
-            <h3 className="font-semibold text-base group-hover:text-primary transition-colors duration-150" style={{ color: 'hsl(var(--foreground))' }}>
+        <div className="mb-3 flex min-w-0 items-start gap-3">
+          <SkillAvatar name={skill.displayName} url={skill.avatarUrl} />
+          <div className="min-w-0 flex-1">
+            <h3
+              className="line-clamp-2 text-base font-semibold [overflow-wrap:anywhere] group-hover:text-primary transition-colors duration-150"
+              style={{ color: 'hsl(var(--foreground))' }}
+              title={skill.displayName}
+            >
               {skill.displayName}
             </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <NamespaceBadge type="TEAM" name={`@${skill.namespace}`} />
+            <div className="mt-2 grid justify-items-start">
+              <NamespaceBadge
+                className="block max-w-full truncate"
+                type="TEAM"
+                name={`@${skill.namespace}`}
+                title={`@${skill.namespace}`}
+              />
+            </div>
           </div>
         </div>
 
@@ -77,11 +86,11 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
             {complianceItems.slice(0, 2).map((item, index) => (
               <span
                 key={`${item.standard ?? 'standard'}-${item.controlId ?? index}`}
-                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
                 title={item.title}
               >
-                <ShieldCheck className="h-3 w-3" />
-                {[item.standard, item.controlId].filter(Boolean).join(' · ')}
+                <ShieldCheck className="h-3 w-3 shrink-0" />
+                <span className="truncate">{[item.standard, item.controlId].filter(Boolean).join(' · ')}</span>
               </span>
             ))}
             {complianceItems.length > 2 ? (
@@ -92,9 +101,9 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
           </div>
         ) : null}
 
-        <div className="mt-auto flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
           {headlineVersion && (
-            <span className="px-2.5 py-1 rounded-full bg-secondary/60 font-mono text-[11px] font-semibold" style={{ color: 'hsl(215 30% 35%)' }}>
+            <span title={`v${headlineVersion.version}`} className="max-w-full truncate px-2.5 py-1 rounded-full bg-secondary/60 font-mono text-[11px] font-semibold text-secondary-foreground">
               v{headlineVersion.version}
             </span>
           )}
@@ -122,15 +131,15 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
           )}
         </div>
         {(skill.ownerDisplayName || skill.updatedAt) && (
-          <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
             {skill.ownerDisplayName && (
-              <span className="flex items-center gap-1">
-                <User className="w-3 h-3" />
-                {skill.ownerDisplayName}
+              <span className="flex min-w-0 flex-1 items-center gap-1" title={skill.ownerDisplayName}>
+                <User className="h-3 w-3 shrink-0" />
+                <span className="truncate">{skill.ownerDisplayName}</span>
               </span>
             )}
             {skill.updatedAt && (
-              <span className="flex items-center gap-1">
+              <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                 <Clock className="w-3 h-3" />
                 {formatRelativeTime(skill.updatedAt, i18n.language)}
               </span>
