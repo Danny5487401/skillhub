@@ -8,6 +8,9 @@ import com.iflytek.skillhub.dto.PageResponse;
 import com.iflytek.skillhub.dto.SkillSummaryResponse;
 import com.iflytek.skillhub.exception.UnauthorizedException;
 import com.iflytek.skillhub.service.MySkillAppService;
+import com.iflytek.skillhub.domain.namespace.NamespaceRole;
+import java.util.Map;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,12 +54,13 @@ public class MeController extends BaseApiController {
     public ApiResponse<PageResponse<SkillSummaryResponse>> listMyStars(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
-            @AuthenticationPrincipal PlatformPrincipal principal) {
+            @AuthenticationPrincipal PlatformPrincipal principal,
+            @RequestAttribute(value = "userNsRoles", required = false) Map<Long, NamespaceRole> namespaceRoles) {
         if (principal == null) {
             throw new UnauthorizedException("error.auth.required");
         }
 
-        return ok("response.success.read", mySkillAppService.listMyStars(principal.userId(), page, size));
+        return ok("response.success.read", mySkillAppService.listMyStars(principal.userId(), page, size, namespaceRoles, principal.platformRoles()));
     }
 
     @GetMapping("/subscriptions")

@@ -4,6 +4,13 @@ import com.iflytek.skillhub.auth.rbac.PlatformPrincipal;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.social.SkillStarService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import com.iflytek.skillhub.domain.skill.SkillRepository;
+import com.iflytek.skillhub.domain.skill.Skill;
+import com.iflytek.skillhub.domain.skill.SkillVisibility;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,6 +44,16 @@ class SkillStarControllerTest {
 
     @MockBean
     private NamespaceMemberRepository namespaceMemberRepository;
+
+    @MockBean
+    private SkillRepository skills;
+
+    @BeforeEach
+    void targetExists() {
+        Skill skill = new Skill(1L, "restricted-target", "owner", SkillVisibility.PRIVATE);
+        skill.setLatestVersionId(11L);
+        when(skills.findById(10L)).thenReturn(Optional.of(skill));
+    }
 
     @Test
     void star_skill_returns_envelope() throws Exception {
@@ -159,4 +176,47 @@ class SkillStarControllerTest {
 
         verify(skillStarService).star(eq(10L), eq("user-42"));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api/web"})
+    void inaccessibleSkillCannotBeReadOrMutated(String prefix) throws Exception {
+        PlatformPrincipal principal = new PlatformPrincipal("outsider", "Outsider", null, null, "local", Set.of("USER"));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        mockMvc.perform(get(prefix + "/skills/10/star").with(authentication(auth)))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("restricted-target"))));
+        mockMvc.perform(put(prefix + "/skills/10/star").with(authentication(auth)).with(csrf())
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"score\":4}"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("restricted-target"))));
+        org.mockito.Mockito.verifyNoInteractions(skillStarService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api/web"})
+    void losingAccessStillAllowsRemovingOwnStar(String prefix) throws Exception {
+        PlatformPrincipal principal = new PlatformPrincipal("outsider", "Outsider", null, null, "local", Set.of("USER"));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        mockMvc.perform(delete(prefix + "/skills/10/star").with(authentication(auth)).with(csrf()))
+                .andExpect(status().isOk());
+        verify(skillStarService).unstar(10L, "outsider");
+        org.mockito.Mockito.verifyNoInteractions(skills);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api/web"})
+    void namespaceAdministratorUsesTrustedMembership(String prefix) throws Exception {
+        PlatformPrincipal principal = new PlatformPrincipal("ns-admin", "Admin", null, null, "local", Set.of("USER"));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        when(namespaceMemberRepository.findByUserId("ns-admin")).thenReturn(List.of(
+                new com.iflytek.skillhub.domain.namespace.NamespaceMember(1L, "ns-admin",
+                        com.iflytek.skillhub.domain.namespace.NamespaceRole.ADMIN)));
+        mockMvc.perform(put(prefix + "/skills/10/star").with(authentication(auth)).with(csrf())
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"score\":4}"))
+                .andExpect(status().isOk());
+    }
+
 }

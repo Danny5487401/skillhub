@@ -10,7 +10,7 @@ export function ResourceCard({ resource, onClick }: { resource: ResourceSummary;
   const isSuite = resource.resourceType === 'SUITE'
   return (
     <Card
-      className="group h-full cursor-pointer p-5 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+      className="group h-full min-w-0 cursor-pointer p-5 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
       role="link"
       tabIndex={0}
       onClick={onClick}
@@ -22,22 +22,24 @@ export function ResourceCard({ resource, onClick }: { resource: ResourceSummary;
       }}
     >
       <div className="flex h-full flex-col gap-4">
-        <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
           <div className="min-w-0">
             <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs font-medium">
               {isSuite ? <Boxes className="h-3.5 w-3.5" /> : <Wrench className="h-3.5 w-3.5" />}
               {t(isSuite ? 'suite.resourceTypeSuite' : 'suite.resourceTypeSkill')}
             </span>
-            <h3 className="break-words text-lg font-semibold group-hover:text-primary">{resource.displayName}</h3>
+            <h3 className="line-clamp-2 text-lg font-semibold [overflow-wrap:anywhere] group-hover:text-primary" title={resource.displayName}>{resource.displayName}</h3>
           </div>
-          <NamespaceBadge
-            className="max-w-[50%] shrink-0 truncate"
-            type={resource.namespace === 'global' ? 'GLOBAL' : 'TEAM'}
-            name={`@${resource.namespace}`}
-            title={`@${resource.namespace}`}
-          />
+          <div className="mt-2 grid justify-items-start">
+            <NamespaceBadge
+              className="block max-w-full truncate"
+              type={resource.namespace === 'global' ? 'GLOBAL' : 'TEAM'}
+              name={`@${resource.namespace}`}
+              title={`@${resource.namespace}`}
+            />
+          </div>
         </div>
-        <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
+        <p className="line-clamp-2 min-h-10 text-sm [overflow-wrap:anywhere] text-muted-foreground">
           {resource.summary || t('suite.noSummary')}
         </p>
         {isSuite && resource.labels?.length ? (
@@ -53,7 +55,7 @@ export function ResourceCard({ resource, onClick }: { resource: ResourceSummary;
             ))}
           </div>
         ) : null}
-        <div className="mt-auto flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
           <span
             className="max-w-[50%] truncate rounded-full bg-secondary/70 px-2.5 py-1 font-mono"
             title={`v${resource.version}`}
