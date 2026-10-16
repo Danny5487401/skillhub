@@ -57,6 +57,13 @@ public class ReviewService {
     private final EntityManager entityManager;
     private final Clock clock;
     private ReviewAvatarParticipant avatarParticipant;
+    private com.iflytek.skillhub.domain.skill.service.SkillVisibilityService visibilityService;
+
+    @Autowired
+    public void setVisibilityService(com.iflytek.skillhub.domain.skill.service.SkillVisibilityService service) {
+        this.visibilityService = service;
+    }
+
 
     @Autowired
     public void setAvatarParticipant(ReviewAvatarParticipant participant) { this.avatarParticipant = participant; }
@@ -108,6 +115,10 @@ public class ReviewService {
             throw new DomainForbiddenException("review.submit.no_permission");
         }
 
+        if (visibilityService != null) {
+            visibilityService.lockedSkill(skill.getId());
+            visibilityService.assertNoPendingVisibility(skill.getId());
+        }
         // Support both DRAFT (legacy) and UPLOADED (new flow) status
         if (skillVersion.getStatus() != SkillVersionStatus.DRAFT
                 && skillVersion.getStatus() != SkillVersionStatus.UPLOADED) {
@@ -147,6 +158,10 @@ public class ReviewService {
                 .orElseThrow(() -> new DomainNotFoundException("namespace.not_found", skill.getNamespaceId()));
         assertNamespaceActive(namespace);
 
+        if (visibilityService != null) {
+            visibilityService.lockedSkill(skill.getId());
+            visibilityService.assertNoPendingVisibility(skill.getId());
+        }
         // Support both DRAFT (legacy) and UPLOADED (new flow) status
         if (skillVersion.getStatus() != SkillVersionStatus.DRAFT
                 && skillVersion.getStatus() != SkillVersionStatus.UPLOADED) {
@@ -206,6 +221,7 @@ public class ReviewService {
             throw new DomainForbiddenException("review.no_permission");
         }
 
+        if (task.getRequestedVisibility() != null) { visibilityService.validateApproval(task); }
         if (avatarParticipant != null) { avatarParticipant.validateApproval(task, comment); }
         if (task.getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
             return decideMetadata(task, reviewerId, comment, true);
@@ -370,6 +386,7 @@ public class ReviewService {
             throw new ConcurrentModificationException("Review task was modified concurrently");
         }
         syncReviewTaskState(task, status, reviewer, comment);
+        if (task.getRequestedVisibility() != null && approved) { visibilityService.approve(task, reviewer); }
         avatarParticipant.decide(task, approved, reviewer, comment);
         governanceNotificationService.notifyUser(task.getSubmittedBy(), "REVIEW", "REVIEW_TASK", task.getId(),
                 approved ? "Review approved" : "Review rejected", AuditDetail.of("status", status.name()));

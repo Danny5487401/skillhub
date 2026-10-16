@@ -86,7 +86,9 @@ public class MySkillAppService {
         MySkillFilter normalizedFilter = parseFilter(filter);
 
         Page<Skill> skillPage;
-        if (normalizedFilter == MySkillFilter.HIDDEN) {
+        if (normalizedFilter == MySkillFilter.PENDING_REVIEW) {
+            skillPage = mySkillQueryRepository.findPendingSkills(userId, keyword, resolveNamespaceId(namespace), PageRequest.of(page, size));
+        } else if (normalizedFilter == MySkillFilter.HIDDEN) {
             skillPage = listHiddenSkills(page, size, keyword, namespace, platformRoles);
         } else if (normalizedFilter == MySkillFilter.ALL
                 && (keyword == null || keyword.isBlank())
@@ -100,6 +102,10 @@ public class MySkillAppService {
                 ? mySkillQueryRepository.getHiddenSkillSummaries(skillPage.getContent())
                 : mySkillQueryRepository.getSkillSummaries(skillPage.getContent(), userId);
 
+        if (normalizedFilter != MySkillFilter.HIDDEN) {
+            var managementStates = mySkillQueryRepository.getManagementStates(skillPage.getContent(), userId);
+            items = items.stream().map(item -> item.withManagementState(managementStates.get(item.id()))).toList();
+        }
         return new PageResponse<>(items, skillPage.getTotalElements(), skillPage.getNumber(), skillPage.getSize());
     }
 

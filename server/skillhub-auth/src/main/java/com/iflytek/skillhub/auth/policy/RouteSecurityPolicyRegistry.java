@@ -258,6 +258,8 @@ public class RouteSecurityPolicyRegistry {
             ApiTokenPolicy.require(HttpMethod.DELETE, "/api/v1/skills/*/*", "skill:delete"),
             ApiTokenPolicy.require(HttpMethod.DELETE, "/api/v1/skills/*/*/versions/*", "skill:delete"),
             ApiTokenPolicy.require(HttpMethod.DELETE, "/api/web/skills/*/*/versions/*", "skill:delete"),
+            ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/skills/*/*/visibility", "skill:publish"),
+            ApiTokenPolicy.require(HttpMethod.POST, "/api/web/skills/*/*/visibility", "skill:publish"),
             ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/skills/*/*/archive", "skill:publish"),
             ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/skills/*/*/unarchive", "skill:publish"),
             ApiTokenPolicy.require(HttpMethod.POST, "/api/web/skills/*/*/archive", "skill:publish"),

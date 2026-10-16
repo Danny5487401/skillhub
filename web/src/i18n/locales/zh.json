@@ -518,6 +518,10 @@
     "securityDesc": "修改密码和账户安全选项"
   },
   "mySkills": {
+    "updateGlobalVersion": "更新全局版本",
+    "viewGlobalCopy": "查看全局副本",
+    "viewTeamSource": "查看团队来源",
+    "promotionRoles": {"TEAM_SOURCE": "团队来源 · 已提升到全局", "GLOBAL_COPY": "全局副本 · 与团队来源独立更新"},
     "versionDifference": "本次 v{{version}} · 当前公开 v{{published}}",
     "statusUpdatePendingReview": "更新待审核",
     "title": "我的技能",
@@ -570,6 +574,7 @@
     "withdrawSuccessDescription": "“{{skill}}”的待审核版本已撤销。",
     "withdrawErrorTitle": "撤销上传失败",
     "promoteToGlobal": "申请提升到全局",
+    "submitVersionToGlobal": "提交版本到全局",
     "promotionConfirmTitle": "确认提交提升申请",
     "promotionConfirmDescription": "确认将“{{skill}}”的 v{{version}} 提交为提升到全局空间的申请吗？",
     "promotionSuccessTitle": "提升申请已提交",
@@ -2765,5 +2770,24 @@
     "archiveHint": "归档后停止空间及其中技能的正常访问。可恢复归档。",
     "restoreHint": "恢复已归档空间。",
     "deleteHint": "永久删除空间，请先处理其中的技能和成员。"
+  },
+  "skillVisibility": {
+    "pendingList": "申请{{visibility}} · 审核中，批准前保持当前范围。",
+    "title": "可见范围",
+    "description": "仅调整访问范围，保留技能标识、内容版本和统计。",
+    "current": "当前范围：{{visibility}}",
+    "PUBLIC": "公开",
+    "NAMESPACE_ONLY": "空间成员可见",
+    "PRIVATE": "私有（所有者和有权管理员）",
+    "expanding": "扩大范围需要审核，通过前保持当前范围。可在“我的审核进度”查看或撤回申请。",
+    "narrowing": "缩小范围立即生效，原先可访问的用户可能无法继续查看或下载。",
+    "submit": "提交审核",
+    "submitted": "已提交可见范围审核",
+    "saved": "可见范围已更新",
+    "failed": "更新失败",
+    "scanPENDING": "安全扫描中，完成前不能通过审核。",
+    "scanPASSED": "安全扫描已通过。",
+    "scanFAILED": "安全扫描未通过，当前范围保持不变。请撤回后重试或上传修复版本。",
+    "pending": "已有待审核范围申请：{{visibility}}。请到“我的审核进度”完成或撤回。"
   }
 }

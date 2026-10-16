@@ -622,6 +622,19 @@ export const accountApi = {
 }
 
 export const skillLifecycleApi = {
+  async getVisibility(namespace: string, slug: string) {
+    const cleanNamespace = namespace.startsWith('@') ? namespace.slice(1) : namespace
+    return fetchJson<components['schemas']['Result']>(
+      `${WEB_API_PREFIX}/skills/${encodeURIComponent(cleanNamespace)}/${encodeURIComponent(slug)}/visibility`)
+  },
+  async changeVisibility(namespace: string, slug: string, visibility: 'PUBLIC' | 'NAMESPACE_ONLY' | 'PRIVATE') {
+    const cleanNamespace = namespace.startsWith('@') ? namespace.slice(1) : namespace
+    return fetchJson<components['schemas']['Result']>(
+      `${WEB_API_PREFIX}/skills/${encodeURIComponent(cleanNamespace)}/${encodeURIComponent(slug)}/visibility`, {
+        method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ visibility }),
+      })
+  },
   async archiveSkill(namespace: string, slug: string, reason?: string): Promise<void> {
     const cleanNamespace = namespace.startsWith('@') ? namespace.slice(1) : namespace
     await fetchJson<void>(`${WEB_API_PREFIX}/skills/${cleanNamespace}/${encodeURIComponent(slug)}/archive`, {

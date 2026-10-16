@@ -184,6 +184,39 @@ class ReviewSkillDetailAppServiceTest {
     }
 
     @Test
+    void visibilityReviewAllowsAuthorizedReviewerToInspectTheBoundPrivatePackage() throws Exception {
+        Skill skill = createSkill(101L, 20L, "skill-a");
+        skill.setVisibility(SkillVisibility.PRIVATE); skill.setLatestVersionId(100L);
+        ReviewTask task = ReviewTask.forVisibility(skill, SkillVisibility.PUBLIC, "owner-1");
+        task.setVisibilityScanTaskId("scope-scan"); setField(task, "id", 42L);
+        Namespace namespace = createNamespace(20L, "team-a");
+        SkillVersion published = createVersion(100L, 101L, "1.0.0", SkillVersionStatus.PUBLISHED);
+        var audits = org.mockito.Mockito.mock(com.iflytek.skillhub.domain.security.SecurityAuditRepository.class);
+        var scan = new com.iflytek.skillhub.domain.security.SecurityAudit(100L,
+                com.iflytek.skillhub.domain.security.ScannerType.SKILL_SCANNER, "scope-scan");
+        scan.setScannedAt(Instant.now()); scan.setIsSafe(true);
+        service.configureSecurityAudits(audits);
+        given(audits.findLatestActiveByVersionIdAndScannerType(100L,
+                com.iflytek.skillhub.domain.security.ScannerType.SKILL_SCANNER)).willReturn(Optional.of(scan));
+        given(reviewTaskRepository.findById(42L)).willReturn(Optional.of(task));
+        given(namespaceRepository.findById(20L)).willReturn(Optional.of(namespace));
+        given(rbacService.getUserRoleCodes("admin")).willReturn(Set.of("SKILL_ADMIN"));
+        given(reviewService.canViewReview(task, "admin", namespace.getType(), Map.of(), Set.of("SKILL_ADMIN"))).willReturn(true);
+        given(skillQueryService.getReviewSkillSnapshot(100L)).willReturn(new SkillQueryService.ReviewSkillSnapshotDTO(
+                skill, "Owner", published, published, List.of(published), List.of(createFile(5L, 100L, "SKILL.md")), "SKILL.md", "private package"));
+        given(skillQueryService.getFileContentByVersionId(100L, "SKILL.md"))
+                .willReturn(new ByteArrayInputStream("private package".getBytes()));
+        var download = new SkillDownloadService.DownloadResult(() -> new ByteArrayInputStream(new byte[]{1}), "review.zip", 1, "application/zip", null, true);
+        given(skillDownloadService.downloadReviewVersion(skill, published)).willReturn(download);
+        var detail = service.getReviewSkillDetail(42L, "admin", Map.of());
+        assertThat(detail.documentationContent()).isEqualTo("private package");
+        assertThat(detail.files()).hasSize(1);
+        assertThat(detail.visibilityChange().scanStatus()).isEqualTo("PASSED");
+        assertThat(service.getReviewFileContent(42L, "SKILL.md", "admin", Map.of()).readAllBytes()).isEqualTo("private package".getBytes());
+        assertThat(service.downloadReviewPackage(42L, "admin", Map.of()).filename()).isEqualTo("review.zip");
+    }
+
+    @Test
     void getReviewSkillDetail_rejectsUnauthorizedUser() {
         ReviewTask task = createReviewTask(42L, 101L, 20L, "submitter");
         Namespace namespace = createNamespace(20L, "team-a");

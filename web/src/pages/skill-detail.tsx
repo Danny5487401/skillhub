@@ -4,6 +4,7 @@ import { Link, useParams, useNavigate, useRouterState, useSearch } from '@tansta
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpCircle, Boxes, ChevronDown, ChevronUp, Clock, Folder, Globe, Lock, RefreshCw, ShieldCheck, Terminal, User, Users } from 'lucide-react'
 import { MarkdownRenderer } from '@/features/skill/markdown-renderer'
+import { SkillVisibilityDialog } from '@/features/skill/skill-visibility-dialog'
 import { SkillAvatar } from '@/features/skill/skill-avatar'
 import { SkillAvatarTakedown } from '@/features/skill/skill-avatar-takedown'
 import { resolvePackageRelativeLink } from '@/features/skill/package-relative-link'
@@ -1496,6 +1497,9 @@ export function SkillDetailPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 pt-3 border-t border-border/40">
+              {skill.status === 'ACTIVE' && !skill.hidden && publishedVersion && <SkillVisibilityDialog
+                namespace={namespace} slug={slug} visibility={skill.visibility} disabled={hasPendingOwnerPreview} />}
+
               {skill.status === 'ARCHIVED' ? (
                 <Button variant="outline" onClick={() => setUnarchiveConfirmOpen(true)} disabled={unarchiveMutation.isPending}>
                   {unarchiveMutation.isPending ? t('skillDetail.processing') : t('skillDetail.unarchiveSkill')}

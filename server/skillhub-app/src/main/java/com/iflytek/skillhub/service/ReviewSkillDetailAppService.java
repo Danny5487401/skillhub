@@ -47,6 +47,11 @@ public class ReviewSkillDetailAppService {
     private final SkillDownloadService skillDownloadService;
     private final ComplianceSnapshotProjectionService complianceSnapshotProjectionService;
     private final ObjectReader metadataReader;
+    private com.iflytek.skillhub.domain.security.SecurityAuditRepository securityAudits;
+    @Autowired
+    public void configureSecurityAudits(com.iflytek.skillhub.domain.security.SecurityAuditRepository audits) {
+        this.securityAudits = audits;
+    }
     private SkillRepository skills;
     private SkillAvatarCandidateJpaRepository candidates;
 
@@ -92,11 +97,11 @@ public class ReviewSkillDetailAppService {
                                                           String userId,
                                                           Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSubjectType() == ReviewSubjectType.SKILL_METADATA) {
+        if (context.task().getSubjectType() == ReviewSubjectType.SKILL_METADATA && context.task().getRequestedVisibility() == null) {
             return metadataDetail(context);
         }
         SkillQueryService.ReviewSkillSnapshotDTO snapshot =
-                skillQueryService.getReviewSkillSnapshot(context.task().getSkillVersionId());
+                skillQueryService.getReviewSkillSnapshot(reviewVersionId(context.task()));
 
         SkillLifecycleVersionResponse activeVersion = toLifecycleVersion(snapshot.activeVersion());
         SkillDetailResponse skill = new SkillDetailResponse(
@@ -157,7 +162,7 @@ public class ReviewSkillDetailAppService {
                 snapshot.documentationContent(),
                 "/api/v1/reviews/" + reviewId + "/download",
                 snapshot.activeVersion().getVersion(),
-                avatarChange(context)
+                avatarChange(context), visibilityChange(context.task())
         );
     }
 
@@ -165,11 +170,11 @@ public class ReviewSkillDetailAppService {
                                                                     String userId,
                                                                     Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSkillVersionId() == null) {
+        if (reviewVersionId(context.task()) == null) {
             throw new DomainBadRequestException("review.metadata.no_package");
         }
         SkillQueryService.ReviewSkillSnapshotDTO snapshot =
-                skillQueryService.getReviewSkillSnapshot(context.task().getSkillVersionId());
+                skillQueryService.getReviewSkillSnapshot(reviewVersionId(context.task()));
         return skillDownloadService.downloadReviewVersion(snapshot.skill(), snapshot.activeVersion());
     }
 
@@ -183,11 +188,11 @@ public class ReviewSkillDetailAppService {
                                             String userId,
                                             Map<Long, NamespaceRole> userNsRoles) {
         ReviewAccessContext context = loadAuthorizedContext(reviewId, userId, userNsRoles);
-        if (context.task().getSkillVersionId() == null) {
+        if (reviewVersionId(context.task()) == null) {
             throw new DomainBadRequestException("review.metadata.no_package");
         }
         return skillQueryService.getFileContentByVersionId(
-                context.task().getSkillVersionId(),
+                reviewVersionId(context.task()),
                 filePath
         );
     }
@@ -221,7 +226,23 @@ public class ReviewSkillDetailAppService {
                 skill.getRatingCount(), skill.isHidden(), context.namespace().getSlug(), List.of(), false, false,
                 false, false, null, null, null, null, "REVIEW_TASK", List.of(), new PageResponse<>(List.of(), 0, 0, 20),
                 SkillAvatarUrls.current(skill, context.namespace().getSlug()));
-        return new ReviewSkillDetailResponse(detail, List.of(), List.of(), null, null, null, null, avatarChange(context));
+        return new ReviewSkillDetailResponse(detail, List.of(), List.of(), null, null, null, null,
+                avatarChange(context), visibilityChange(context.task()));
+    }
+
+    private Long reviewVersionId(ReviewTask task) {
+        return task.getRequestedVisibility() != null ? task.getVisibilityVersionId() : task.getSkillVersionId();
+    }
+
+    private ReviewSkillDetailResponse.VisibilityChange visibilityChange(ReviewTask task) {
+        if (task.getRequestedVisibility() == null) { return null; }
+        var scan = securityAudits.findLatestActiveByVersionIdAndScannerType(task.getVisibilityVersionId(),
+                com.iflytek.skillhub.domain.security.ScannerType.SKILL_SCANNER)
+                .filter(audit -> java.util.Objects.equals(task.getVisibilityScanTaskId(), audit.getTaskId()));
+        String status = scan.isEmpty() ? "FAILED" : scan.get().getScannedAt() == null ? "PENDING"
+                : scan.get().getFailureReason() == null && Boolean.TRUE.equals(scan.get().getIsSafe()) ? "PASSED" : "FAILED";
+        return new ReviewSkillDetailResponse.VisibilityChange(task.getPreviousVisibility().name(),
+                task.getRequestedVisibility().name(), status, "PASSED".equals(status));
     }
 
     private ReviewAccessContext loadAuthorizedContext(Long reviewId,

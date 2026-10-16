@@ -253,6 +253,7 @@ export interface BatchMemberResponse {
 
 // Skill types
 export interface SkillSummary {
+  managementState?: components['schemas']['ManagementState'] | null
   id: number
   slug: string
   displayName: string
@@ -622,6 +623,8 @@ export interface ReviewTask {
   subjectVersionId?: number | null
   subjectSlug?: string | null
   avatarCandidateId?: number | null
+  previousVisibility?: string
+  requestedVisibility?: string
   avatarRemoval?: boolean
 }
 
@@ -654,6 +657,7 @@ export interface ReviewProgressPage {
 }
 
 export interface ReviewSkillDetail {
+  visibilityChange?: components['schemas']['VisibilityChange']
   skill: SkillDetail
   versions: SkillVersion[]
   files: SkillFile[]

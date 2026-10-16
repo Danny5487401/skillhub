@@ -238,6 +238,10 @@ Public API 的可见性规则：
 | PUT | `/api/v1/skills/{namespace}/{slug}/tags/{tagName}` | 创建/移动自定义标签（`latest` 为系统保留标签，不可通过此接口操作） |
 | DELETE | `/api/v1/skills/{namespace}/{slug}/tags/{tagName}` | 删除自定义标签（`latest` 不可删） |
 
+### 技能可见范围
+
+已发布技能可独立调整范围，不上传新 ZIP、不创建内容版本。`GET/POST /api/v1/skills/{namespace}/{slug}/visibility`（Web 同时支持 `/api/web`）提供当前范围及申请提交；Token 写入需 `skill:publish`，仍需维护权限。扩大范围走统一技能审核，缩小立即生效。请求、响应、扫描和冲突说明见[可见范围使用指南](./skill-visibility.md)。
+
 ### 技能生命周期管理
 
 | 方法 | 路径 | 说明 |

@@ -390,7 +390,7 @@ class PostgresFullTextQueryServiceTest {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(entityManager, org.mockito.Mockito.times(2)).createNativeQuery(sqlCaptor.capture());
         assertThat(sqlCaptor.getAllValues().getFirst())
-                .contains("AND (d.visibility = 'PUBLIC' )")
+                .contains("AND (s.visibility = 'PUBLIC' )")
                 .contains("AND d.status = 'ACTIVE'")
                 .contains("AND s.status = 'ACTIVE'")
                 .contains("AND s.hidden = FALSE")

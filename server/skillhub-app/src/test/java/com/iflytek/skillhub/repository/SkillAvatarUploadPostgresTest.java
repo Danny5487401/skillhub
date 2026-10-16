@@ -92,6 +92,7 @@ class SkillAvatarUploadPostgresTest {
     @Autowired UserAccountJpaRepository users;
     @Autowired PlatformTransactionManager transactions;
     @Autowired JdbcTemplate jdbc;
+    @MockBean private com.iflytek.skillhub.domain.skill.service.SkillVisibilityService visibilityChanges;
     @MockBean ObjectStorageService storage;
     @MockBean SkillAvatarImageProcessor images;
     @MockBean AvatarReviewSettingsService settings;

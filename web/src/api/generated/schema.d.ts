@@ -1186,6 +1186,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/skills/{namespace}/{slug}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSkillVisibility"];
+        put?: never;
+        post: operations["changeSkillVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/skills/{namespace}/{slug}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSkillVisibility_1"];
+        put?: never;
+        post: operations["changeSkillVisibility_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/skills/{namespace}/{slug}/versions/{version}/yank": {
         parameters: {
             query?: never;
@@ -6693,6 +6725,27 @@ export interface components {
             /** @enum {string} */
             visibility?: "PUBLIC" | "NAMESPACE_ONLY" | "PRIVATE";
         };
+        ChangeVisibilityRequest: {
+            /** @enum {string} */
+            visibility: "PUBLIC" | "NAMESPACE_ONLY" | "PRIVATE";
+        };
+        ApiResponseResult: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["Result"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        Result: {
+            /** @enum {string} */
+            visibility?: "PUBLIC" | "NAMESPACE_ONLY" | "PRIVATE";
+            /** @enum {string} */
+            requestedVisibility?: "PUBLIC" | "NAMESPACE_ONLY" | "PRIVATE";
+            /** Format: int64 */
+            reviewTaskId?: number;
+        };
         AdminSkillActionRequest: {
             reason?: string;
         };
@@ -6862,6 +6915,8 @@ export interface components {
             /** Format: int64 */
             avatarCandidateId?: number;
             avatarRemoval?: boolean;
+            previousVisibility?: string;
+            requestedVisibility?: string;
         };
         ReviewTaskRequest: {
             /** Format: int64 */
@@ -7680,6 +7735,14 @@ export interface components {
             items?: components["schemas"]["ComplianceMappingResponse"][];
             digest?: string;
         };
+        ManagementState: {
+            requestedVisibility?: string;
+            /** Format: int64 */
+            reviewTaskId?: number;
+            promotionRole?: string;
+            relatedNamespace?: string;
+            relatedSlug?: string;
+        };
         SearchResponse: {
             items?: components["schemas"]["SkillSummaryResponse"][];
             /** Format: int64 */
@@ -7725,6 +7788,7 @@ export interface components {
             complianceSnapshot?: components["schemas"]["ComplianceSnapshotResponse"];
             labels?: components["schemas"]["SkillLabelDto"][];
             avatarUrl?: string;
+            managementState?: components["schemas"]["ManagementState"];
         };
         ApiResponseBoolean: {
             /** Format: int32 */
@@ -8048,6 +8112,13 @@ export interface components {
             downloadUrl?: string;
             activeVersion?: string;
             avatarChange?: components["schemas"]["AvatarChange"];
+            visibilityChange?: components["schemas"]["VisibilityChange"];
+        };
+        VisibilityChange: {
+            previousVisibility?: string;
+            requestedVisibility?: string;
+            scanStatus?: string;
+            readyForApproval?: boolean;
         };
         ApiResponseListReviewTaskResponse: {
             /** Format: int32 */
@@ -11896,6 +11967,106 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSkillSuiteBundleOperationResponse"];
+                };
+            };
+        };
+    };
+    getSkillVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespace: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseResult"];
+                };
+            };
+        };
+    };
+    changeSkillVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespace: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseResult"];
+                };
+            };
+        };
+    };
+    getSkillVisibility_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespace: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseResult"];
+                };
+            };
+        };
+    };
+    changeSkillVisibility_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespace: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseResult"];
                 };
             };
         };

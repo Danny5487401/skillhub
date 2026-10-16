@@ -11,5 +11,10 @@ import java.util.List;
 public interface MySkillQueryRepository {
     List<SkillSummaryResponse> getSkillSummaries(List<Skill> skills, String currentUserId);
 
+    org.springframework.data.domain.Page<Skill> findPendingSkills(String ownerId, String keyword,
+            Long namespaceId, org.springframework.data.domain.Pageable pageable);
+
+    java.util.Map<Long, SkillSummaryResponse.ManagementState> getManagementStates(List<Skill> skills, String ownerId);
+
     List<SkillSummaryResponse> getHiddenSkillSummaries(List<Skill> skills);
 }

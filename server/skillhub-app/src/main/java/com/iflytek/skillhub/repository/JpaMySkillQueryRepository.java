@@ -24,6 +24,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Repository
 public class JpaMySkillQueryRepository implements MySkillQueryRepository {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final NamespaceRepository namespaceRepository;
     private final PromotionRequestRepository promotionRequestRepository;
     private final SkillLifecycleProjectionService skillLifecycleProjectionService;
@@ -62,6 +65,103 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
         return skills.stream()
                 .map(skill -> toSummaryResponse(skill, currentUserId, namespacesById, ownersById))
                 .toList();
+    }
+
+    /** Page and count share this read-model predicate, including the existing owner-preview recency rule. */
+    private static final String PENDING_FROM_WHERE = """
+            FROM skill s
+            LEFT JOIN LATERAL (
+                SELECT published.id, published.created_at FROM skill_version published
+                WHERE published.skill_id = s.id AND published.status = 'PUBLISHED'
+                ORDER BY CASE WHEN published.id = s.latest_version_id THEN 0 ELSE 1 END,
+                         published.published_at DESC NULLS FIRST, published.created_at DESC, published.id DESC
+                LIMIT 1
+            ) published ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT work.status FROM skill_version work
+                WHERE work.skill_id = s.id AND work.status NOT IN ('PUBLISHED', 'YANKED')
+                  AND (published.id IS NULL OR (work.created_at, work.id) > (published.created_at, published.id))
+                ORDER BY work.created_at DESC, work.id DESC LIMIT 1
+            ) preview ON TRUE
+            WHERE s.owner_id = :ownerId AND s.hidden = FALSE AND s.status <> 'ARCHIVED'
+              AND (CAST(:namespaceId AS BIGINT) IS NULL OR s.namespace_id = :namespaceId)
+              AND (:keyword = '' OR POSITION(:keyword IN LOWER(COALESCE(s.display_name, ''))) > 0
+                   OR POSITION(:keyword IN LOWER(s.slug)) > 0
+                   OR POSITION(:keyword IN LOWER(COALESCE(s.summary, ''))) > 0)
+              AND (preview.status = 'PENDING_REVIEW' OR EXISTS (
+                  SELECT 1 FROM review_task r WHERE r.skill_id = s.id
+                    AND r.requested_visibility IS NOT NULL AND r.status = 'PENDING'
+              ))
+            """;
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<Skill> findPendingSkills(String ownerId, String keyword,
+            Long namespaceId, org.springframework.data.domain.Pageable pageable) {
+        String query = keyword == null ? "" : keyword.trim().toLowerCase(java.util.Locale.ROOT);
+        // Native PostgreSQL LATERAL mirrors the owner-preview resolver without per-skill lookups.
+        var rows = entityManager.createNativeQuery("SELECT s.* " + PENDING_FROM_WHERE
+                + " ORDER BY s.updated_at DESC, s.id DESC", Skill.class);
+        var count = entityManager.createNativeQuery("SELECT COUNT(*) " + PENDING_FROM_WHERE);
+        for (var statement : List.of(rows, count)) {
+            statement.setParameter("ownerId", ownerId).setParameter("keyword", query)
+                    .setParameter("namespaceId", namespaceId);
+        }
+        @SuppressWarnings("unchecked")
+        List<Skill> items = rows.setFirstResult((int) pageable.getOffset()).setMaxResults(pageable.getPageSize()).getResultList();
+        return new org.springframework.data.domain.PageImpl<>(items, pageable, ((Number) count.getSingleResult()).longValue());
+    }
+
+    /**
+     * One page-bounded management read. Authorizing related coordinates by the same owner avoids
+     * revealing a private source through a public/global card. No per-card visibility requests.
+     */
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Map<Long, SkillSummaryResponse.ManagementState> getManagementStates(List<Skill> skills, String ownerId) {
+        List<Long> ids = skills.stream().filter(skill -> ownerId.equals(skill.getOwnerId()))
+                .map(Skill::getId).toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        // App read-model joins stay in this query repository; domain repositories remain unchanged.
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                SELECT s.id, pending.requested_visibility, pending.id,
+                       CASE WHEN s.source_skill_id IS NOT NULL THEN 'GLOBAL_COPY'
+                            WHEN target_ns.id IS NOT NULL THEN 'TEAM_SOURCE' END,
+                       CASE WHEN s.source_skill_id IS NOT NULL THEN source_ns.slug
+                            WHEN target.visibility <> 'NAMESPACE_ONLY' OR EXISTS (
+                                SELECT 1 FROM namespace_member m
+                                WHERE m.namespace_id = target.namespace_id AND m.user_id = :ownerId
+                            ) THEN target_ns.slug END,
+                       CASE WHEN s.source_skill_id IS NOT NULL THEN source.slug ELSE target.slug END
+                FROM skill s
+                LEFT JOIN LATERAL (
+                    SELECT r.id, r.requested_visibility FROM review_task r
+                    WHERE r.skill_id = s.id AND r.requested_visibility IS NOT NULL AND r.status = 'PENDING'
+                    ORDER BY r.id DESC LIMIT 1
+                ) pending ON TRUE
+                LEFT JOIN skill source ON source.id = s.source_skill_id AND source.owner_id = :ownerId
+                    AND source.hidden = FALSE AND source.status = 'ACTIVE'
+                    AND (source.visibility <> 'NAMESPACE_ONLY' OR EXISTS (
+                        SELECT 1 FROM namespace_member m WHERE m.namespace_id = source.namespace_id AND m.user_id = :ownerId
+                    ))
+                LEFT JOIN namespace source_ns ON source_ns.id = source.namespace_id AND source_ns.status = 'ACTIVE'
+                LEFT JOIN skill target ON target.source_skill_id = s.id AND target.owner_id = :ownerId
+                    AND target.hidden = FALSE AND target.status = 'ACTIVE'
+                LEFT JOIN namespace target_ns ON target_ns.id = target.namespace_id
+                    AND target_ns.type = 'GLOBAL' AND target_ns.status = 'ACTIVE'
+                WHERE s.id IN :ids AND s.owner_id = :ownerId
+                """)
+                .setParameter("ids", ids).setParameter("ownerId", ownerId).getResultList();
+        Map<Long, SkillSummaryResponse.ManagementState> states = new java.util.HashMap<>();
+        for (Object[] row : rows) {
+            states.put(((Number) row[0]).longValue(), new SkillSummaryResponse.ManagementState(
+                    (String) row[1], row[2] == null ? null : ((Number) row[2]).longValue(),
+                    (String) row[3], (String) row[4], row[4] == null ? null : (String) row[5]));
+        }
+        return states;
     }
 
     @Override

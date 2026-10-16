@@ -20,6 +20,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class SearchIndexEventListenerTest {
 
     @Test
+    void visibilityChangeRebuildsExistingSkill() {
+        SearchRebuildService rebuild = mock(SearchRebuildService.class);
+        SearchIndexEventListener listener = new SearchIndexEventListener(rebuild, mock(SearchIndexService.class));
+        listener.onSkillVisibilityChanged(new com.iflytek.skillhub.domain.event.SkillVisibilityChangedEvent(42L,
+                com.iflytek.skillhub.domain.skill.SkillVisibility.PUBLIC, com.iflytek.skillhub.domain.skill.SkillVisibility.PRIVATE));
+        verify(rebuild).rebuildBySkill(42L);
+    }
+
+    @Test
     void skillPublishedEventShouldTriggerSkillRebuild() {
         SearchRebuildService searchRebuildService = mock(SearchRebuildService.class);
         SearchIndexService searchIndexService = mock(SearchIndexService.class);

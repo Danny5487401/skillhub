@@ -16,7 +16,6 @@ import com.iflytek.skillhub.domain.namespace.NamespaceMember;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
-import com.iflytek.skillhub.domain.namespace.NamespaceType;
 import com.iflytek.skillhub.domain.security.SecurityScanService;
 import com.iflytek.skillhub.domain.skill.Skill;
 import com.iflytek.skillhub.domain.skill.SkillFile;
@@ -51,6 +50,11 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(
         classes = SkillhubApplication.class,
@@ -61,8 +65,23 @@ import org.springframework.test.context.ActiveProfiles;
         })
 @ActiveProfiles("test")
 @Import(TestRedisConfig.class)
+@Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
 class BuiltinSkillUpgradeConflictIntegrationTest {
+
+    @Container
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+        registry.add("spring.flyway.enabled", () -> true);
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+    }
 
     private static final String GLOBAL = "global";
     private static final String SYSTEM_PUBLISHER = "builtin-skill-publisher";
@@ -142,9 +161,7 @@ class BuiltinSkillUpgradeConflictIntegrationTest {
 
     @Test
     void upgradePreservesUserOwnedConflictAndPublishesRemainingBuiltIns(CapturedOutput output) throws Exception {
-        Namespace global = new Namespace(GLOBAL, "Global", "system");
-        global.setType(NamespaceType.GLOBAL);
-        global = namespaceRepository.save(global);
+        Namespace global = namespaceRepository.findBySlug(GLOBAL).orElseThrow();
 
         userAccountRepository.save(UserAccount.systemAccount(
                 SYSTEM_PUBLISHER,

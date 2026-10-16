@@ -68,11 +68,19 @@ class MySkillAppServiceTest {
     @BeforeEach
     void setUp() {
         skillLifecycleProjectionService = new SkillLifecycleProjectionService(skillVersionRepository);
-        mySkillQueryRepository = new JpaMySkillQueryRepository(
+        mySkillQueryRepository = org.mockito.Mockito.spy(new JpaMySkillQueryRepository(
                 namespaceRepository,
                 promotionRequestRepository,
                 skillLifecycleProjectionService
-        );
+        ));
+        var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+        var managementQuery = org.mockito.Mockito.mock(jakarta.persistence.Query.class);
+        org.mockito.Mockito.lenient().when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(managementQuery);
+        org.mockito.Mockito.lenient().when(managementQuery.setParameter(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(managementQuery);
+        org.mockito.Mockito.lenient().when(managementQuery.getResultList()).thenReturn(List.of());
+        ReflectionTestUtils.setField(mySkillQueryRepository, "entityManager", entityManager);
         service = new MySkillAppService(
                 skillRepository,
                 skillVersionRepository,
@@ -204,12 +212,10 @@ class MySkillAppServiceTest {
     void listMySkills_filtersPendingReviewForRegularUsers() {
         Skill pendingSkill = createSkill(1L, 101L, "pending-skill", "user-1");
         SkillVersion pendingVersion = createVersion(1L, 11L, "1.0.0", SkillVersionStatus.PENDING_REVIEW, "2026-03-15T09:30:00Z");
-        Skill publishedSkill = createSkill(2L, 101L, "published-skill", "user-1");
-        SkillVersion publishedVersion = createVersion(2L, 22L, "1.2.0", SkillVersionStatus.PUBLISHED, "2026-03-15T10:30:00Z");
 
-        given(skillRepository.findByOwnerId("user-1")).willReturn(List.of(pendingSkill, publishedSkill));
+        org.mockito.Mockito.doReturn(new PageImpl<>(List.of(pendingSkill), PageRequest.of(0, 10), 1))
+                .when(mySkillQueryRepository).findPendingSkills("user-1", null, null, PageRequest.of(0, 10));
         given(skillVersionRepository.findBySkillId(1L)).willReturn(List.of(pendingVersion));
-        given(skillVersionRepository.findBySkillId(2L)).willReturn(List.of(publishedVersion));
         given(namespaceRepository.findByIdIn(List.of(101L))).willReturn(List.of(namespace(101L, "team-ai")));
 
         var result = service.listMySkills("user-1", 0, 10, "PENDING_REVIEW", Set.of("USER"));

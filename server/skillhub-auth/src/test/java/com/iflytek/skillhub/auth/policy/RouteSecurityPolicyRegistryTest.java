@@ -19,6 +19,17 @@ class RouteSecurityPolicyRegistryTest {
     private final RouteSecurityPolicyRegistry registry = new RouteSecurityPolicyRegistry();
 
     @Test
+    void visibilityWritesRequirePublishScopeAndAuthenticatedReads() {
+        for (String prefix : List.of("/api/v1", "/api/web")) {
+            String route = prefix + "/skills/team/foo/visibility";
+            assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED, registry.accessLevel("GET", route));
+            assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED, registry.accessLevel("POST", route));
+            assertFalse(registry.authorizeApiToken("POST", route, Set.of("skill:read")).allowed());
+            assertTrue(registry.authorizeApiToken("POST", route, Set.of("skill:publish")).allowed());
+        }
+    }
+
+    @Test
     void packagePreviewIsAuthenticatedAndRequiresPublishScope() {
         for (String prefix : java.util.List.of("/api/v1", "/api/web")) {
             assertEquals(RouteSecurityPolicyRegistry.AccessLevel.AUTHENTICATED,

@@ -40,6 +40,10 @@ public class SkillReviewSubmitService {
     private final NamespaceMemberRepository namespaceMemberRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private SkillVisibilityService visibilityService;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setVisibilityService(SkillVisibilityService service) { this.visibilityService = service; }
+
 
     public SkillReviewSubmitService(
             SkillRepository skillRepository,
@@ -76,6 +80,10 @@ public class SkillReviewSubmitService {
         SkillVersion version = skillVersionRepository.findById(versionId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", versionId));
 
+        if (visibilityService != null) {
+            skill = visibilityService.lockedSkill(skill.getId());
+            visibilityService.assertNoPendingVisibility(skill.getId());
+        }
         // Validate ownership
         assertCanManageLifecycle(skill, actorUserId, userNamespaceRoles);
 
@@ -127,6 +135,10 @@ public class SkillReviewSubmitService {
         SkillVersion version = skillVersionRepository.findById(versionId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", versionId));
 
+        if (visibilityService != null) {
+            skill = visibilityService.lockedSkill(skill.getId());
+            visibilityService.assertNoPendingVisibility(skill.getId());
+        }
         // Validate ownership
         assertCanManageLifecycle(skill, actorUserId, userNamespaceRoles, platformRoles);
 

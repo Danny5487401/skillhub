@@ -80,6 +80,10 @@ public class SkillPublishService {
     private static final Logger log = LoggerFactory.getLogger(SkillPublishService.class);
 
     private ReviewAvatarParticipant avatarParticipant;
+    private SkillVisibilityService visibilityService;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setVisibilityService(SkillVisibilityService service) { this.visibilityService = service; }
+
 
     @Autowired
     public void setAvatarParticipant(ReviewAvatarParticipant participant) {
@@ -540,6 +544,10 @@ public class SkillPublishService {
                 : resolveBundleTargetSkill(namespace, existingSkills, publisherId, visibility,
                         platformRoles, bundleTarget);
 
+        if (visibilityService != null) {
+            visibilityService.lockedSkill(skill.getId());
+            visibilityService.assertNoPendingVisibility(skill.getId());
+        }
         if (skill.getStatus() == SkillStatus.ARCHIVED) {
             throw new DomainBadRequestException("error.skill.publish.archived", skillSlug);
         }

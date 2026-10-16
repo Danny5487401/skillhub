@@ -518,6 +518,10 @@
     "securityDesc": "Change password and account security options"
   },
   "mySkills": {
+    "updateGlobalVersion": "Update global version",
+    "viewGlobalCopy": "View global copy",
+    "viewTeamSource": "View team source",
+    "promotionRoles": {"TEAM_SOURCE": "Team source · promoted to global", "GLOBAL_COPY": "Global copy · updated independently"},
     "versionDifference": "This update v{{version}} · Public v{{published}}",
     "statusUpdatePendingReview": "Update awaiting review",
     "title": "My Skills",
@@ -570,6 +574,7 @@
     "withdrawSuccessDescription": "The pending version for \"{{skill}}\" has been withdrawn.",
     "withdrawErrorTitle": "Failed to withdraw upload",
     "promoteToGlobal": "Promote to Global",
+    "submitVersionToGlobal": "Submit version to global",
     "promotionConfirmTitle": "Submit promotion request",
     "promotionConfirmDescription": "Submit v{{version}} of \"{{skill}}\" for promotion into the global namespace?",
     "promotionSuccessTitle": "Promotion request submitted",
@@ -2766,5 +2771,24 @@
     "archiveHint": "Stop normal access to the space and its skills. Archiving can be reversed.",
     "restoreHint": "Restore the archived space.",
     "deleteHint": "Permanently delete the space. Handle its skills and members first."
+  },
+  "skillVisibility": {
+    "pendingList": "Requested {{visibility}} · review pending. Current access remains in effect.",
+    "title": "Visibility",
+    "description": "Change access without changing the skill identity, package version, or statistics.",
+    "current": "Current scope: {{visibility}}",
+    "PUBLIC": "Public",
+    "NAMESPACE_ONLY": "Namespace members",
+    "PRIVATE": "Private (owner and authorized administrators)",
+    "expanding": "Wider access requires review. Current access stays in effect until approval. Track or withdraw the request in My review progress.",
+    "narrowing": "Narrower access takes effect immediately. Previous viewers may lose access to details and downloads.",
+    "submit": "Submit for review",
+    "submitted": "Visibility change submitted for review",
+    "saved": "Visibility updated",
+    "failed": "Update failed",
+    "scanPENDING": "Security scan in progress. Approval is unavailable until it passes.",
+    "scanPASSED": "Security scan passed.",
+    "scanFAILED": "Security scan did not pass. Current visibility is unchanged. Withdraw and retry or upload a fixed version.",
+    "pending": "Pending visibility request: {{visibility}}. Complete or withdraw it in My review progress."
   }
 }
