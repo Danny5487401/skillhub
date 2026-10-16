@@ -73,6 +73,7 @@ Before opening a pull request, make sure:
   backend API contracts changed.
 - Smoke coverage is updated when operator-facing workflows change.
 - The pull request description explains motivation, scope, and rollout impact.
+- Every commit is signed off and the CLA is signed (see below).
 
 ## Commit Style
 
@@ -81,6 +82,22 @@ Conventional-style subjects are preferred, for example:
 - `feat(auth): add local account login`
 - `fix(ops): align smoke test with csrf flow`
 - `docs(deploy): clarify runtime image usage`
+
+## Sign-off and CLA
+
+Two checks must pass before a pull request can be merged:
+
+- **DCO**: every commit needs a `Signed-off-by` trailer that matches the commit
+  author, certifying the [Developer Certificate of Origin](https://developercertificate.org/).
+  Use `git commit -s` when committing. To sign off commits you already pushed,
+  run `git commit --amend -s --no-edit` for the last commit, or
+  `git rebase --signoff <base>` for several, then `git push --force-with-lease`.
+- **CLA**: sign the Contributor License Agreement once through the
+  `license/cla` link that the CLA assistant posts on your first pull request.
+
+Both are your own attestations, so maintainers cannot complete them for you.
+Workflow runs on a first-time contributor's pull request also wait for a
+maintainer to approve them; that pending state is not a test failure.
 
 ## Reporting Security Issues
 
