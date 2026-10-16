@@ -136,6 +136,24 @@ class RouteSecurityPolicyRegistryTest {
     }
 
     @Test
+    void skillLabelApiTokenPolicies_requirePublishScope() {
+        for (String path : new String[] {
+                "/api/v1/skills/global/demo/labels/official", "/api/web/skills/global/demo/labels/official"}) {
+            var deniedAttach = registry.authorizeApiToken("PUT", path, Set.of("skill:read"));
+            assertFalse(deniedAttach.allowed());
+            assertEquals("skill:publish", deniedAttach.requiredScope());
+            var deniedDetach = registry.authorizeApiToken("DELETE", path, Set.of("skill:read"));
+            assertFalse(deniedDetach.allowed());
+            assertEquals("skill:publish", deniedDetach.requiredScope());
+            assertFalse(registry.authorizeApiToken("PUT", path, Set.of()).allowed());
+            assertFalse(registry.authorizeApiToken("DELETE", path, Set.of()).allowed());
+            assertTrue(registry.authorizeApiToken("PUT", path, Set.of("skill:publish")).allowed());
+            assertTrue(registry.authorizeApiToken("DELETE", path, Set.of("skill:publish")).allowed());
+        }
+        assertTrue(registry.authorizeApiToken("GET", "/api/v1/skills/global/demo/labels", Set.of()).allowed());
+    }
+
+    @Test
     void suiteApiTokenPolicies_requirePublishScopeAndKeepReviewSessionOnly() {
         assertTrue(registry.authorizeApiToken(
                 "GET", "/api/v1/suites/global/starter", Set.of()).allowed());
