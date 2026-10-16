@@ -611,7 +611,13 @@ export function SkillDetailPage() {
     if (!skill || !isDeleteSlugConfirmationValid(skill.slug, deleteSkillInput)) {
       return
     }
-    await deleteSkillMutation.mutateAsync({ namespace, slug, ownerId: skill.ownerId })
+    try {
+      await deleteSkillMutation.mutateAsync({ namespace, slug, ownerId: skill.ownerId })
+    } catch {
+      // MutationCache already reports the error and handles expired sessions.
+      // Consume the button handler rejection without running success side effects.
+      return
+    }
     setSkillDeleted(true)
     toast.success(
       t('skillDetail.deleteSkillSuccessTitle'),
