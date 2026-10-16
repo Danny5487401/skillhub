@@ -250,7 +250,7 @@ A: The package root directory must contain a `SKILL.md` file, whose frontmatter 
 
 ## Q: Can a skill package contain API keys, tokens or other credentials?
 
-A: It is not recommended. Pre-publish validation detects what look like hard-coded tokens or secrets and blocks the publish or asks for confirmation (see the `registry returned 400` checklist above). Since v0.2.20, ordinary identifiers, function results, property access and string expressions are no longer flagged as credentials, while real secrets are still detected.
+A: It is not recommended. Pre-publish validation detects what look like hard-coded tokens or secrets and blocks the publish or asks for confirmation (see the `registry returned 400` checklist above). Since v0.2.20, false positives for ordinary identifiers, function results, property access and string expressions have been reduced. This is a heuristic check covering only some file types and credential formats: it cannot guarantee that all real secrets are detected and does not automatically redact them. Check for and remove real credentials yourself before publishing.
 
 Instead, reference only the environment variable names or placeholders the skill needs, document the required credentials in `SKILL.md`, and let users configure the real values in the agent environment that runs the skill. SkillHub does not currently store or inject secrets for skills.
 
@@ -334,7 +334,7 @@ docker compose --env-file .env.release -f compose.release.yml up -d --force-recr
 
 ## Q: Startup fails with `bind: address already in use` (port 80 is taken). What should I do?
 
-A: The official Compose file maps the web entry point to host port `80` and the API to port `8080`. When a port is taken, find the process with `netstat -tlnp` or `lsof -i :80`. If you cannot stop it, change the published ports in `.env.release` (with the one-click script, the file is at `/tmp/skillhub-runtime/.env.release` by default):
+A: The official Compose file maps the web entry point to host port `80` and the API to port `8080`. When a port is taken, find the process with `netstat -tlnp` or `lsof -i :80`. If you cannot stop it, change the published ports in `.env.release` (the one-click script uses `${TMPDIR:-/tmp}/skillhub-runtime/.env.release`; if you set `SKILLHUB_HOME` or pass `--home`, use that directory instead):
 
 ```bash
 WEB_PORT=8081
@@ -342,7 +342,7 @@ WEB_PORT=8081
 API_PORT=18080
 ```
 
-After changing ports, also set `SKILLHUB_PUBLIC_BASE_URL` to the real access URL including the new port (for example `http://your-host:8081`); otherwise login callbacks and other redirects may break. Then recreate the containers with `up -d --force-recreate` as described in the previous answer.
+After changing ports, also set `SKILLHUB_PUBLIC_BASE_URL` to the real access URL including the new port (for example `http://your-host:8081`); otherwise login callbacks and other redirects may break. Then change to the actual runtime directory containing `.env.release` and `compose.release.yml`, and recreate the containers with `up -d --force-recreate` as described in the previous answer.
 
 ## Q: What external dependencies does SkillHub require at runtime?
 

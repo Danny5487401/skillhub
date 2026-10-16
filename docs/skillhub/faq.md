@@ -253,7 +253,7 @@ A: 技能包根目录必须包含一个 `SKILL.md` 文件，且其 frontmatter �
 
 ## Q: 技能包里可以放 API Key、Token 等凭据吗？
 
-A: 不建议。发布前校验会识别疑似硬编码的 token / secret，并拦截或要求确认（见上文 `registry returned 400` 的排查项）；自 v0.2.20 起，普通标识符、函数返回值、属性访问和字符串表达式不再被误判为凭据，真实密钥仍会被识别。
+A: 不建议。发布前校验会识别疑似硬编码的 token / secret，并拦截或要求确认（见上文 `registry returned 400` 的排查项）；自 v0.2.20 起，已减少对普通标识符、函数返回值、属性访问和字符串表达式的误报。这只是针对部分文件类型和凭据格式的启发式校验，不能保证发现所有真实密钥，也不会自动脱敏；发布前仍需自行检查并移除真实凭据。
 
 推荐做法是：技能包里只写需要的环境变量名或占位符，并在 `SKILL.md` 中说明需要配置哪些凭据，由使用方在运行 Skill 的 Agent 环境中配置真实值。目前 SkillHub 不提供为 Skill 托管或注入密钥的功能。
 
@@ -337,7 +337,7 @@ docker compose --env-file .env.release -f compose.release.yml up -d --force-recr
 
 ## Q: 启动时报 `bind: address already in use`（80 端口被占用）怎么办？
 
-A: 官方 Compose 默认把 Web 入口映射到宿主机 `80` 端口、API 映射到 `8080` 端口。端口被占用时，可以先用 `netstat -tlnp` 或 `lsof -i :80` 找到占用进程；如果不方便停止它，就在 `.env.release` 中修改对外端口（使用一键部署脚本时，文件默认位于 `/tmp/skillhub-runtime/.env.release`）：
+A: 官方 Compose 默认把 Web 入口映射到宿主机 `80` 端口、API 映射到 `8080` 端口。端口被占用时，可以先用 `netstat -tlnp` 或 `lsof -i :80` 找到占用进程；如果不方便停止它，就在 `.env.release` 中修改对外端口（一键部署脚本使用 `${TMPDIR:-/tmp}/skillhub-runtime/.env.release`；若设置了 `SKILLHUB_HOME` 或通过 `--home` 指定目录，则以该目录为准）：
 
 ```bash
 WEB_PORT=8081
@@ -345,7 +345,7 @@ WEB_PORT=8081
 API_PORT=18080
 ```
 
-修改端口后，请同步把 `SKILLHUB_PUBLIC_BASE_URL` 改成包含新端口的实际访问地址（例如 `http://your-host:8081`），否则登录回调等跳转可能出错。然后按上一条的方法用 `up -d --force-recreate` 重建容器。
+修改端口后，请同步把 `SKILLHUB_PUBLIC_BASE_URL` 改成包含新端口的实际访问地址（例如 `http://your-host:8081`），否则登录回调等跳转可能出错。然后进入 `.env.release` 与 `compose.release.yml` 所在的实际运行目录，按上一条的方法用 `up -d --force-recreate` 重建容器。
 
 ## Q: SkillHub 运行时需要哪些外部依赖？
 
