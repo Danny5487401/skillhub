@@ -131,6 +131,11 @@ class RouteSecurityPolicyRegistryTest {
             var deniedAttach = registry.authorizeApiToken("PUT", path, Set.of("skill:read"));
             assertFalse(deniedAttach.allowed());
             assertEquals("skill:publish", deniedAttach.requiredScope());
+            var deniedDetach = registry.authorizeApiToken("DELETE", path, Set.of("skill:read"));
+            assertFalse(deniedDetach.allowed());
+            assertEquals("skill:publish", deniedDetach.requiredScope());
+            assertFalse(registry.authorizeApiToken("PUT", path, Set.of()).allowed());
+            assertFalse(registry.authorizeApiToken("DELETE", path, Set.of()).allowed());
             assertTrue(registry.authorizeApiToken("PUT", path, Set.of("skill:publish")).allowed());
             assertTrue(registry.authorizeApiToken("DELETE", path, Set.of("skill:publish")).allowed());
         }
