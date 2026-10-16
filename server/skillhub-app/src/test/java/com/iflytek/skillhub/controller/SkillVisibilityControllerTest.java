@@ -55,6 +55,10 @@ class SkillVisibilityControllerTest {
         assertThat(schema.path("paths").has("/api/web/skills/{namespace}/{slug}/visibility")).isTrue();
         assertThat(schema.path("components").path("schemas").path("ReviewTaskResponse")
                 .path("properties").has("requestedVisibility")).isTrue();
+        assertThat(schema.path("components").path("schemas").path("SkillSummaryResponse")
+                .path("properties").has("managementState")).isTrue();
+        assertThat(schema.path("components").path("schemas").path("ManagementState")
+                .path("properties").has("requestedVisibility")).isTrue();
         String output = System.getProperty("skillhub.openapi.output");
         if (output != null && !output.isBlank()) { Files.writeString(Path.of(output), json); }
     }

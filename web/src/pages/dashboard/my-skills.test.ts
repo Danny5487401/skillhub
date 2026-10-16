@@ -1,12 +1,16 @@
 import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createInstance, type i18n } from 'i18next'
+import zh from '@/i18n/locales/zh.json'
+import en from '@/i18n/locales/en.json'
 
 const navigateMock = vi.fn()
 const buttonRecords: Array<{ label: string; onClick?: ((event?: { stopPropagation: () => void }) => void) | undefined }> = []
 const useMySkillsMock = vi.fn()
 const searchMock: { filter?: string } = {}
 let isSuperAdmin = false
+let renderI18n: i18n | undefined
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
@@ -19,7 +23,7 @@ vi.mock('react-i18next', async () => {
   return {
     ...actual,
     useTranslation: () => ({
-      t: (key: string) => key,
+      t: (key: string, options?: Record<string, unknown>) => renderI18n ? String(renderI18n.t(key, options)) : key,
     }),
   }
 })
@@ -126,6 +130,7 @@ function findButton(label: string) {
 
 describe('MySkillsPage', () => {
   beforeEach(() => {
+    renderI18n = undefined
     navigateMock.mockReset()
     buttonRecords.length = 0
     delete searchMock.filter
@@ -309,6 +314,37 @@ describe('MySkillsPage', () => {
     expect(html.match(/class="status-pill[^"]*"/g)).toHaveLength(1)
     expect(html).toContain('mySkills.statusUpdatePendingReview')
     expect(html).not.toContain('mySkills.statusPublished')
+  })
+
+  it.each(['zh', 'en'])('shows effective private access and the pending public request after refresh in %s', async language => {
+    renderI18n = createInstance()
+    await renderI18n.init({ lng: language, fallbackLng: false, resources: { zh: { translation: zh }, en: { translation: en } }, interpolation: { escapeValue: false } })
+    const item = { id: 1, displayName: 'Owned skill', namespace: 'team-ai', slug: 'owned', status: 'ACTIVE',
+      visibility: 'PRIVATE', downloadCount: 0, managementState: { requestedVisibility: 'PUBLIC', reviewTaskId: 42 } }
+    useMySkillsMock.mockReturnValue({ data: { items: [item], total: 1, page: 0, size: 10 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(html).toContain(renderI18n.t('skillVisibility.current', { visibility: renderI18n.t('skillVisibility.PRIVATE') }))
+    expect(html).toContain(renderI18n.t('skillVisibility.pendingList', { visibility: renderI18n.t('skillVisibility.PUBLIC') }))
+    expect(html.match(/class="status-pill[^"]*"/g)).toHaveLength(1)
+    item.managementState = { requestedVisibility: '', reviewTaskId: 0 }
+    const afterReview = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(afterReview).not.toContain('role="status"')
+  })
+
+  it('distinguishes actual promotion links and update action without merging the two skills', () => {
+    useMySkillsMock.mockReturnValue({ data: { items: [
+      { id: 1, displayName: 'Team', namespace: 'team-ai', slug: 'one', status: 'ACTIVE', downloadCount: 0,
+        canSubmitPromotion: true, managementState: { promotionRole: 'TEAM_SOURCE', relatedNamespace: 'global', relatedSlug: 'copy' } },
+      { id: 2, displayName: 'Global', namespace: 'global', slug: 'copy', status: 'ACTIVE', downloadCount: 0,
+        managementState: { promotionRole: 'GLOBAL_COPY' } },
+    ], total: 2, page: 0, size: 10 }, isLoading: false })
+    const html = renderToStaticMarkup(createElement(MySkillsPage))
+    expect(html).toContain('mySkills.promotionRoles.TEAM_SOURCE')
+    expect(html).toContain('mySkills.promotionRoles.GLOBAL_COPY')
+    expect(html).toContain('mySkills.viewGlobalCopy')
+    expect(html).not.toContain('mySkills.viewTeamSource')
+    expect(buttonRecords.some(button => button.label === 'mySkills.updateGlobalVersion')).toBe(true)
+    expect(buttonRecords.some(button => button.label === 'mySkills.promoteToGlobal')).toBe(false)
   })
 
   it('exports a named component function', () => {

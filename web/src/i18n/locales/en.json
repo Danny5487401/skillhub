@@ -518,6 +518,10 @@
     "securityDesc": "Change password and account security options"
   },
   "mySkills": {
+    "updateGlobalVersion": "Update global version",
+    "viewGlobalCopy": "View global copy",
+    "viewTeamSource": "View team source",
+    "promotionRoles": {"TEAM_SOURCE": "Team source · promoted to global", "GLOBAL_COPY": "Global copy · updated independently"},
     "versionDifference": "This update v{{version}} · Public v{{published}}",
     "statusUpdatePendingReview": "Update awaiting review",
     "title": "My Skills",
@@ -570,6 +574,7 @@
     "withdrawSuccessDescription": "The pending version for \"{{skill}}\" has been withdrawn.",
     "withdrawErrorTitle": "Failed to withdraw upload",
     "promoteToGlobal": "Promote to Global",
+    "submitVersionToGlobal": "Submit version to global",
     "promotionConfirmTitle": "Submit promotion request",
     "promotionConfirmDescription": "Submit v{{version}} of \"{{skill}}\" for promotion into the global namespace?",
     "promotionSuccessTitle": "Promotion request submitted",
@@ -2768,6 +2773,7 @@
     "deleteHint": "Permanently delete the space. Handle its skills and members first."
   },
   "skillVisibility": {
+    "pendingList": "Requested {{visibility}} · review pending. Current access remains in effect.",
     "title": "Visibility",
     "description": "Change access without changing the skill identity, package version, or statistics.",
     "current": "Current scope: {{visibility}}",

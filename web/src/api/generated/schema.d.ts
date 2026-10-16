@@ -7735,6 +7735,14 @@ export interface components {
             items?: components["schemas"]["ComplianceMappingResponse"][];
             digest?: string;
         };
+        ManagementState: {
+            requestedVisibility?: string;
+            /** Format: int64 */
+            reviewTaskId?: number;
+            promotionRole?: string;
+            relatedNamespace?: string;
+            relatedSlug?: string;
+        };
         SearchResponse: {
             items?: components["schemas"]["SkillSummaryResponse"][];
             /** Format: int64 */
@@ -7780,6 +7788,7 @@ export interface components {
             complianceSnapshot?: components["schemas"]["ComplianceSnapshotResponse"];
             labels?: components["schemas"]["SkillLabelDto"][];
             avatarUrl?: string;
+            managementState?: components["schemas"]["ManagementState"];
         };
         ApiResponseBoolean: {
             /** Format: int32 */

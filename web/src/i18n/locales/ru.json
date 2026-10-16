@@ -518,6 +518,10 @@
     "securityDesc": "Изменение пароля и параметров безопасности"
   },
   "mySkills": {
+    "updateGlobalVersion": "Обновить глобальную версию",
+    "viewGlobalCopy": "Открыть глобальную копию",
+    "viewTeamSource": "Открыть командный источник",
+    "promotionRoles": {"TEAM_SOURCE": "Командный источник · опубликован глобально", "GLOBAL_COPY": "Глобальная копия · обновляется отдельно"},
     "versionDifference": "Обновление v{{version}} · Публичная v{{published}}",
     "statusUpdatePendingReview": "Обновление на проверке",
     "title": "Мои скиллы",
@@ -570,6 +574,7 @@
     "withdrawSuccessDescription": "Ожидающая версия для «{{skill}}» отозвана.",
     "withdrawErrorTitle": "Не удалось отозвать загрузку",
     "promoteToGlobal": "Продвинуть в Global",
+    "submitVersionToGlobal": "Отправить версию в глобальный каталог",
     "promotionConfirmTitle": "Отправить запрос на продвижение",
     "promotionConfirmDescription": "Отправить v{{version}} скилла «{{skill}}» на продвижение в глобальное пространство имён?",
     "promotionSuccessTitle": "Запрос на продвижение отправлен",
@@ -2770,6 +2775,7 @@
     "deleteHint": "Удалить пространство навсегда. Сначала обработайте его навыки и участников."
   },
   "skillVisibility": {
+    "pendingList": "Запрошено: {{visibility}} · на рассмотрении. Текущий доступ сохраняется.",
     "title": "Видимость",
     "description": "Изменение доступа без изменения идентификатора навыка, версии пакета и статистики.",
     "current": "Текущий доступ: {{visibility}}",

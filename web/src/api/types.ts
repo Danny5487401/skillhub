@@ -253,6 +253,7 @@ export interface BatchMemberResponse {
 
 // Skill types
 export interface SkillSummary {
+  managementState?: components['schemas']['ManagementState'] | null
   id: number
   slug: string
   displayName: string

@@ -518,6 +518,10 @@
     "securityDesc": "修改密码和账户安全选项"
   },
   "mySkills": {
+    "updateGlobalVersion": "更新全局版本",
+    "viewGlobalCopy": "查看全局副本",
+    "viewTeamSource": "查看团队来源",
+    "promotionRoles": {"TEAM_SOURCE": "团队来源 · 已提升到全局", "GLOBAL_COPY": "全局副本 · 与团队来源独立更新"},
     "versionDifference": "本次 v{{version}} · 当前公开 v{{published}}",
     "statusUpdatePendingReview": "更新待审核",
     "title": "我的技能",
@@ -570,6 +574,7 @@
     "withdrawSuccessDescription": "“{{skill}}”的待审核版本已撤销。",
     "withdrawErrorTitle": "撤销上传失败",
     "promoteToGlobal": "申请提升到全局",
+    "submitVersionToGlobal": "提交版本到全局",
     "promotionConfirmTitle": "确认提交提升申请",
     "promotionConfirmDescription": "确认将“{{skill}}”的 v{{version}} 提交为提升到全局空间的申请吗？",
     "promotionSuccessTitle": "提升申请已提交",
@@ -2767,6 +2772,7 @@
     "deleteHint": "永久删除空间，请先处理其中的技能和成员。"
   },
   "skillVisibility": {
+    "pendingList": "申请{{visibility}} · 审核中，批准前保持当前范围。",
     "title": "可见范围",
     "description": "仅调整访问范围，保留技能标识、内容版本和统计。",
     "current": "当前范围：{{visibility}}",

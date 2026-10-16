@@ -37,8 +37,8 @@ public record SearchQuery(
 public record SearchVisibilityScope(
     boolean includeAllPublic,        // 是否包含所有 PUBLIC 技能
     Set<Long> memberNamespaceIds,    // 用户是 MEMBER 的 namespace（可见 NAMESPACE_ONLY）
-    Set<Long> adminNamespaceIds,     // 用户是 ADMIN 的 namespace（可见 PRIVATE）
-    String userId                    // 当前用户 ID（可见自己的 PRIVATE skill），匿名为 null
+    Set<Long> adminNamespaceIds,     // 管理上下文，门户搜索不因此展示 PRIVATE
+    String userId                    // 当前用户 ID，匿名为 null；PRIVATE 在“我的技能”管理
 ) {}
 ```
 
@@ -50,8 +50,9 @@ ACL 投影计算规则：
 ```sql
 WHERE (visibility = 'PUBLIC')
    OR (visibility = 'NAMESPACE_ONLY' AND namespace_id IN (:memberNamespaceIds))
-   OR (visibility = 'PRIVATE' AND (namespace_id IN (:adminNamespaceIds) OR owner_id = :userId))
 ```
+
+门户市场仅展示公开技能和当前用户所属空间的成员可见技能；即使本人或管理员有权访问 PRIVATE 详情，也不会将其列入市场。私有技能在“我的技能”管理。查询权限使用当前 `skill.visibility`，不信任可能尚未刷新的索引范围。
 
 迁移到 ES 时，`SearchVisibilityScope` 可直接映射为 bool query 的 should/filter 子句。
 
