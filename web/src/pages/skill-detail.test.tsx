@@ -23,6 +23,7 @@ const usePromotionSourceStateMock = vi.fn()
 const submitPromotionMock = vi.fn()
 const submitRevocationMock = vi.fn()
 const directRevocationMock = vi.fn()
+const deleteSkillMock = vi.fn()
 const useRevocationHistoryMock = vi.fn()
 const routeParams = { namespace: 'global', slug: 'demo-skill' }
 const searchMock = vi.hoisted(() => ({ value: { returnTo: '/dashboard/skills', version: undefined as string | undefined } }))
@@ -212,7 +213,7 @@ vi.mock('@/shared/hooks/use-skill-queries', () => ({
   useSkillReadme: (...args: unknown[]) => useSkillReadmeMock(...args),
   useSkillFile: (...args: unknown[]) => useSkillFileMock(...args),
   useArchiveSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeleteSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSkill: () => ({ mutateAsync: deleteSkillMock, isPending: false }),
   useDeleteSkillVersion: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRereleaseSkillVersion: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUnarchiveSkill: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -296,6 +297,7 @@ describe('SkillDetailPage', () => {
     usePromotionSourceStateMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
     searchMock.value = { returnTo: '/dashboard/skills', version: undefined }
     navigateMock.mockReset()
+    deleteSkillMock.mockReset()
     useSkillFilesMock.mockReset()
     useSkillReadmeMock.mockReset()
     useSkillFileMock.mockReset()
@@ -332,6 +334,26 @@ describe('SkillDetailPage', () => {
     useSkillFilesMock.mockReturnValue({ data: [] })
     useSkillReadmeMock.mockReturnValue({ data: '# Demo', error: null })
     useSkillFileMock.mockReturnValue({ data: null, isLoading: false, error: null })
+  })
+
+  it('consumes protected deletion failures at the actual button boundary and allows retry', async () => {
+    deleteSkillMock.mockRejectedValue(new Error('revoke global publication first'))
+    render(<SkillDetailPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'skillDetail.deleteSkill' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'skillDetail.deleteSkillConfirmTitle' }))
+      .getByRole('button', { name: 'skillDetail.deleteSkillContinue' }))
+    const dialog = await screen.findByRole('dialog', { name: 'skillDetail.deleteSkillInputTitle' })
+    fireEvent.change(within(dialog).getByPlaceholderText('skillDetail.deleteSkillInputPlaceholder'), { target: { value: 'demo-skill' } })
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'skillDetail.deleteSkillFinal' }))
+      await waitFor(() => expect(deleteSkillMock).toHaveBeenCalledTimes(attempt))
+      expect(within(dialog).getByDisplayValue('demo-skill')).toBeTruthy()
+    }
+    expect(deleteSkillMock).toHaveBeenLastCalledWith({ namespace: 'global', slug: 'demo-skill', ownerId: 'owner-1' })
+    expect(toastMocks.success).not.toHaveBeenCalled()
+    expect(toastMocks.error).not.toHaveBeenCalled() // The real MutationCache owns feedback, tested separately.
+    expect(navigateMock).not.toHaveBeenCalled()
+    // An uncaught async onClick rejection also makes Vitest fail this real-page run.
   })
 
   it('shows the avatar once beside the title, without an owner management section', () => {
