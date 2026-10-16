@@ -1,7 +1,9 @@
+import { isDeepStrictEqual } from 'node:util'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { lock } from 'proper-lockfile'
-import { joinPath, userStateDir, ensureDir, pathExists } from '../platform/paths'
+import { acquireAcquisitionGate } from '../services/skill-target-lock'
+import { joinPath, userStateDir, ensureDir } from '../platform/paths'
 
 export interface InventoryTarget {
   agent: string
@@ -75,6 +77,13 @@ export class InventoryVersionConflictError extends Error {
   }
 }
 
+export class InventoryCommitUnknownError extends Error {
+  constructor(cause: unknown) {
+    super('inventory commit outcome could not be verified', { cause })
+    this.name = 'InventoryCommitUnknownError'
+  }
+}
+
 export class InventoryStore {
   readonly path: string
 
@@ -83,8 +92,11 @@ export class InventoryStore {
   }
 
   async read(): Promise<Inventory> {
-    if (!(await pathExists(this.path))) return { items: [] }
-    return JSON.parse(await readFile(this.path, 'utf-8')) as Inventory
+    try { return JSON.parse(await readFile(this.path, 'utf-8')) as Inventory }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { items: [] }
+      throw error
+    }
   }
 
   async write(inventory: Inventory): Promise<void> {
@@ -103,21 +115,43 @@ export class InventoryStore {
     }
   }
 
-  async mutateAtomic<T>(mutate: (inventory: Inventory) => T): Promise<T> {
+  /** Hold the inventory lock while a lifecycle reader verifies files and persists its journal result. */
+  async withLockedSnapshot<T>(inspect: (inventory: Inventory) => Promise<T>): Promise<T> {
+    await ensureDir(dirname(this.path))
+    const release = await this.acquireLock()
+    try { return await inspect(await this.read()) }
+    finally { await release() }
+  }
+
+  async mutateAtomic<T>(
+    mutate: (inventory: Inventory) => T,
+    beforeCommit?: (before: Inventory, after: Inventory) => Promise<void>
+  ): Promise<T> {
     await ensureDir(dirname(this.path))
     let release: (() => Promise<void>) | null = null
     try {
       release = await this.acquireLock()
       const inventory = await this.read()
+      const before = structuredClone(inventory)
       const result = mutate(inventory)
-      await this.writeUnderLock(inventory)
+      if (beforeCommit) await beforeCommit(structuredClone(before), structuredClone(inventory))
+      try { await this.writeUnderLock(inventory) }
+      catch (writeError) {
+        let actual: Inventory
+        try { actual = await this.read() }
+        catch (readError) { throw new InventoryCommitUnknownError(new AggregateError([writeError, readError])) }
+        // Still holding the inventory lock: a failed transport response is not proof of failed rename.
+        if (isDeepStrictEqual(actual, inventory)) return result
+        if (!isDeepStrictEqual(actual, before)) throw new InventoryCommitUnknownError(writeError)
+        throw writeError
+      }
       return result
     } finally {
       if (release) await release().catch(() => {})
     }
   }
 
-  private async writeUnderLock(inventory: Inventory): Promise<void> {
+  protected async writeUnderLock(inventory: Inventory): Promise<void> {
     const payload = JSON.stringify(inventory, null, 2)
     JSON.parse(payload)
     const tmpPath = `${this.path}.${process.pid}.${Date.now()}.tmp`
@@ -130,20 +164,41 @@ export class InventoryStore {
     }
   }
 
-  private acquireLock(): Promise<() => Promise<void>> {
-    return lock(this.path, {
-      lockfilePath: `${this.path}.lock`,
-      realpath: false,
-      stale: 30_000,
-      update: 10_000,
-      retries: {
-        retries: 10,
-        factor: 2,
-        minTimeout: 100,
-        maxTimeout: 1_000,
-        randomize: true
-      }
-    })
+  private async acquireLock(): Promise<() => Promise<void>> {
+    // proper-lockfile stale stat/remove is not atomic: serialize acquisition so a delayed
+    // recoverer cannot remove another process's newly acquired inventory lock.
+    const deadline = Date.now() + 10_000
+    const releaseGate = await acquireAcquisitionGate(`${this.path}.lock.acquire`, 10_000)
+    let release: () => Promise<void>
+    try {
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) throw Object.assign(new Error('Inventory lock acquisition timed out'), { code: 'ELOCKED' })
+      release = await lock(this.path, {
+        lockfilePath: `${this.path}.lock`,
+        realpath: false,
+        stale: 30_000,
+        update: 10_000,
+        retries: {
+          retries: 10,
+          maxRetryTime: remaining,
+          factor: 2,
+          minTimeout: 100,
+          maxTimeout: 1_000,
+          randomize: true
+        }
+      })
+    } catch (operationError) {
+      try { await releaseGate() }
+      catch (cleanupError) { throw new AggregateError([operationError, cleanupError], 'inventory acquisition and gate cleanup both failed') }
+      throw operationError
+    }
+    try { await releaseGate() }
+    catch (gateError) {
+      try { await release() }
+      catch (cleanupError) { throw new AggregateError([gateError, cleanupError], 'inventory and gate cleanup both failed') }
+      throw gateError
+    }
+    return release
   }
 
   async upsertTarget(
@@ -230,7 +285,8 @@ export class InventoryStore {
     version: string,
     targets: InventoryTarget[],
     fingerprint?: string,
-    replacedInstallDirs: string[] = []
+    replacedInstallDirs: string[] = [],
+    beforeCommit?: (before: Inventory, after: Inventory) => Promise<void>
   ): Promise<void> {
     await this.mutateAtomic(inventory => {
       const installDirs = new Set([
@@ -260,6 +316,6 @@ export class InventoryStore {
       if (fingerprint !== undefined) item.fingerprint = fingerprint
       item.targets.push(...targets.map(target => ({ ...target, installedBy: ['direct'] })))
       refreshItemSources(item)
-    })
+    }, beforeCommit)
   }
 }

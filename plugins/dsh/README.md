@@ -1,0 +1,158 @@
+# SkillHub for DeepSeek Harness
+
+[English](README.en.md)
+
+SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名浏览、搜索、查看技能详情，并管理安装、升级和卸载；对话中也可搜索和明确请求安装技能。插件内置本地安装核心，无需另装 SkillHub CLI。
+
+当前准备发布 `@astron-team/skillhub-dsh@0.1.0`，manifest 已允许公开发布。此版本仍处于发布候选阶段，尚未发布到 npm；以 npm 实际可下载版本及发布验收结果为准。
+
+## 环境与验证范围
+
+| 项目 | 要求或范围 |
+| --- | --- |
+| DSH | `0.2.0-rc.2`，配套官方模块使用相同固定版本 |
+| Cordis | `4.0.4` |
+| Host Node | `>=24.2.0 <25`；不能使用 Node 24.0.0 |
+| 开发包管理器 | Bun `1.3.13`，按锁文件安装 |
+| 当前 UI | 中文；支持 DSH 深浅主题和窄屏 |
+| 已验证环境 | Linux DSH Host 与浏览器集成；Windows 浏览器访问真实 Host 的界面和交互 |
+| 待验证范围 | macOS 真实 Host/客户端；其他 DSH 发行版；SaaS 实例接入 |
+
+Windows 浏览器验证不等于 Windows 原生 Host 的全部文件操作已经验证。CI 的平台矩阵也不替代真实桌面、模型及目标实例验收。完整支持边界见仓库内的 [兼容设计](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) 和 [验收标准](../../openspec/changes/add-dsh-native-plugin/acceptance.md)。
+
+## 构建与打包
+
+在仓库根目录执行：
+
+```sh
+cd cli
+bun install --frozen-lockfile
+cd ../plugins/dsh
+bun install --frozen-lockfile
+bun run check
+npm pack --dry-run --ignore-scripts
+```
+
+`check` 依次构建 Host、Client、Remote 绑定与类型声明，执行 typecheck、lint 和测试。插件 lint 使用 `cli/` 中锁定的工具。Bun 仅用于开发构建，包内 Host 在 Node 上运行；React/React DOM 由 DSH 提供。
+
+检查通过后，将候选包保存到仓库外的独立目录：
+
+```sh
+npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
+```
+
+输出目录须先创建。`--dry-run` 不生成 tarball；实际安装使用生成的 `.tgz`。保留每次候选包及其校验值，不覆盖已经用于验收或回退的包。
+
+## 从 npm 安装（正式发布后）
+
+以下命令在 `0.1.0` 正式发布后使用。先确认 DSH 和 Node 满足上述版本要求，停止目标 Web Profile 的 Host，然后安装精确版本：
+
+```sh
+dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.1.0 --ignore-scripts
+dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
+```
+
+`skillhub-test` 替换为实际 Web Profile；首次创建方法见下一节。插件默认没有 Registry 地址，首次使用需在插件设置中填写来源并测试、保存。发布前请使用本地候选包验收，不要将未发布版本的 npm 安装失败当成插件加载失败。
+
+## 安装本地候选包
+
+以下命令针对上述 DSH Web 发行版。`skillhub-test` 是示例 Profile 名称，请始终使用同一 Profile 和 DSH home 安装、启动和维护。首次测试应使用独立测试账户或容器、工作区和测试技能；仅创建 Profile 或更改 `DSH_HOME` 不能隔离共享技能 inventory。
+
+新建 Web Profile，仅首次执行：
+
+```sh
+dsh --profile skillhub-test --from-default-profile web --dump-config
+```
+
+停止使用该 Profile 的 Host，再安装本地包并启动：
+
+```sh
+dsh plugin --profile skillhub-test add /absolute/path/to/candidate.tgz --ignore-scripts
+dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
+```
+
+打开 Host 输出的本机访问入口。入口可能含访问凭证，不要复制到报告、截图或提交中。示例绑定回环地址；远程访问需按环境既有访问控制部署，不直接公开 Host。
+
+已有 Web Profile 不重复创建。`plugin add` 自动创建的基础 Profile 不等同于 Web Profile。若 `dsh` 不在 PATH，可用已安装发行版的 `node /absolute/path/to/@deepseek-ai/dsh/lib/bin.js` 替换命令中的 `dsh`。
+
+Loader entry ID 为 `astron-skillhub`；`skillhub` 是 Host/Remote 服务名。手写配置 patch 必须定位正确包的 Loader ID，不能修改其他插件的同名入口。
+
+## 配置技能来源
+
+进入 DSH **Plugins/插件 → @astron-team/skillhub-dsh → SkillHub 设置**。
+
+1. 在“技能来源”填写 **Registry 地址**，使用实例的 HTTP(S) 基础地址，可包含部署子路径；不要填写 API 路由、凭证、查询参数或片段。
+2. 点击“测试连接”，使用当前草稿地址测试，不保存配置。结果显示公开目录可读或仅支持基础搜索及耗时；最长等待 10 秒，失败或超时可重试。修改地址后清除旧测试结果，连接成功不代表技能下载或所有可选接口可用。
+3. 在“详情标签”设置版本、安全审核及评论的显示方式。
+4. 点击“保存配置”，看到“配置已保存”后进入侧栏“技能中心”搜索公开测试技能。
+
+“已配置”只表示 Host 已保存非空来源，不代表连通测试成功。空地址表示断开来源；“重置修改”恢复当前 Host 配置快照，不发起网络重载或保存。只读连接不可编辑。若保存发生 revision 冲突，先重置修改，再基于当前值编辑。
+
+| 字段 | 行为 |
+| --- | --- |
+| `registryUrl` | Registry 基础地址；留空时不请求默认外部实例 |
+| `detailTabs.versions` | 版本历史显示策略 |
+| `detailTabs.securityAudit` | 安全审核显示策略 |
+| `detailTabs.reviews` | 只读评论显示策略 |
+
+三项策略均支持 `auto`（自动检测）、`show`（显示）、`hide`（隐藏）。自动检测按实际匿名读取能力决定展示；显示不会放开服务端权限；隐藏不请求对应模块。当前审核接口不允许匿名读取，不能把不可访问显示为审核通过。未上线评论的 SaaS 可先隐藏评论。
+
+## 使用流程
+
+- **浏览技能**：搜索、服务端排序、真实标签筛选、点击加载更多。新目录接口每批 12 项；旧来源首批 404/405 可回退受限搜索，明确提示不支持分页和排序。选中标签失败不会退回未过滤结果。
+- **技能详情**：查看文档、版本和可选模块；可“查看此版本”后确认安装指定的可下载版本。已有其他版本时保留覆盖保护，不执行降级。
+- **已安装**：按来源、范围和关键词查看本地记录。详情右侧“版本与更新”提供重新读取及检查更新；升级确认完整目标集合，卸载只影响一个明确位置。目录缺失时可单独确认清理失效记录。
+- **对话搜索**：`astron_skillhub_search` 只搜索，不安装或执行技能。结果提供明确详情动作；详情抽屉可确认安装。
+- **对话安装**：用户明确要求安装唯一搜索结果时，不必先打开详情。`astron_skillhub_install` 核验搜索时的精确版本和快照；接受 `selectionRef` 或完整坐标，二者互斥，范围为 `user`/`project`。过期或歧义引用拒绝执行，不改装当前 latest。
+
+本地操作需要活动会话，Host 据此解析可信用户目录和工作区。远程 Host 的文件安装在 Host 所在机器，不在浏览器机器。插件不提供登录、评论提交或权限管理。
+
+安装受理、文件完成、DSH 发现及模型实际使用是不同状态。安装卡主区展示结果，展开“安装记录”可查看核验、当前库存和原操作信息。历史完成不代表当前仍安装该版本，也不代表模型已执行。Host 重启后的历史搜索需要主动“重新查看详情”重新核验，不能恢复旧引用的写权限。
+
+## 验证候选包
+
+从 `plugins/dsh` 执行仓库提供的隔离 Host 冒烟脚本：
+
+```sh
+node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/host-smoke-summary.json
+```
+
+脚本使用隔离 Web Profile 验证候选安装与 Host 加载；不调用模型，不替代 UI 或完整技能生命周期验收。浏览器和文件事务探针见源码中的 [集成验证指南](test/integration/README.md)。
+
+对公开测试 Registry 执行匿名契约检查：
+
+```sh
+bun run probe:registry --registry 'https://registry.example' --namespace 'demo' --slug 'test-skill' --version '1.0.0' --output /absolute/path/to/registry-report.json
+```
+
+替换示例地址和精确版本，使用新的输出文件。脚本检查搜索、解析、元信息、说明、可选模块及归档指纹，归档仅在临时目录解包，不安装或执行技能。该探针不替代目录分页、标签、排序和真实 DSH 页面测试，后者须另外验收。必需项失败产生非零退出码；审核 HTTP 成功不等于公开审核 schema 已通过验证。
+
+人工至少核验来源保存/重置、搜索和详情、用户/项目安装、更新及卸载、历史结果、深浅主题与窄屏、失败重试和来源变更保护。模型验收需单独确定模型配置和调用预算，不能以页面测试代替。
+
+## 更新、回退与缓存
+
+1. 停止提交新操作，等待已受理操作结束；待恢复事务先在原兼容环境处理。
+2. 保存当前 tarball，停止使用该 Profile 的 Host。
+3. 使用上面的 `plugin ... add` 命令安装目标 tarball，保持 Profile、来源、会话和模型配置不变。
+4. 重新启动 Host，重新进入其有效访问入口；浏览器仍显示旧 UI 时进行强制刷新（Windows：Ctrl+Shift+R）。
+5. 检查技能中心、配置、现有安装记录和历史查询，再执行测试技能操作。
+
+强制刷新只更新浏览器资源，不会重载 Host 的 Node 模块。依赖变化必须完整重启 Host；禁用/启用插件不能代替依赖重载。官方 RC.2 的 Host 同端口重启可能使原标签页空白，不能承诺无缝重连；保留原操作记录，用有效入口重新进入，不重复提交安装。
+
+回退使用已保留、已验证兼容的 tarball，按相同步骤执行。开发候选替换验证不构成跨正式版本日志兼容承诺。未知日志格式、待恢复事务不能通过删除日志或重装包绕过。插件回退与技能版本降级不是同一功能。
+
+临时停用可在 DSH 插件页关闭本包开关；启用后等待“技能中心”恢复。移除包使用：
+
+```sh
+dsh plugin --profile skillhub-test remove @astron-team/skillhub-dsh
+```
+
+`remove` 不接受 `--ignore-scripts`。禁用或移除插件不等于卸载技能，不删除技能目录、inventory 或操作日志。操作结果未知时查询原请求；需要恢复时使用界面的“核验并恢复”，不要发起新请求替代恢复。
+
+## 服务端同步与发布
+
+插件 Host 调用匿名 Registry HTTP API；本地安装事务在 Host 内完成，不需要 SaaS 新增操作用户文件系统的安装接口。开源先定义和验证契约，再将缺失的路径、字段、匿名策略和测试同步到 SaaS。当前未声明 SaaS 已通过验收。详细要求见 [Registry 契约](../../openspec/changes/add-dsh-native-plugin/registry-api-contract.md)。
+
+插件独立使用 `dsh-v<version>` tag，不复用 CLI 或服务镜像发布。`check-dsh-plugin.yml` 配置 Linux/macOS/Windows × Node 24.2.0/当前 Node 24 的检查及隔离 Host 冒烟；`release-dsh-plugin.yml` 手动触发，默认只产出候选包。发布需正式版本、可发布 manifest、候选验收和受保护环境审批；`0.1.0` manifest 已设置 `private: false` 和公开发布权限，但这不代表已完成发布。
+
+具体部署、发布后检查与回退清单见 [发布指南](../../openspec/changes/add-dsh-native-plugin/release-guide.md)，变化见 [发布说明](../../openspec/changes/add-dsh-native-plugin/release-notes.md)。上述 OpenSpec 与测试链接面向源码仓库，不包含在 npm tarball 中。
