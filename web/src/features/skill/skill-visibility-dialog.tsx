@@ -66,8 +66,8 @@ export function SkillVisibilityDialog({ namespace, slug, visibility, disabled = 
         <p className="text-sm text-muted-foreground">{t(expanding ? 'skillVisibility.expanding' : 'skillVisibility.narrowing')}</p>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" disabled={mutation.isPending} onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
-          <Button disabled={mutation.isPending || state.isLoading || state.isError || Boolean(pendingVisibility) || target === currentVisibility} onClick={() => mutation.mutate()}>{t(expanding ? 'skillVisibility.submit' : 'common.save')}</Button>
+          <Button variant="outline" disabled={mutation.isPending} onClick={() => setOpen(false)}>{t('dialog.cancel')}</Button>
+          <Button disabled={mutation.isPending || state.isLoading || state.isError || Boolean(pendingVisibility) || target === currentVisibility} onClick={() => mutation.mutate()}>{t(expanding ? 'skillVisibility.submit' : 'profile.save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
