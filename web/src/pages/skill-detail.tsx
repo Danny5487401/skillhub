@@ -611,23 +611,18 @@ export function SkillDetailPage() {
     if (!skill || !isDeleteSlugConfirmationValid(skill.slug, deleteSkillInput)) {
       return
     }
-    try {
-      await deleteSkillMutation.mutateAsync({ namespace, slug, ownerId: skill.ownerId })
-      setSkillDeleted(true)
-      toast.success(
-        t('skillDetail.deleteSkillSuccessTitle'),
-        t('skillDetail.deleteSkillSuccessDescription', { skill: skill.displayName }),
-      )
-      setDeleteSkillInputOpen(false)
-      navigateAfterOverlays(() => {
-        navigate({ to: resolveDeletedSkillReturnTo(search.returnTo) })
-      })
-      queryClient.removeQueries({ queryKey: ['skills', namespace, slug] })
-      queryClient.invalidateQueries({ queryKey: ['skills', 'my'] })
-    } catch (error) {
-      toast.error(t('skillDetail.deleteSkillErrorTitle'), error instanceof Error ? error.message : '')
-      throw error
-    }
+    await deleteSkillMutation.mutateAsync({ namespace, slug, ownerId: skill.ownerId })
+    setSkillDeleted(true)
+    toast.success(
+      t('skillDetail.deleteSkillSuccessTitle'),
+      t('skillDetail.deleteSkillSuccessDescription', { skill: skill.displayName }),
+    )
+    setDeleteSkillInputOpen(false)
+    navigateAfterOverlays(() => {
+      navigate({ to: resolveDeletedSkillReturnTo(search.returnTo) })
+    })
+    queryClient.removeQueries({ queryKey: ['skills', namespace, slug] })
+    queryClient.invalidateQueries({ queryKey: ['skills', 'my'] })
   }
 
   const handleDeleteVersion = async () => {
