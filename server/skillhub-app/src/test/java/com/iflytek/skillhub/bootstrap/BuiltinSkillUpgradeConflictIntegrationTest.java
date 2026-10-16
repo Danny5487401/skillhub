@@ -57,6 +57,7 @@ import org.springframework.test.context.ActiveProfiles;
         properties = {
                 "skillhub.builtin-skills.enabled=false",
                 "skillhub.bootstrap.admin.enabled=false",
+                "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
                 "logging.level.com.iflytek.skillhub.bootstrap.BuiltinSkillInitializer=INFO"
         })
 @ActiveProfiles("test")
