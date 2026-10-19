@@ -28,7 +28,7 @@ class ReviewVisibilityWorkflowTest {
 
     @BeforeEach
     void setup() throws Exception {
-        service = new ReviewService(tasks, versions, mock(SkillRepository.class), namespaces, permissions,
+        service = new ReviewService(org.mockito.Mockito.mock(com.iflytek.skillhub.domain.skill.SkillOwnerAccessPolicy.class), tasks, versions, mock(SkillRepository.class), namespaces, permissions,
                 mock(ApplicationEventPublisher.class), new ObjectMapper(), mock(SkillGovernanceService.class),
                 mock(GovernanceNotificationService.class), mock(EntityManager.class), Clock.systemUTC());
         service.setAvatarParticipant(avatars); service.setVisibilityService(visibility);
