@@ -170,7 +170,7 @@ export function PublishPage() {
     } catch (error) {
       // A package rejection may also reflect changed membership. Re-read the
       // server state instead of inferring permissions from its localized message.
-      if (isUpdate && !avatarOnly && error instanceof ApiError && error.status === 400) {
+      if (updateSlug && !avatarOnly && error instanceof ApiError && error.status === 400) {
         await queryClient.invalidateQueries({ queryKey: getSkillDetailQueryKey(namespaceSlug, updateSlug ?? '') })
       }
       // Avatar-only updates call the API directly rather than a mutation.
