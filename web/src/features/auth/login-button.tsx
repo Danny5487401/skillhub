@@ -12,14 +12,19 @@ interface LoginButtonProps {
   emptyFallback?: React.ReactNode
 }
 
+const packagedIconProviders = new Set([
+  'github', 'gitlab', 'feishu', 'dingtalk', 'keycloak', 'auth0', 'okta',
+])
+
 /**
  * Returns the appropriate icon for a given OAuth provider.
  */
 function OAuthIcon({ provider, compact = false }: { provider: string, compact?: boolean }) {
-  const normalizedProvider = provider.toLowerCase()
+  const normalizedProvider = provider.trim().toLowerCase()
+  const iconProvider = packagedIconProviders.has(normalizedProvider) ? normalizedProvider : 'oidc'
   return (
     <img
-      src={withBasePath(`/${normalizedProvider}-logo.svg`)}
+      src={withBasePath(`/${iconProvider}-logo.svg`)}
       alt={provider}
       className={cn(compact ? 'h-4 w-4' : 'h-5 w-5 mr-3')}
     />
