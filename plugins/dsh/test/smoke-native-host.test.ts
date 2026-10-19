@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // Node-only CI entry; keep its helpers importable without starting a Host or downloading dependencies.
 // @ts-expect-error The development-only Node entry has no TypeScript declarations.
-import { isolatedEnvironment, runBounded, selectTarball } from '../scripts/smoke-native-host.mjs';
+import { hostInstallManifest, isolatedEnvironment, profileInstallManifest, retainedCordisFamily, runBounded, selectTarball } from '../scripts/smoke-native-host.mjs';
 
 const roots: string[] = [];
 async function root() {
@@ -70,11 +70,16 @@ test('bounded process runner keeps raw output private and cancels a running proc
     console.log('private-output');
     spawn(process.execPath, [${JSON.stringify(grandchild)}], { stdio: 'ignore' });
     setInterval(() => {}, 1000);`);
+  // The first Windows runner also starts PowerShell and compiles windows-job.ps1's
+  // Add-Type Job wrapper before Node can create the readiness marker. Budget that
+  // cold startup separately; the test deadline also covers 10s cleanup and the
+  // unchanged 3.5s orphan observation after real cancellation.
+  const readinessTimeoutMs = process.platform === 'win32' ? 30000 : 10000;
   const controller = new AbortController();
   const result = runBounded([script], { cwd: directory, env: process.env, log,
-    timeoutMs: 15000, signal: controller.signal }).then(() => undefined, (error: unknown) => error);
+    timeoutMs: readinessTimeoutMs + 5000, signal: controller.signal }).then(() => undefined, (error: unknown) => error);
   try {
-    const deadline = Date.now() + 10000;
+    const deadline = Date.now() + readinessTimeoutMs;
     let started = false;
     while (Date.now() < deadline) {
       try { await access(ready); started = true; break; }
@@ -90,7 +95,7 @@ test('bounded process runner keeps raw output private and cancels a running proc
     await new Promise(resolve => setTimeout(resolve, 3500));
     await expect(access(orphanMarker)).rejects.toThrow();
   } finally { controller.abort(); await result; }
-}, 30000);
+}, process.platform === 'win32' ? 60000 : 30000);
 
 test('failed tree termination cannot make the runner wait indefinitely for child exit', async () => {
   const directory = await root();
@@ -133,3 +138,28 @@ test('passes Unicode and shell-looking arguments literally without a shell', asy
   await runBounded([script, ...args], { cwd: directory, env: process.env, log, timeoutMs: 10000 });
   expect(JSON.parse((await readFile(log, 'utf8')).trim())).toEqual(args);
 }, 15000);
+
+test('fresh smoke uses ordinary resolution and retained smoke pins the entire validated Cordis family', () => {
+  expect(hostInstallManifest('fresh')).toEqual({ private: true, type: 'module' });
+  expect(hostInstallManifest('retained')).toEqual({ private: true, type: 'module', overrides: retainedCordisFamily });
+  expect(retainedCordisFamily).toEqual({
+    '@deepseek-ai/cordis': '4.0.4', '@deepseek-ai/cordis-plugin-loader': '1.0.5',
+    '@deepseek-ai/cordis-plugin-include': '1.0.9', '@deepseek-ai/cordis-plugin-timer': '1.1.6',
+  });
+  expect(() => hostInstallManifest('unknown')).toThrow('Unknown Cordis family');
+});
+
+test('retained profile pins pnpm separately while fresh profile preserves ordinary configuration', () => {
+  const profile = { private: true, dependencies: { fixture: '1.0.0' },
+    dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } },
+    pnpm: { supportedArchitectures: { os: ['current'] }, overrides: { unrelated: '2.0.0' } } };
+  expect(profileInstallManifest(profile, 'fresh')).toBe(profile);
+  expect(profileInstallManifest(profile, 'retained')).toEqual({ ...profile, pnpm: {
+    ...profile.pnpm, overrides: { unrelated: '2.0.0', ...retainedCordisFamily },
+  } });
+  expect(profile.pnpm.overrides).toEqual({ unrelated: '2.0.0' });
+  expect(profileInstallManifest({ private: true }, 'retained')).toEqual({
+    private: true, pnpm: { overrides: retainedCordisFamily },
+  });
+  expect(() => profileInstallManifest(profile, 'unknown')).toThrow('Unknown Cordis family');
+});
