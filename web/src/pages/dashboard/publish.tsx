@@ -27,6 +27,7 @@ import { Card } from '@/shared/ui/card'
 import { SkillAvatarEditor, KEEP_AVATAR, type AvatarEdit } from '@/features/skill/skill-avatar-editor'
 import { SkillAvatarManager } from '@/features/skill/skill-avatar-manager'
 import { previewSkillPackage, usePublishSkill, useSkillDetail } from '@/shared/hooks/use-skill-queries'
+import { getSkillDetailQueryKey } from '@/shared/hooks/query-keys'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
@@ -167,6 +168,11 @@ export function PublishPage() {
         navigate({ to: '/dashboard/skills' })
       })
     } catch (error) {
+      // A package rejection may also reflect changed membership. Re-read the
+      // server state instead of inferring permissions from its localized message.
+      if (isUpdate && !avatarOnly && error instanceof ApiError && error.status === 400) {
+        await queryClient.invalidateQueries({ queryKey: getSkillDetailQueryKey(namespaceSlug, updateSlug ?? '') })
+      }
       // Avatar-only updates call the API directly rather than a mutation.
       if (avatarOnly) await refreshSkillPermissionsAfterForbidden(queryClient, error)
       if (error instanceof ApiError && error.status === 408) {
