@@ -27,7 +27,7 @@ async function run(ctx, root) {
     assert.equal(operation.phase, 'completed');
   }
   const context = ctx.skillhub.getContext();
-  const list = await ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'listInstalled',
+  const list = await ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'listInstalled',
     args: { agentId: owner, sourceRevision: context.sourceRevision } });
   assert.equal(list.items.length, 2);
   assert.deepEqual(list.items.map(item => item.scope).sort(), ['project', 'user']);

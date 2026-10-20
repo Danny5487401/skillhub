@@ -14,15 +14,17 @@ This version uses the independent `dsh-v0.2.1` release tag and retains the DSH d
 
 | Component | Requirement or scope |
 | --- | --- |
-| DSH | `0.2.0-rc.2`, with the matching official module versions |
-| Cordis | The two explicitly verified complete combinations below |
+| DSH | `0.2.0-rc.2` or `0.2.1-rc.2`; Host, app-boot and injected Client modules must share the exact release |
+| Cordis | Old RC: both families below; `0.2.1-rc.2`: only `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7` |
 | Host Node | `>=24.2.0 <25`; Node 24.0.0 is unsuitable |
 | Build package manager | Bun `1.3.13`, using frozen lockfiles |
 | UI | Chinese, DSH light/dark themes and narrow layouts |
 | Verified environments | Linux DSH Host/browser integration; Windows browser UI and interactions against a real Host |
-| Pending validation | Real macOS Host/client; other DSH releases; real model execution of SaaS skills |
+| Pending validation | New-RC native Host/browser and cross-platform acceptance; real macOS client; real model execution of SaaS skills |
 
 Windows browser acceptance does not establish complete native Windows Host filesystem support. CI results do not replace desktop, model, or target-instance acceptance. See the repository's [compatibility design](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) and [acceptance criteria](../../openspec/changes/add-dsh-native-plugin/acceptance.md).
+
+This branch contains the unreleased compatibility fix for Issue #981. Published plugin `0.3.0` does not include it. Unknown releases and mixed Host/Client graphs reject new writes. Optional `userQuestions` is enabled by Host service availability; it is not part of the mandatory write-version gate. Its API is identical in the two enumerated RCs, both of which the peer declaration permits. An absent service falls back to the plugin confirmation dialog. New-RC native Host/browser and cross-platform acceptance remain pending until recorded.
 
 ## Build and package
 
@@ -36,6 +38,8 @@ bun install --frozen-lockfile
 bun run check
 npm pack --dry-run --ignore-scripts
 ```
+
+`dsh-typert-generator` remains pinned to `0.2.0-rc.2` to emit the common RPC contract for both Hosts; other DSH development modules use `0.2.1-rc.2` for type checking. This compiler pin does not bypass the runtime release guard.
 
 `check` builds Host/Client, generated Remote bindings and declarations, then runs type checking, lint and tests. Lint uses the locked tools in `cli/`. Bun is a build dependency; the packaged Host runs under Node. React and React DOM are supplied by DSH.
 
@@ -127,7 +131,7 @@ Acceptance, completed file writes, DSH discovery and model use are distinct stat
 From `plugins/dsh`:
 
 ```sh
-node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/host-smoke-summary.json
+node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/host-smoke-summary.json --dsh-version 0.2.1-rc.2
 ```
 
 This uses an isolated Web Profile to test installation and Host loading. It makes no model calls and does not replace UI or full skill lifecycle acceptance. Source-only browser and transaction probes are documented in the [integration guide](test/integration/README.md).

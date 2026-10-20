@@ -2,6 +2,8 @@ import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/p
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// Use the retained compiler to emit one RPC contract understood by both supported Hosts.
+// It has no runtime protocol dependency; Host/Client types resolve to the current RC.
 import { WorkspaceTypertGenerator } from '@deepseek-ai/dsh-typert-generator';
 import ts from 'typescript';
 import { buildLocalCore } from './build-core.js';

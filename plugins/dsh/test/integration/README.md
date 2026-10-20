@@ -15,7 +15,7 @@
 
 ## 运行条件
 
-使用临时根目录，内部已有 `node_modules/@deepseek-ai/dsh` 的精确 `0.2.0-rc.2` 发行包。探针验证 DSH_HOME、DSH_AGENTS_HOME 和 HOME 均指向该临时根下的专用目录，拒绝写入真实用户安装清单。需先安装当前插件 tarball、将 registryUrl 配置为 `http://127.0.0.1:43219`，并在单独终端从仓库根运行 `node plugins/dsh/test/integration/catalog-fixture.mjs`。夹具使用 CLI 开发依赖生成 ZIP，需预先安装 CLI 依赖。
+使用临时根目录，内部已有 `node_modules/@deepseek-ai/dsh` 的精确 `0.2.0-rc.2` 或 `0.2.1-rc.2` 发行包。探针验证 DSH_HOME、DSH_AGENTS_HOME 和 HOME 均指向该临时根下的专用目录，拒绝写入真实用户安装清单。需先安装当前插件 tarball、将 registryUrl 配置为 `http://127.0.0.1:43219`，并在单独终端从仓库根运行 `node plugins/dsh/test/integration/catalog-fixture.mjs`。夹具使用 CLI 开发依赖生成 ZIP，需预先安装 CLI 依赖。
 
 从仓库根目录准备一个新的环境：
 
@@ -505,3 +505,12 @@ node scripts/smoke-native-host.mjs --artifact artifacts --report host-smoke-summ
 `--artifact` 接受单个 tgz，或恰好包含一个 tgz 的目录。入口创建新的 OS 临时目录，安装固定 DSH/包管理器，使用独立 HOME、DSH_HOME、DSH_AGENTS_HOME 初始化 Web Profile，安装候选并依次运行既有 runtime-baseline、plugin-lifecycle 探针。过程不调用模型。运行环境不继承模型凭据、Node preload 和用户 npm 配置；网络下载需要访问 npm。
 
 上传报告仅包含固定字段的版本、平台、候选摘要、阶段与通过结果。原始 Host 日志保存在临时目录，不可作为 CI artifact 上传。失败时从本机私有诊断目录排查，不粘贴含入口令牌的日志。此入口用于实际 Host 加载和生命周期检查，不替代浏览器、真实模型、远程落盘或完整平台验收；CI 配置存在也不代表远端作业已经执行。
+
+
+### 双 RC 宿主 smoke
+
+从 `plugins/dsh` 运行 `node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/summary.json --dsh-version 0.2.1-rc.2`。省略版本时保留 `0.2.0-rc.2` 基线；脚本只接受这两个精确版本。新 RC 不接受 retained Cordis 模式。fresh 安装不添加 overrides 或 legacy peer 选项；retained 模式仅用于保留旧 Cordis 家族的独立回归。
+
+需要把本机原始日志保存在仓库外时，将 `TMPDIR` 设置为仓库外报告目录；脚本的所有 Host/profile/HOME/探针日志都位于该目录下的独立根。不要指向现有 DSH 安装。
+
+新 RC 的 Gateway 要求 in-process 调用显式携带 Peer；观察器使用该 Connection 的 `browserPeer`，旧 RC 使用原有 `operator`。不伪造身份，不使用浏览器输入创建主机身份。发布插件通过生成的 Remote 绑定调用，不直接构造 Gateway invocation。

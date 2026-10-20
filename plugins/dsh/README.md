@@ -14,15 +14,17 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 
 | 项目 | 要求或范围 |
 | --- | --- |
-| DSH | `0.2.0-rc.2`，配套官方模块使用相同固定版本 |
-| Cordis | 以下两组完整组合，沿用 `0.1.1` 的兼容基线 |
+| DSH | `0.2.0-rc.2` 或 `0.2.1-rc.2`；Host、app-boot 与注入 Client 模块必须属于同一精确发行版 |
+| Cordis | `0.2.0-rc.2` 保留以下两组完整组合；`0.2.1-rc.2` 仅使用 `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7` |
 | Host Node | `>=24.2.0 <25`；不能使用 Node 24.0.0 |
 | 开发包管理器 | Bun `1.3.13`，按锁文件安装 |
 | 当前 UI | 中文；支持 DSH 深浅主题和窄屏 |
 | 已验证环境 | Linux DSH Host 与浏览器集成；Windows 浏览器访问真实 Host 的界面和交互 |
-| 待验证范围 | macOS 真实 Host/客户端；其他 DSH 发行版；SaaS 技能的真实模型执行 |
+| 待验证范围 | 新 RC 的完整原生 Host/浏览器验收与跨平台运行；macOS 真实客户端；SaaS 技能的真实模型执行 |
 
 Windows 浏览器验证不等于 Windows 原生 Host 的全部文件操作已经验证。CI 的平台矩阵也不替代真实桌面、模型及目标实例验收。完整支持边界见仓库内的 [兼容设计](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) 和 [验收标准](../../openspec/changes/add-dsh-native-plugin/acceptance.md)。
+
+本分支包含 Issue #981 的候选兼容修复，尚未发布；已发布的插件 `0.3.0` 不包含此修复。其他 RC、未来发行版、混装模块和 Host/Client 版本不一致均拒绝新写入。可选 `userQuestions` 按宿主服务是否可用启用，缺失时仍回退插件确认框；其版本不属于必需写入门禁。两个已列 RC 的问答 API 一致，peer 声明允许二者，不据此承诺其他版本兼容。
 
 ## 构建与打包
 
@@ -36,6 +38,8 @@ bun install --frozen-lockfile
 bun run check
 npm pack --dry-run --ignore-scripts
 ```
+
+`dsh-typert-generator` 固定在 `0.2.0-rc.2` 以生成两个宿主共用的 RPC 契约；其他 DSH 开发依赖按 `0.2.1-rc.2` 类型检查。生成器版本不是宿主版本绕过条件。
 
 `check` 依次构建 Host、Client、Remote 绑定与类型声明，执行 typecheck、lint 和测试。插件 lint 使用 `cli/` 中锁定的工具。Bun 仅用于开发构建，包内 Host 在 Node 上运行；React/React DOM 由 DSH 提供。
 
@@ -127,7 +131,7 @@ Loader entry ID 为 `astron-skillhub`；`skillhub` 是 Host/Remote 服务名。�
 从 `plugins/dsh` 执行仓库提供的隔离 Host 冒烟脚本：
 
 ```sh
-node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/host-smoke-summary.json
+node scripts/smoke-native-host.mjs --artifact /absolute/path/to/candidate.tgz --report /absolute/path/to/host-smoke-summary.json --dsh-version 0.2.1-rc.2
 ```
 
 脚本使用隔离 Web Profile 验证候选安装与 Host 加载；不调用模型，不替代 UI 或完整技能生命周期验收。浏览器和文件事务探针见源码中的 [集成验证指南](test/integration/README.md)。

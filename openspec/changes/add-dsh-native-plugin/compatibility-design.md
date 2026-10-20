@@ -207,3 +207,14 @@ Client 通过官方槽位声明生命周期与 layout/configForms 服务依赖�
 ### 可选的原生范围问答
 
 `@deepseek-ai/dsh-user-questions@0.2.0-rc.2` 是可选宿主能力，不加入安装文件写入的必需依赖基线。插件使用已验证的非计时 `ask` 接口和原生输入框选项；无服务或回答器时返回待确认卡片，并使用插件确认弹窗。新增问答能力不意味着接受其他未验证的核心 DSH/Cordis 组合，也不恢复跨宿主重启的旧安装授权。
+
+
+## Issue #981: explicit dual-RC compatibility
+
+The candidate branch adds `0.2.1-rc.2` alongside retained `0.2.0-rc.2`; this supersedes the single-release candidate wording above, without changing published plugin `0.3.0` or creating a release. Peers enumerate these exact prereleases with `||`, never a future-version range. Core Host modules, DSH/app-boot and every injected Client owning manifest must share one release. Every write re-reads disk manifests and verifies the Host anchors' resolution; mixed, unknown, unreadable and stale graphs fail closed. Node remains `>=24.2.0 <25`.
+
+`0.2.0-rc.2` retains both documented Cordis families. The new official Host requires the complete `4.0.5 / loader 1.0.6 / include 1.0.10 / timer 1.1.7` family. Optional user questions keep the same published `ask` signature in both enumerated RCs. They are selected by Host service availability and are not part of the mandatory runtime-version gate; their peer declaration permits either listed RC without enforcing same-release identity. This does not extend support to other question-service versions. Absence preserves the existing plugin confirmation fallback.
+
+Upstream npm artifacts for the two releases were compared: user-questions declarations/implementation are unchanged; Gateway now requires an explicit Peer for direct in-process calls, while the plugin uses generated Remote bindings. The integration observers must use the official Connection Peer API on the new release. The retained generator emits the shared RPC contract while source checks use current Host/Client declarations. Both generators enforce registered workspace boundaries for merged declarations. The new generator also emits an import from `@deepseek-ai/dsh-typert-protocol/remote-info`, a subpath absent from the retained RC. Keeping the retained compiler preserves the common generated format; it has no runtime protocol dependency and does not downgrade the current protocol module.
+
+CI preserves the old RC's OS/Node coverage and retained Cordis smoke, adding an independent new-RC official Host matrix at Node 24.2.0 and current Node 24 on Linux. Native initialization, package installation, runtime-baseline and plugin-lifecycle probes must pass without peer overrides on fresh graphs. These probes do not replace browser/settings/search/install/upgrade/uninstall acceptance, macOS/Windows native operations, or real-model evidence. Final verification records passed and pending dimensions separately in acceptance.md.

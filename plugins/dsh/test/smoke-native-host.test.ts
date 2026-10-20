@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // Node-only CI entry; keep its helpers importable without starting a Host or downloading dependencies.
 // @ts-expect-error The development-only Node entry has no TypeScript declarations.
-import { hostInstallManifest, isolatedEnvironment, profileInstallManifest, retainedCordisFamily, runBounded, selectTarball } from '../scripts/smoke-native-host.mjs';
+import { hostInstallManifest, selectDshVersion, supportedDshVersions, isolatedEnvironment, profileInstallManifest, retainedCordisFamily, runBounded, selectTarball } from '../scripts/smoke-native-host.mjs';
 
 const roots: string[] = [];
 async function root() {
@@ -162,4 +162,14 @@ test('retained profile pins pnpm separately while fresh profile preserves ordina
     private: true, pnpm: { overrides: retainedCordisFamily },
   });
   expect(() => profileInstallManifest(profile, 'unknown')).toThrow('Unknown Cordis family');
+});
+
+test('native smoke accepts only explicit DSH releases and rejects incompatible retained families', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  expect(manifest.peerDependencies['@deepseek-ai/dsh-fs']).toBe(supportedDshVersions.join(' || '));
+  for (const version of supportedDshVersions) expect(selectDshVersion(version)).toBe(version);
+  for (const version of ['latest', 'next', '0.2.1', '0.2.2-rc.1', '0.2.1-rc.2 --ignore-scripts']) {
+    expect(() => selectDshVersion(version)).toThrow('Unsupported DSH release');
+  }
+  expect(() => selectDshVersion('0.2.1-rc.2', 'retained')).toThrow('requires the current Cordis family');
 });

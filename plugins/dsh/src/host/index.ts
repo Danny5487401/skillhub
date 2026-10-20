@@ -142,8 +142,8 @@ export class SkillHubService extends TypertRemoteService {
     }
   }
 
-  private assertRuntimeBaseline(): void {
-    assertRuntimeCompatibility({
+  private assertRuntimeBaseline() {
+    return assertRuntimeCompatibility({
       packageOf: (name, parentURL) => this.ctx.get('pluginPackages')?.packageOf(name, parentURL),
       clientPath: name => this.ctx.get('clientModules')?.clientPath(name),
     }, import.meta.url);
@@ -152,10 +152,10 @@ export class SkillHubService extends TypertRemoteService {
   @Remote
   getCompatibility(): HostCompatibility {
     try {
-      this.assertRuntimeBaseline();
-      return { dependencyBaseline: 'matched', candidateDshVersion: '0.2.0-rc.2', localWritesAllowed: true };
+      const candidateDshVersion = this.assertRuntimeBaseline();
+      return { dependencyBaseline: 'matched', candidateDshVersion, localWritesAllowed: true };
     } catch {
-      return { dependencyBaseline: 'unverified', candidateDshVersion: '0.2.0-rc.2', localWritesAllowed: false };
+      return { dependencyBaseline: 'unverified', candidateDshVersion: '0.2.0-rc.2 / 0.2.1-rc.2', localWritesAllowed: false };
     }
   }
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { runtimePackageBaseline } from '../src/host/runtime-compatibility.js';
-import { realpath, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, realpath, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,10 @@ import { fileURLToPath } from 'node:url';
 test('compiled Host recovery binds historical targets to the current session and policy', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'skillhub-host-recovery-')));
   try {
+    const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    // Real Client files below come from the installed development release.
+    const baseline = Object.fromEntries(Object.entries({ ...runtimePackageBaseline, ...manifest.overrides })
+      .map(([name, version]) => [name, name.startsWith('@deepseek-ai/dsh') ? manifest.devDependencies['@deepseek-ai/dsh-app-boot'] : version]));
     const child = Bun.spawn(['node', '--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -53,7 +57,7 @@ assert.equal(ctx.skillhub.getCompatibility().localWritesAllowed, false);
 await assert.rejects(ctx.skillhub.recoverInstallationOperation('owner', valid.operationId), /baseline could not be verified/);
 // This is a bare Cordis fixture, not a real DSH Loader. Supply its package services explicitly.
 const packageFixtures = new Map();
-for (const [name, version] of Object.entries(${JSON.stringify(runtimePackageBaseline)})) {
+for (const [name, version] of Object.entries(${JSON.stringify(baseline)})) {
   const directory = join(cwd, 'package-fixtures', name);
   await mkdir(directory, { recursive: true });
   const manifestPath = join(directory, 'package.json');

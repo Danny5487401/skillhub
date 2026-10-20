@@ -48,7 +48,7 @@ async function run(ctx,root,signal) {
  }
  assert.equal(operation.phase,'completed');
  const source=ctx.skillhub.getContext();
- const invoke=(method,args)=>ctx.typertGateway.invoke({namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
+ const invoke=(method,args)=>ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator,namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
  const paths={project:join(project,'.dsh/skills/document-helper'),user:join(root,'home/skills/document-helper')};
  const results=[];
  const permissionsCovered=process.platform!=='win32' && typeof process.getuid==='function' && process.getuid()!==0;

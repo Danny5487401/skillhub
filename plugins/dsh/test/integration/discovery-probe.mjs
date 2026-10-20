@@ -150,7 +150,7 @@ async function run(ctx, root, signal) {
     assert.deepEqual(found.meta, found.value);
     assert(!JSON.stringify(found.value).includes(options.cwd));
     const reference = found.value.items[0].selectionRef;
-    const request = (method, agentId, extra = {}) => ctx.typertGateway.invoke({ namespace: 'skillhub', method,
+    const request = (method, agentId, extra = {}) => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method,
       args: { agentId, selectionRef: reference, ...extra }, signal });
     const detail = await request('openConversationDetail', options.scope.session.id);
     assert.equal(detail.version, '1.2.0');
@@ -160,7 +160,7 @@ async function run(ctx, root, signal) {
     await assert.rejects(request('openConversationDetail', foreign.scope.session.id), error => error.code === 'skillhub/context-stale');
     await assert.rejects(request('acknowledgeConversationDetail', options.scope.session.id, { detailToken: 'forged' }), error => error.code === 'skillhub/context-stale');
     assert.equal(await request('acknowledgeConversationDetail', options.scope.session.id, { selectionRef: detail.selectionRef, detailToken: detail.detailToken }), true);
-    const queryTargets = detailToken => ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'listInstallTargets',
+    const queryTargets = detailToken => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'listInstallTargets',
       args: { agentId: options.scope.session.id, detailToken }, signal });
     const targets = await queryTargets(detail.detailToken);
     assert.deepEqual(targets.unavailable, [], JSON.stringify({
@@ -191,14 +191,14 @@ async function run(ctx, root, signal) {
     await mkdir(installProject);
     const installSession = await optionsFor(installProject);
     const installAgentId = installSession.scope.session.id;
-    const installTargets = await ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'listInstallTargets',
+    const installTargets = await ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'listInstallTargets',
       args: { agentId: installAgentId, detailToken: detail.detailToken }, signal });
     const installTarget = installTargets.targets.find(item => item.scope === 'project');
     assert(installTarget);
     const submission = { detailToken: detail.detailToken, targetToken: installTarget.targetToken, requestKey: randomUUID(),
       hostInstanceId: ctx.skillhub.getLocalRuntimeStatus().hostInstanceId, mode: 'new', initiatedFrom: 'plaza' };
     assert.equal(installTargets.hostInstanceId, submission.hostInstanceId);
-    const startInstall = input => ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'startInstall',
+    const startInstall = input => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'startInstall',
       args: { agentId: installAgentId, input }, signal });
     await assert.rejects(startInstall({ ...submission, path: '/untrusted' }), error => error.code === 'skillhub/invalid-installation-request');
     const receipt = await startInstall(submission);
@@ -206,7 +206,7 @@ async function run(ctx, root, signal) {
     const end = Date.now() + 15_000;
     let operation;
     while (Date.now() < end) {
-      operation = await ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'getOperation',
+      operation = await ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'getOperation',
         args: { agentId: installAgentId, operationId: receipt.operationId, hostInstanceId: submission.hostInstanceId }, signal });
       if (['completed', 'failed', 'recovery-required', 'unknown'].includes(operation.phase)) break;
       await delay(50, undefined, { signal });
@@ -217,7 +217,7 @@ async function run(ctx, root, signal) {
     const loaded = await ctx.skills.get('document-helper', installSession);
     assert(loaded?.content.includes('references/note.md'));
     assert.equal(loaded.resourceBase.path, join(installProject, '.dsh/skills/document-helper'));
-    const listInstalled = agentId => ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'listInstalled',
+    const listInstalled = agentId => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'listInstalled',
       args: { agentId, sourceRevision: ctx.skillhub.getContext().sourceRevision }, signal });
     setSandboxMode(installSession.scope.session, 'read-only');
     const installed = await listInstalled(installAgentId);
@@ -225,7 +225,7 @@ async function run(ctx, root, signal) {
     assert(installed.items.some(item => item.scope === 'project' && item.slug === 'document-helper' && item.version === '1.2.0' && item.state === 'present'));
     assert(!JSON.stringify(installed).includes(installProject));
     const installedItem = installed.items.find(item => item.scope === 'project' && item.slug === 'document-helper');
-    const installedDetailRequest = agentId => ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'getInstalledDetail',
+    const installedDetailRequest = agentId => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'getInstalledDetail',
       args: { agentId, sourceRevision: ctx.skillhub.getContext().sourceRevision, itemKey: installedItem.itemKey }, signal });
     const installedDetail = await installedDetailRequest(installAgentId);
     assert.equal(installedDetail.item.version, '1.2.0');
@@ -233,7 +233,7 @@ async function run(ctx, root, signal) {
     assert.equal(installedDetail.content.detail.version, '1.2.0');
     assert(!JSON.stringify(installedDetail).includes(installProject));
     await assert.rejects(installedDetailRequest(foreign.scope.session.id), error => error.code === 'skillhub/context-stale');
-    const updateRequest = agentId => ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'checkUpdate',
+    const updateRequest = agentId => ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'checkUpdate',
       args: { agentId, sourceRevision: ctx.skillhub.getContext().sourceRevision, itemKey: installedItem.itemKey }, signal });
     const update = await updateRequest(installAgentId);
     assert.equal(update.state, 'current');
@@ -246,9 +246,9 @@ async function run(ctx, root, signal) {
     installedProjectionVerified = true;
     assert.equal((await startInstall({ ...submission, mode: 'retry' })).operationId, receipt.operationId);
     await assert.rejects(startInstall({ ...submission, initiatedFrom: 'conversation' }), error => error.code === 'skillhub/request-conflict');
-    assert.equal(await ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'getOperation', args: {
+    assert.equal(await ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'getOperation', args: {
       agentId: foreign.scope.session.id, operationId: receipt.operationId, hostInstanceId: submission.hostInstanceId }, signal }), null);
-    await assert.rejects(ctx.typertGateway.invoke({ namespace: 'skillhub', method: 'getOperation', args: {
+    await assert.rejects(ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator, namespace: 'skillhub', method: 'getOperation', args: {
       agentId: installAgentId, operationId: receipt.operationId, hostInstanceId: randomUUID() }, signal }), error => error.code === 'skillhub/context-stale');
     nativeInstallationCompleted = true;
     const toolProject = join(root, 'tool-install-' + randomUUID());

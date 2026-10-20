@@ -7,7 +7,12 @@ import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-const DSH_VERSION = '0.2.0-rc.2';
+export const supportedDshVersions = ['0.2.0-rc.2', '0.2.1-rc.2'];
+export function selectDshVersion(version, family = 'fresh') {
+  if (!supportedDshVersions.includes(version)) throw new Error('Unsupported DSH release.');
+  if (version === '0.2.1-rc.2' && family === 'retained') throw new Error('DSH 0.2.1 requires the current Cordis family.');
+  return version;
+}
 const PNPM_VERSION = '10.33.0';
 
 export const retainedCordisFamily = {
@@ -164,14 +169,15 @@ async function findNpm() {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { artifact: { type: 'string' }, report: { type: 'string' }, help: { type: 'boolean' }, 'cordis-family': { type: 'string', default: 'fresh' } } });
+  const { values } = parseArgs({ options: { 'dsh-version': { type: 'string', default: '0.2.0-rc.2' }, artifact: { type: 'string' }, report: { type: 'string' }, help: { type: 'boolean' }, 'cordis-family': { type: 'string', default: 'fresh' } } });
   if (values.help) {
-    console.log('node scripts/smoke-native-host.mjs --artifact <candidate.tgz|directory> --report <summary.json> [--cordis-family fresh|retained]');
+    console.log('node scripts/smoke-native-host.mjs --artifact <candidate.tgz|directory> --report <summary.json> [--cordis-family fresh|retained] [--dsh-version 0.2.0-rc.2|0.2.1-rc.2]');
     return;
   }
   if (!values.artifact || !values.report) throw new Error('Specify --artifact and --report; see --help.');
   const [major, minor] = process.versions.node.split('.').map(Number);
   if (major !== 24 || minor < 2) throw new Error('Use the fixed Node >=24.2.0 <25 baseline.');
+  const dshVersion = selectDshVersion(values['dsh-version'], values['cordis-family']);
   const installManifest = hostInstallManifest(values['cordis-family']);
   const artifact = await selectTarball(values.artifact);
   const npm = await findNpm();
@@ -187,14 +193,14 @@ async function main() {
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
   const summary = { passed: false, platform: process.platform, node: process.versions.node,
-    dsh: DSH_VERSION, pnpm: PNPM_VERSION, cordisFamily: values['cordis-family'],
+    dsh: dshVersion, pnpm: PNPM_VERSION, cordisFamily: values['cordis-family'],
     artifactSha256: createHash('sha256').update(await readFile(artifact)).digest('hex'),
     modelCalled: false, probes: [], stage: 'install-host' };
   const run = (name, args, timeoutMs = 300000) => runBounded(args, { cwd: join(root, 'workspace'), env,
     log: join(root, 'logs', name + '.log'), timeoutMs, signal: abort.signal });
   try {
     await run('install-host', [npm, 'install', '--prefix', root, '--ignore-scripts', '--no-audit', '--no-fund',
-      '--registry=https://registry.npmjs.org', `@deepseek-ai/dsh@${DSH_VERSION}`, `pnpm@${PNPM_VERSION}`], 600000);
+      '--registry=https://registry.npmjs.org', `@deepseek-ai/dsh@${dshVersion}`, `pnpm@${PNPM_VERSION}`], 600000);
     const dsh = join(root, 'node_modules/@deepseek-ai/dsh/lib/bin.js');
     await access(dsh);
     summary.stage = 'initialize-web';

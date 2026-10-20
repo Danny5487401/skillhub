@@ -4,6 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { createRequire, isBuiltin } from 'node:module';
 import SkillHubService from '@astron-team/skillhub-dsh';
+import { TYPERT } from '../lib/typert.host.js';
 import { TYPERT_REMOTE } from '../lib/typert.remote-client.js';
 
 describe('native M0 package', () => {
@@ -104,4 +105,41 @@ describe('native M0 package', () => {
     expect(formEntries).toEqual(hostEntryIds);
     await dispose();
   });
+});
+
+
+test('shared RPC ABI keeps Host/Client descriptors, cancellation, argument order and historical receipts', async () => {
+  if (!TYPERT || typeof TYPERT !== 'object' || !('package' in TYPERT)
+    || typeof TYPERT.package !== 'string' || !('invocations' in TYPERT) || !Array.isArray(TYPERT.invocations)) throw new Error('Expected shared Host reflection');
+  expect(TYPERT.package).toBe('@astron-team/skillhub-dsh');
+  expect(TYPERT_REMOTE.package).toBe(TYPERT.package);
+  const wireContract = (descriptor: typeof TYPERT_REMOTE.descriptors[number]) => ({
+    id: descriptor.id, service: descriptor.service, namespace: descriptor.namespace, method: descriptor.method,
+    invocation: JSON.parse(JSON.stringify(descriptor.invocation)),
+    parameters: descriptor.parameters.map(parameter => ({ name: parameter.name, wire: parameter.wire, source: parameter.source })),
+    cancellation: descriptor.cancellation, result: descriptor.result?.mode,
+  });
+  expect(TYPERT.invocations.map(wireContract)).toEqual(TYPERT_REMOTE.descriptors.map(wireContract));
+  const operation = TYPERT_REMOTE.descriptors.find(descriptor => descriptor.method === 'getOperation')!;
+  expect(operation.invocation).toMatchObject({ kind: 'context', context: 'agent', wire: 'agentId' });
+  expect(operation.parameters.map(parameter => parameter.name)).toEqual(['operationId', 'hostInstanceId']);
+  for (const method of ['startInstall', 'executePlan', 'prepareUpgrade', 'prepareUninstall']) {
+    expect(TYPERT_REMOTE.descriptors.find(descriptor => descriptor.method === method)?.cancellation).toEqual({ parameter: 'signal' });
+  }
+  const historical = { operationId: 'operation', revision: 1, kind: 'install', namespace: 'demo', slug: 'writer',
+    version: '1.0', targetLabel: 'Project', context: { sourceIdentity: 'https://registry.example', sourceLabel: 'Registry',
+      sourceRevision: 'revision', hostLabel: 'Host', initiatedFrom: 'plaza', hostInstanceId: 'host', createdAt: 'then', updatedAt: 'then' },
+    phase: 'completed', files: 'installed', discovery: 'unconfirmed', recovery: 'not-needed', warningCount: 0 };
+  if (operation.result?.mode !== 'strict') throw new Error('Expected shared strict operation codec');
+  const operationCodec = operation.result.create();
+  expect(operationCodec.parse(historical)).toEqual(historical);
+  expect(operationCodec.parse({ ...historical, unexpected: 'field' })).toEqual(historical);
+  expect(() => operationCodec.parse({ ...historical, phase: 'unrecognized' })).toThrow();
+  for (const artifact of ['typert.host.js', 'typert.remote-client.js', 'client.js']) {
+    expect(await readFile(new URL(`../lib/${artifact}`, import.meta.url), 'utf8')).not.toContain('dsh-typert-protocol/remote-info');
+  }
+  const host = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8');
+  const imports = new Bun.Transpiler({ loader: 'js' }).scanImports(host).map(entry => entry.path);
+  expect(imports).toContain('@deepseek-ai/cordis');
+  expect(imports).toContain('@deepseek-ai/dsh-typert-protocol');
 });
