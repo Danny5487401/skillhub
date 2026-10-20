@@ -24,7 +24,7 @@ This version uses the independent `dsh-v0.2.1` release tag and retains the DSH d
 
 Windows browser acceptance does not establish complete native Windows Host filesystem support. CI results do not replace desktop, model, or target-instance acceptance. See the repository's [compatibility design](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) and [acceptance criteria](../../openspec/changes/add-dsh-native-plugin/acceptance.md).
 
-This branch contains the unreleased compatibility fix for Issue #981. Published plugin `0.3.0` does not include it. Unknown releases and mixed Host/Client graphs reject new writes. Optional `userQuestions` must match the Host release; absent service falls back to the plugin confirmation dialog. New-RC native Host/browser and cross-platform acceptance remain pending until recorded.
+This branch contains the unreleased compatibility fix for Issue #981. Published plugin `0.3.0` does not include it. Unknown releases and mixed Host/Client graphs reject new writes. Optional `userQuestions` is enabled by Host service availability; it is not part of the mandatory write-version gate. Its API is identical in the two enumerated RCs, both of which the peer declaration permits. An absent service falls back to the plugin confirmation dialog. New-RC native Host/browser and cross-platform acceptance remain pending until recorded.
 
 ## Build and package
 
