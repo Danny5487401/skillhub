@@ -50,16 +50,27 @@ public class GithubSyncReviewResolutionListener {
                 throw new DomainBadRequestException("review.sync.licenseResolutionRequired");
             }
         }
+        // The review keeps its immutable source path even after a confirmed move.
+        // Fence by the exact current content target and its Skill/source identities.
         UUID latestId = jdbc.query("""
                 SELECT binding.latest_ingestion_id
                 FROM github_source_skill_binding binding
                 JOIN github_sync_package_ingestion ingestion
-                  ON ingestion.namespace_id = binding.namespace_id
+                  ON ingestion.id = binding.latest_ingestion_id
+                 AND ingestion.namespace_id = binding.namespace_id
                  AND ingestion.repository_id = binding.repository_id
-                 AND ingestion.skill_path = binding.skill_path
-                WHERE ingestion.id = ?
+                JOIN github_sync_task task
+                  ON task.id = ingestion.task_id AND task.source_id = binding.source_id
+                 AND task.namespace_id = binding.namespace_id
+                JOIN review_task review
+                  ON review.github_sync_ingestion_id = ingestion.id
+                 AND review.skill_id = binding.skill_id AND review.namespace_id = binding.namespace_id
+                JOIN skill_version version
+                  ON version.id = review.skill_version_id AND version.skill_id = binding.skill_id
+                 AND version.github_sync_ingestion_id = ingestion.id
+                WHERE ingestion.id = ? AND review.id = ?
                 FOR UPDATE OF binding
-                """, result -> result.next() ? result.getObject(1, UUID.class) : null, ingestionId);
+                """, result -> result.next() ? result.getObject(1, UUID.class) : null, ingestionId, reviewId);
         if (!ingestionId.equals(latestId)) {
             throw new IllegalStateException("GitHub sync review is no longer the latest target");
         }

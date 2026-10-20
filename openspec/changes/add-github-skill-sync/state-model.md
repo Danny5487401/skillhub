@@ -34,6 +34,8 @@
 | 同步目标 | 来源绑定与 Skill ID，目标内容/合规指纹 | 当前可批准资格、被取代关联、扫描和审核记录；已拒绝相同指纹不反复入队 |
 | 凭证 | 凭证 ID、作用域、密钥版本 | 仅 Java 保存密文；任务表、日志、指标、URL 均不保存明文 |
 
+`github_source_skill_binding.latest_ingestion_id` 保存当前内容目标，不能被同内容路径移动的 `NO_CHANGE` 观测覆盖。审核结算按持久的 Skill/version、namespace、repository、source 与当前 ingestion 共同验证，不使用可能已移动的旧路径作为唯一定位。新内容目标应将该 Skill 在旧路径下的旧待审摄入一并取代；哈希相同不撤销代际隔离。
+
 路径需统一规范化为仓库内相对 POSIX 路径，拒绝绝对路径、`..`、空段、反斜杠和非 `SKILL.md` 根；Java 不信任 Go 给出的路径。GitHub repository ID 是上游身份；owner/name 是可变展示坐标。Hash 用于内容比较及同仓库唯一路径移动判定，不取代来源身份。
 
 ## 3. 领取、续租与重复回报

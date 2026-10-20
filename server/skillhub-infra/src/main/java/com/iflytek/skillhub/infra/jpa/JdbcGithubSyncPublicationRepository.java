@@ -264,10 +264,11 @@ public class JdbcGithubSyncPublicationRepository implements GithubSyncPublicatio
         jdbc.update("""
                 UPDATE github_sync_package_ingestion
                 SET status = 'SUPERSEDED', updated_at = ?
-                WHERE namespace_id = ? AND repository_id = ? AND skill_path = ?
+                WHERE namespace_id = ? AND repository_id = ?
+                  AND (skill_path = ? OR published_skill_id = ?)
                   AND id <> ? AND status IN ('READY_FOR_REVIEW', 'BLOCKED')
                 """, Timestamp.from(now), claim.namespaceId(), claim.repositoryId(),
-                claim.skillPath(), claim.id());
+                claim.skillPath(), skillId, claim.id());
         return true;
     }
 
@@ -424,9 +425,11 @@ public class JdbcGithubSyncPublicationRepository implements GithubSyncPublicatio
         if (decision.outcome() != PathMoveOutcome.CANDIDATE) {
             throw new IllegalArgumentException("GitHub path move requires a unique candidate");
         }
+        // Path observations do not replace the current content/review target. Keeping its
+        // ingestion identity also preserves pending decisions and explicit rejected retries.
         int updated = jdbc.update("""
                 UPDATE github_source_skill_binding
-                SET skill_path = ?, latest_ingestion_id = ?,
+                SET skill_path = ?,
                     upstream_presence = 'PRESENT',
                     presence_commit_sha = (SELECT commit_sha FROM github_sync_package_ingestion
                                            WHERE id = ?),
@@ -437,7 +440,7 @@ public class JdbcGithubSyncPublicationRepository implements GithubSyncPublicatio
                       SELECT 1 FROM github_source_skill_binding occupied
                       WHERE occupied.namespace_id = ? AND occupied.repository_id = ?
                         AND occupied.skill_path = ?)
-                """, claim.skillPath(), claim.id(), claim.id(), Timestamp.from(now), claim.sourceId(),
+                """, claim.skillPath(), claim.id(), Timestamp.from(now), claim.sourceId(),
                 claim.namespaceId(), claim.repositoryId(), decision.previousPath(), decision.skillId(),
                 claim.contentSha256(), claim.namespaceId(), claim.repositoryId(), claim.skillPath());
         if (updated != 1) {

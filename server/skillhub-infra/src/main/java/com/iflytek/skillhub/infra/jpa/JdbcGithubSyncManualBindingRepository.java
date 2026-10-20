@@ -169,19 +169,19 @@ public class JdbcGithubSyncManualBindingRepository {
         if (Boolean.TRUE.equals(oldPathPresent)) {
             throw new DomainBadRequestException("error.githubSync.binding.invalidTarget");
         }
+        // Path observations do not replace the current content/review target. Keeping its
+        // ingestion identity also preserves pending decisions and explicit rejected retries.
         int moved = jdbc.update("""
                 UPDATE github_source_skill_binding
                 SET skill_path = ?, upstream_presence = 'PRESENT',
                     presence_commit_sha = ?, missing_since = NULL,
-                    latest_ingestion_id = CASE WHEN latest_content_sha256 = ?
-                                               THEN ? ELSE latest_ingestion_id END,
                     updated_at = ?
                 WHERE source_id = ? AND namespace_id = ? AND repository_id = ?
                   AND skill_path = ? AND skill_id = ?
                   AND NOT EXISTS (SELECT 1 FROM github_source_skill_binding occupied
                       WHERE occupied.namespace_id = ? AND occupied.repository_id = ?
                         AND occupied.skill_path = ?)
-                """, conflict.skillPath(), conflict.commitSha(), conflict.contentSha256(), ingestionId,
+                """, conflict.skillPath(), conflict.commitSha(),
                 Timestamp.from(Instant.now()), conflict.sourceId(), conflict.namespaceId(),
                 conflict.repositoryId(), target.previousPath(), targetSkillId,
                 conflict.namespaceId(), conflict.repositoryId(), conflict.skillPath());
