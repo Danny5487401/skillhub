@@ -27,7 +27,7 @@ export async function createNamespaceReviewData(
   browser: Browser,
   page: Page,
   testInfo: TestInfo,
-): Promise<SeededReviewData & { reviewTaskId: number; cleanup: () => Promise<void> }> {
+): Promise<SeededReviewData & { skillDisplayName: string; reviewTaskId: number; cleanup: () => Promise<void> }> {
   const credentials = await registerSession(page, testInfo, { allowMockSession: false })
   const builder = new E2eTestDataBuilder(page, testInfo)
   await builder.init()
@@ -48,12 +48,14 @@ export async function createNamespaceReviewData(
   }
 
   await adminBuilder.addNamespaceMember(namespace.slug, matchedCandidate.userId, 'ADMIN')
-  const skill = await builder.publishSkill(namespace.slug)
+  const skillDisplayName = 'E2E namespace review'
+  const skill = await builder.publishSkill(namespace.slug, { displayName: skillDisplayName })
   const reviewTaskId = await adminBuilder.waitForPendingReview(namespace.slug, skill.slug, skill.version)
 
   return {
     namespace,
     skill,
+    skillDisplayName,
     reviewTaskId,
     cleanup: async () => {
       await builder.cleanup()
