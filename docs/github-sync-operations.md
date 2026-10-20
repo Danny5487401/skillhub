@@ -95,6 +95,8 @@ V119 引入持久平台控制与任务确认记录。Java/Go 必须配套升级�
 
 页面权限、状态字段、配置请求和手动操作的精确合同见[管理接口说明](api/github-sync-admin.md)。
 
+审核页的文本差异组件通过本地 Blob Worker 计算差异，Web 页面的 CSP 包含 `worker-src 'self' blob:`，`script-src` 不增加 `blob:` 来源。部署侧若额外为 HTML 添加 CSP 响应头，也需保留该 Worker 来源；多个 CSP 会同时约束页面，不能仅靠页面内的策略放宽响应头。浏览器若报告差异 Worker 被阻止，应先检查实际 HTML 响应的策略，避免组件回退到主线程计算。
+
 ## 故障排查
 
 | 现象 | 先检查 | 处理 |
