@@ -469,14 +469,18 @@ class GithubSyncPathPresenceRepositoryTest {
                 INSERT INTO github_sync_run (id, namespace_id, kind)
                 VALUES (?, ?, 'REPOSITORY_SYNC')
                 """, runId, fixture.namespaceId());
+        // These snapshots represent successive scheduler transactions. PostgreSQL now()
+        // is constant inside this @DataJpaTest transaction, so give their chronology explicitly.
         jdbc.update("""
                 INSERT INTO github_sync_task
                     (id, run_id, namespace_id, source_id, kind, mode, status,
-                     dedupe_key, snapshot_json, fixed_commit_sha)
+                     dedupe_key, snapshot_json, fixed_commit_sha, created_at)
                 VALUES (?, ?, ?, ?, 'REPOSITORY_SYNC', 'FULL', ?, ?,
-                        '{"ignorePatterns":[]}'::jsonb, ?)
+                        '{"ignorePatterns":[]}'::jsonb, ?,
+                        (SELECT COALESCE(MAX(created_at), CURRENT_TIMESTAMP) + INTERVAL '1 microsecond'
+                         FROM github_sync_task WHERE source_id = ?))
                 """, taskId, runId, fixture.namespaceId(), fixture.sourceId(),
-                status, "presence:" + taskId, COMMIT);
+                status, "presence:" + taskId, COMMIT, fixture.sourceId());
         for (String path : presentPaths) {
             jdbc.update("""
                     INSERT INTO github_sync_path_result (task_id, commit_sha, skill_path, outcome)

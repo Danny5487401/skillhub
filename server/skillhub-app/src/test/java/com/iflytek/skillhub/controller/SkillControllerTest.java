@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -70,7 +71,7 @@ class SkillControllerTest {
 
     @Test
     void getSkillDetailShouldExposeOnlyPublishedGithubSource() throws Exception {
-        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of())))
+        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of()), eq(Set.of())))
                 .thenReturn(publishedGithubSkill());
         when(skillSuiteAppService.findVisibleMemberships(
                 eq(1L), eq((String) null), eq(Map.of()), anySet(), eq(0), eq(20)))
@@ -92,7 +93,7 @@ class SkillControllerTest {
 
     @Test
     void getSkillDetailShouldNotReadGithubSourceWhenTeamSkillIsForbidden() throws Exception {
-        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of())))
+        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of()), eq(Set.of())))
                 .thenThrow(new DomainForbiddenException("error.skill.access.denied", "demo"));
 
         mockMvc.perform(get("/api/web/skills/team/demo"))
