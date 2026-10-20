@@ -125,14 +125,20 @@ flowchart LR
 本轮未发布、创建tag或执行生产部署。已获人工确认的产品功能与发布门禁分别跟踪，未验证项不改写为通过。
 
 
-## Issue #981 candidate acceptance
+## Issue #981：双 RC 兼容候选验收
 
-- [x] Explicit peer allowlist for `0.2.0-rc.2` and `0.2.1-rc.2`; unknown versions remain unsupported.
-- [x] Targeted tests accept each coherent Host/Client graph and reject per-package cross-RC mixing, stale/malformed manifests and mismatched Host anchors.
-- [x] Build, typecheck, lint and full plugin suite against the updated lockfile (365 tests); common RPC ABI and historical receipt codec regression covered.
-- [ ] Strict native installation without overrides for both official RCs; retained Cordis regression on the old RC.
-- [ ] Isolated official Host runtime-baseline and plugin-lifecycle for both RCs.
-- [ ] Browser sidebar, settings, search, install, exact-version upgrade and uninstall against the local mock Registry on both RCs.
-- [ ] New-RC native macOS/Windows coverage; CI execution remains distinct from local Linux evidence.
+| 验收项 | 结果与边界 |
+| --- | --- |
+| 精确版本和拒绝策略 | 支持 `0.2.0-rc.2`、`0.2.1-rc.2` 的一致依赖图；未知版本、跨 RC 混装、清单失效及 Host 解析不一致的定向测试通过。 |
+| 构建与源码检查 | build、typecheck、lint、完整 365 项插件测试通过；冻结后的 63 项定向回归及 OpenSpec 严格校验通过。 |
+| 严格依赖安装 | Linux 两版官方 Host 均完成原生 Profile 安装和独立 npm 严格安装；实际配置与故意冲突负控确认严格检查生效，候选的全部 81 个文件与安装内容一致。未使用 peer 豁免或 fresh graph overrides。 |
+| 原生运行 | 两版均通过 runtime-baseline、plugin-lifecycle、plan-context、plan-source、upgrade-drift，覆盖加载、启停、真实 Gateway 作用域、上下文/来源漂移及本地修改保护。 |
+| 真实浏览器 | 两版均在本地受控 Registry 上通过设置保存与读回、搜索、详情，以及项目/用户两个范围的 `1.2.0` 安装、`1.3.0` 升级和卸载。每版六次写入 RPC；三类取消均不改变文件、库存和操作日志。实际 Client 交付内容核验通过，未认证 RPC 返回 401，无未解释页面异常。 |
+| CI 与保留组合 | [兼容修复 CI](https://github.com/iflytek/skillhub/actions/runs/39404365159) 的八组运行检查通过：旧 RC 三系统各两个 Node 档，新 RC Linux 两个 Node 档；旧 Cordis 完整保留组合的原生回归通过。CI 与本地构建产物分别留证，不混用摘要。 |
+| 尚未验收 | 新 RC 的 macOS/Windows 原生文件操作、真实桌面及真实模型调用不在本轮通过范围内；既有单元或 Linux 结果不替代这些验证。 |
 
-No new npm release, tag, production mutation or model invocation is part of this compatibility change.
+两版 Linux 的严格安装与浏览器验收使用同一冻结候选包。
+
+`pnpm add` 不能单独证明严格 peer 校验有效。本轮追加 `dsh plugin --profile <profile> install --strict-peer-dependencies --ignore-scripts` 与独立 npm `--strict-peer-deps` 安装，并验证冲突时正常失败。
+
+交付跟踪见 [PR #988](https://github.com/iflytek/skillhub/pull/988)。本轮未发布 npm、创建 tag、调用模型或修改生产环境；公开插件 `0.3.0` 不包含此候选兼容修复。
