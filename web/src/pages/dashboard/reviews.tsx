@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@/shared/ui/table'
 import { useReviewList } from '@/features/review/use-review-list'
+import { GithubSyncReviewQueue } from '@/features/review/github-sync-review-queue'
 import { useAuth } from '@/features/auth/use-auth'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import { Pagination } from '@/shared/components/pagination'
@@ -53,11 +54,12 @@ export function ReviewsPage() {
   const isUserAdmin = hasRole('USER_ADMIN') || hasRole('SUPER_ADMIN')
   const hasGlobalReviewAccess = canAccessGlobalReviewCenter(user?.platformRoles)
   const namespaceReviewEntry = getPreferredNamespaceReviewEntry(myNamespaces)
-  const showTypeTabs = isSkillAdmin && isUserAdmin
+  const showTypeTabs = isSkillAdmin
 
   // Determine default top-level tab
   const defaultType = isSkillAdmin ? 'skill' : 'profile'
-  const requestedType = search.type === 'skill' || search.type === 'profile' ? search.type : undefined
+  const requestedType = search.type === 'skill' || search.type === 'sync'
+    || (search.type === 'profile' && isUserAdmin) ? search.type : undefined
   const activeType = showTypeTabs ? requestedType ?? defaultType : defaultType
   const skillReviewEnabled = hasGlobalReviewAccess && isSkillAdmin && activeType === 'skill'
 
@@ -100,7 +102,7 @@ export function ReviewsPage() {
   function handleTypeChange(value: string) {
     void navigate({
       to: '/dashboard/reviews',
-      search: { type: value === 'profile' ? 'profile' : 'skill' },
+      search: { type: value === 'profile' ? 'profile' : value === 'sync' ? 'sync' : 'skill' },
       replace: true,
     })
   }
@@ -276,18 +278,27 @@ export function ReviewsPage() {
               {t('reviews.typeSkill')}
             </TabsTrigger>
             <TabsTrigger
+              value="sync"
+              className="mb-0 rounded-xl border-b-0 px-5 py-3 text-base font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground"
+            >
+              {t('reviews.typeSync')}
+            </TabsTrigger>
+            {isUserAdmin && <TabsTrigger
               value="profile"
               className="mb-0 rounded-xl border-b-0 px-5 py-3 text-base font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground"
             >
               {t('reviews.typeProfile')}
-            </TabsTrigger>
+            </TabsTrigger>}
           </TabsList>
           <TabsContent value="skill" className="mt-6">
             {renderSkillReviewContent()}
           </TabsContent>
-          <TabsContent value="profile" className="mt-6">
-            <ProfileReviewTable />
+          <TabsContent value="sync" className="mt-6">
+            <GithubSyncReviewQueue enabled={activeType === 'sync'} />
           </TabsContent>
+          {isUserAdmin && <TabsContent value="profile" className="mt-6">
+            <ProfileReviewTable />
+          </TabsContent>}
         </Tabs>
       ) : isSkillAdmin ? (
         renderSkillReviewContent()

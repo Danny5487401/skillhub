@@ -1,0 +1,121 @@
+{{- if .Values.githubSync.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "skillhub.fullname" . }}-github-sync
+  labels:
+    {{- include "skillhub.githubSync.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "skillhub.githubSync.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "skillhub.githubSync.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- range $key, $val := .Values.githubSync.podAnnotations }}
+        {{ $key }}: {{ $val | quote }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      {{- with .Values.githubSync.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: github-sync
+          image: {{ .Values.githubSync.image.registry | default .Values.images.registry }}/skillhub-github-sync:{{ .Values.githubSync.image.tag | default .Values.images.tag | default (printf "v%s" .Chart.AppVersion) }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          ports:
+            - name: health
+              containerPort: 8090
+          env:
+            - name: SKILLHUB_GITHUB_SYNC_JAVA_URL
+              value: {{ printf "http://%s-server:%v/internal/github-sync/v1" (include "skillhub.fullname" .) .Values.server.service.port | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skillhub.secretName" . }}
+                  key: github-sync-service-token
+            - name: SKILLHUB_GITHUB_SYNC_TEMP_ROOT
+              value: /var/lib/skillhub-github-sync
+            - name: SKILLHUB_GITHUB_SYNC_DISCOVERY_WORKERS
+              value: {{ .Values.githubSync.discoveryWorkers | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_REPOSITORY_WORKERS
+              value: {{ .Values.githubSync.repositoryWorkers | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_POLL_INTERVAL
+              value: {{ .Values.githubSync.pollInterval | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_MAX_PAGES_PER_LEASE
+              value: {{ .Values.githubSync.maxPagesPerLease | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_MAX_TREE_REQUESTS
+              value: {{ .Values.githubSync.maxTreeRequests | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_MAX_TREE_ENTRIES
+              value: {{ .Values.githubSync.maxTreeEntries | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES
+              value: {{ .Values.githubSync.maxWorkspaceBytes | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES
+              value: {{ .Values.githubSync.totalWorkspaceBytes | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES
+              value: {{ .Values.githubSync.minFreeBytes | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS
+              value: {{ .Values.githubSync.allowedS3Hosts | quote }}
+            {{- if .Values.githubSync.httpProxy }}
+            - name: HTTP_PROXY
+              value: {{ .Values.githubSync.httpProxy | quote }}
+            {{- end }}
+            {{- if .Values.githubSync.httpsProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.githubSync.httpsProxy | quote }}
+            {{- end }}
+            {{- if .Values.githubSync.noProxy }}
+            - name: NO_PROXY
+              value: {{ .Values.githubSync.noProxy | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/skillhub-github-sync
+          resources:
+            {{- toYaml .Values.githubSync.resources | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 15
+      volumes:
+        - name: workspace
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.githubSync.tmpfsSizeLimit | quote }}
+      {{- with .Values.githubSync.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.githubSync.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.githubSync.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

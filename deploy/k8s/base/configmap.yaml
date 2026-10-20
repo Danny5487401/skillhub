@@ -30,6 +30,8 @@ data:
   # 存储配置
   # local: 本地存储（默认）, s3: S3/OSS 对象存储
   skillhub-storage-provider: local
+  # S3/MinIO 模式启用 GitHub 同步前，按隔离暂存区容量预算填写正数字节数。
+  github-sync-staging-capacity-limit-bytes: "0"
 
   # 技能扫描器配置
   skill-scanner-enabled: "true"

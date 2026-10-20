@@ -9,8 +9,8 @@ async function getReviewDetail(taskId: number): Promise<ReviewTask> {
   return reviewApi.get(taskId)
 }
 
-async function getReviewSkillDetail(taskId: number): Promise<ReviewSkillDetail> {
-  return reviewApi.getSkillDetail(taskId)
+async function getReviewSkillDetail(taskId: number, includeDocumentation: boolean): Promise<ReviewSkillDetail> {
+  return reviewApi.getSkillDetail(taskId, includeDocumentation)
 }
 
 /**
@@ -39,19 +39,27 @@ export function useReviewDetail(taskId: number) {
   })
 }
 
-export function useReviewSkillDetail(taskId: number, enabled = true) {
+export function useReviewSkillDetail(taskId: number, enabled = true, includeDocumentation = true) {
   return useQuery({
-    queryKey: ['reviews', taskId, 'skill-detail'],
-    queryFn: () => getReviewSkillDetail(taskId),
+    queryKey: ['reviews', taskId, 'skill-detail', includeDocumentation],
+    queryFn: () => getReviewSkillDetail(taskId, includeDocumentation),
     enabled: enabled && !!taskId,
   })
 }
 
-export function useReviewAttempts(taskId: number) {
+export function useGithubSyncReviewSource(taskId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['reviews', taskId, 'sync-source'],
+    queryFn: () => reviewApi.getSyncSource(taskId),
+    enabled: enabled && !!taskId,
+  })
+}
+
+export function useReviewAttempts(taskId: number, enabled = true) {
   return useQuery({
     queryKey: ['reviews', taskId, 'attempts'],
     queryFn: () => reviewApi.listAttempts(taskId),
-    enabled: !!taskId,
+    enabled: enabled && !!taskId,
   })
 }
 

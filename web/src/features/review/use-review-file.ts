@@ -12,11 +12,11 @@ export function useReviewFile(
 ) {
   return useQuery({
     queryKey: ['reviews', reviewId, 'file', filePath],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!reviewId || !filePath) {
         throw new Error('Review ID and file path are required')
       }
-      return fetchText(`${WEB_API_PREFIX}/reviews/${reviewId}/file?path=${encodeURIComponent(filePath)}`)
+      return fetchText(`${WEB_API_PREFIX}/reviews/${reviewId}/file?path=${encodeURIComponent(filePath)}&preview=true`, { signal })
     },
     enabled: enabled && !!reviewId && !!filePath,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes

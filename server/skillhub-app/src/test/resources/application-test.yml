@@ -37,6 +37,8 @@ spring:
             user-info-uri: https://api.github.com/user
 
 skillhub:
+  scheduling:
+    enabled: false
   auth:
     enforce-active-user-check: false
   access-policy:

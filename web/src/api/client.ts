@@ -18,6 +18,8 @@ import type {
   ReviewSkillDetail,
   ReviewProgressPage,
   ReviewTask,
+  GithubSyncReviewSource,
+  GithubSyncReviewQueueItem,
   PromotionSortBy,
   PromotionSortDirection,
   PromotionStatus,
@@ -176,6 +178,416 @@ function unwrapOpenApiResponse<T>(data: unknown, error: unknown, response: Respo
 
 export function getCsrfHeaders(headers?: HeadersInit): HeadersInit {
   return withCsrf(headers)
+}
+
+type GithubSyncPage<T> = { items?: T[]; total?: number; page?: number; size?: number }
+export type GithubSyncSource = components['schemas']['GithubSyncSourceSummaryResponse']
+export type GithubSyncRun = components['schemas']['GithubSyncRunSummaryResponse']
+export type GithubSyncRunQuery = NonNullable<paths['/api/v1/admin/github-sync/runs']['get']['parameters']['query']>
+export type GithubSyncRepository = components['schemas']['GithubSyncRepositorySummary']
+export type GithubSyncRepositoryDetail = components['schemas']['GithubSyncRepositoryDetail']
+export type GithubSyncRepositoryPage = components['schemas']['PageGithubSyncRepositorySummary']
+export type GithubSyncRepositoryOriginPage = components['schemas']['PageGithubSyncRepositoryOrigin']
+export type GithubSyncRepositoryPathPage = components['schemas']['PageGithubDeepDiscoveryPathResult']
+export type GithubSyncRepositoryQuery = NonNullable<paths['/api/v1/admin/github-sync/repositories']['get']['parameters']['query']>
+export type GithubPlatformControl = components['schemas']['GithubPlatformControlState']
+export type GithubPlatformControlUpdateInput = components['schemas']['GithubPlatformControlUpdateRequest']
+export type GithubSyncRunDetail = components['schemas']['GithubSyncRunDetailResponse'] & {
+  id: string; kind: string; status: string; createdAt: string; finishedAt?: string | null
+  taskCount: number; pathCount: number; nextRetryAt?: string | null
+  receivedPackages: number; processingPackages: number; pendingReviewPackages: number
+  blockedPackages: number; failedPackages: number; lastErrorCode?: string | null
+}
+export type GithubSyncRunTask = components['schemas']['GithubSyncRunTaskResponse'] & {
+  id: string; sourceId?: number | null; repository?: string | null; kind: string; mode?: string | null
+  status: string; fixedCommitSha?: string | null; lastErrorCode?: string | null
+  retryAt?: string | null; createdAt: string; completedAt?: string | null
+}
+export type GithubSyncRunPath = components['schemas']['GithubSyncRunPathResponse'] & {
+  taskId: string; sourceId?: number | null; repository?: string | null; skillPath: string
+  commitSha: string; outcome: string; reason?: string | null; ingestionStatus?: string | null
+  ingestionErrorCode?: string | null
+  reviewStatus?: string | null; retryAt?: string | null; updatedAt: string
+}
+export type GithubSyncSkillPath = components['schemas']['GithubSyncSkillPathResponse'] & {
+  latestBindingIngestionStatus?: string | null
+  retryRequested?: boolean
+  retryInProgress?: boolean
+}
+export type GithubSyncAdmissionPolicy = components['schemas']['GithubSyncAdmissionPolicyResponse']
+export type GithubSyncWorkerStatus = components['schemas']['GithubSyncWorkerStatusResponse']
+export type GithubSyncAdmissionPolicyInput = components['schemas']['GithubSyncAdmissionPolicyUpdateRequest']
+export type GithubSyncSchedulePolicy = components['schemas']['GithubSyncSchedulePolicyResponse']
+export type GithubSyncSchedulePolicyInput = components['schemas']['GithubSyncSchedulePolicyRequest']
+export type GithubDiscoveryEntry = components['schemas']['GithubDiscoveryEntryResponse']
+export type GithubSearchRuleInput = components['schemas']['GithubSearchRuleRequest']
+export type GithubSearchPreview = {
+  id: string
+  status: string
+  errorCode?: string | null
+  retryAt?: string | null
+  criteria: { selectors: Array<{ kind: string; value: string; priority: string }> }
+  searchedUntil: string
+  result?: { selectors: Array<{
+    kind: string; value: string; priority: string; totalCount: number
+    incompleteResults: boolean; limitReached: boolean
+    samples: Array<{ repositoryId: number; owner: string; name: string }>
+  }> } | null
+  createdAt: string
+  updatedAt: string
+}
+export type GithubCredential = components['schemas']['GithubCredentialResponse']
+export type GithubSourceIgnore = components['schemas']['GithubSourceIgnoreResponse']
+export type GithubSourceRescan = components['schemas']['GithubSourceRescanResponse']
+export type GithubSyncManualBinding = components['schemas']['GithubSyncManualBindingResponse']
+
+export type GithubDeepDiscoveryConfiguration = components['schemas']['GithubDeepDiscoveryConfigurationResponse']
+export type GithubDeepDiscoveryConfigurationInput = components['schemas']['GithubDeepDiscoveryConfigurationRequest']
+export type GithubDeepDiscoverySummary = components['schemas']['GithubDeepDiscoverySummary']
+export type GithubDeepDiscoveryProgress = components['schemas']['GithubDeepDiscoveryProgress']
+export type GithubDeepDiscoveryRepository = components['schemas']['GithubDeepDiscoveryRepositorySummary']
+export type GithubDeepDiscoveryRepositoryDetail = components['schemas']['GithubDeepDiscoveryRepositoryDetail']
+export type GithubDeepDiscoveryProvenance = components['schemas']['GithubDeepDiscoveryProvenance']
+export type GithubDeepDiscoveryPathResult = components['schemas']['GithubDeepDiscoveryPathResult']
+export type GithubDeepDiscoveryWait = components['schemas']['GithubDeepDiscoveryWait']
+export type GithubDeepDiscoveryRepositoryPage = components['schemas']['DiscoveryPageGithubDeepDiscoveryRepositorySummary']
+export type GithubDeepDiscoveryProvenancePage = components['schemas']['DiscoveryPageGithubDeepDiscoveryProvenance']
+export type GithubDeepDiscoveryPathPage = components['schemas']['DiscoveryPageGithubDeepDiscoveryPathResult']
+export type GithubDeepDiscoveryRepositoryQuery = NonNullable<paths['/api/v1/admin/github-sync/deep-discovery/repositories']['get']['parameters']['query']>
+
+export const githubDeepDiscoveryApi = {
+  async configuration(signal?: AbortSignal): Promise<GithubDeepDiscoveryConfiguration> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/configuration', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryConfiguration>(result.data, result.error, result.response)
+  },
+  async updateConfiguration(body: GithubDeepDiscoveryConfigurationInput): Promise<GithubDeepDiscoveryConfiguration> {
+    const result = await client.PUT('/api/v1/admin/github-sync/deep-discovery/configuration', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryConfiguration>(result.data, result.error, result.response)
+  },
+  async summary(from: string, until: string, signal?: AbortSignal): Promise<GithubDeepDiscoverySummary> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/summary', {
+      params: { query: { from, until } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoverySummary>(result.data, result.error, result.response)
+  },
+  async progress(signal?: AbortSignal): Promise<GithubDeepDiscoveryProgress> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/progress', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryProgress>(result.data, result.error, result.response)
+  },
+  async repositories(query: GithubDeepDiscoveryRepositoryQuery, signal?: AbortSignal): Promise<GithubDeepDiscoveryRepositoryPage> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/repositories', {
+      params: { query }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryRepositoryPage>(result.data, result.error, result.response)
+  },
+  async repository(repositoryId: number, signal?: AbortSignal): Promise<GithubDeepDiscoveryRepositoryDetail> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}', {
+      params: { path: { repositoryId } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryRepositoryDetail>(result.data, result.error, result.response)
+  },
+  async provenance(repositoryId: number, page: number, asOf?: string, signal?: AbortSignal): Promise<GithubDeepDiscoveryProvenancePage> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}/provenance', {
+      params: { path: { repositoryId }, query: { page, size: 20, asOf } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryProvenancePage>(result.data, result.error, result.response)
+  },
+  async paths(repositoryId: number, page: number, asOf?: string, signal?: AbortSignal): Promise<GithubDeepDiscoveryPathPage> {
+    const result = await client.GET('/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}/paths', {
+      params: { path: { repositoryId }, query: { page, size: 20, asOf } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDeepDiscoveryPathPage>(result.data, result.error, result.response)
+  },
+}
+
+export const githubSyncAdminApi = {
+  async platformControl(signal?: AbortSignal): Promise<GithubPlatformControl> {
+    const result = await client.GET('/api/v1/admin/github-sync/platform-control', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubPlatformControl>(result.data, result.error, result.response)
+  },
+  async updatePlatformControl(body: GithubPlatformControlUpdateInput): Promise<GithubPlatformControl> {
+    const result = await client.PUT('/api/v1/admin/github-sync/platform-control', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubPlatformControl>(result.data, result.error, result.response)
+  },
+  async repositories(query: GithubSyncRepositoryQuery, signal?: AbortSignal): Promise<GithubSyncRepositoryPage> {
+    const result = await client.GET('/api/v1/admin/github-sync/repositories', {
+      params: { query }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncRepositoryPage>(result.data, result.error, result.response)
+  },
+  async repository(repositoryId: number, signal?: AbortSignal): Promise<GithubSyncRepositoryDetail> {
+    const result = await client.GET('/api/v1/admin/github-sync/repositories/{repositoryId}', {
+      params: { path: { repositoryId } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncRepositoryDetail>(result.data, result.error, result.response)
+  },
+  async repositoryOrigins(repositoryId: number, page: number, size: number, asOf?: string, signal?: AbortSignal): Promise<GithubSyncRepositoryOriginPage> {
+    const result = await client.GET('/api/v1/admin/github-sync/repositories/{repositoryId}/origins', {
+      params: { path: { repositoryId }, query: { page, size, asOf } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncRepositoryOriginPage>(result.data, result.error, result.response)
+  },
+  async repositoryPaths(repositoryId: number, page: number, size: number, asOf?: string, signal?: AbortSignal): Promise<GithubSyncRepositoryPathPage> {
+    const result = await client.GET('/api/v1/admin/github-sync/repositories/{repositoryId}/paths', {
+      params: { path: { repositoryId }, query: { page, size, asOf } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncRepositoryPathPage>(result.data, result.error, result.response)
+  },
+  async workerStatus(signal?: AbortSignal): Promise<GithubSyncWorkerStatus> {
+    const result = await client.GET('/api/v1/admin/github-sync/worker-status', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncWorkerStatus>(result.data, result.error, result.response)
+  },
+  async schedulePolicy(signal?: AbortSignal): Promise<GithubSyncSchedulePolicy> {
+    const result = await client.GET('/api/v1/admin/github-sync/schedule-policy', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncSchedulePolicy>(result.data, result.error, result.response)
+  },
+  async updateSchedulePolicy(body: GithubSyncSchedulePolicyInput): Promise<GithubSyncSchedulePolicy> {
+    const result = await client.PUT('/api/v1/admin/github-sync/schedule-policy', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncSchedulePolicy>(result.data, result.error, result.response)
+  },
+  async rescan(sourceId: number): Promise<GithubSourceRescan> {
+    const result = await client.POST('/api/v1/admin/github-sync/sources/{sourceId}/rescan', {
+      params: { path: { sourceId } }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceRescan>(result.data, result.error, result.response)
+  },
+  async retryRejectedSkill(sourceId: number, skillPath: string): Promise<GithubSourceRescan> {
+    return fetchJson<GithubSourceRescan>(`/api/v1/admin/github-sync/sources/${sourceId}/retry-rejected-skill`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ skillPath }),
+    })
+  },
+  async sources(page: number, size: number, signal?: AbortSignal): Promise<GithubSyncPage<GithubSyncSource>> {
+    const result = await client.GET('/api/v1/admin/github-sync/sources', {
+      params: { query: { page, size } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncSource>>(result.data, result.error, result.response)
+  },
+  async runs(page: number, size: number, signal?: AbortSignal, kind?: GithubSyncRunQuery['kind'], status?: GithubSyncRunQuery['status']): Promise<GithubSyncPage<GithubSyncRun>> {
+    const result = await client.GET('/api/v1/admin/github-sync/runs', {
+      params: { query: { page, size, kind, status } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncRun>>(result.data, result.error, result.response)
+  },
+  async runDetail(runId: string, signal?: AbortSignal): Promise<GithubSyncRunDetail> {
+    const result = await client.GET('/api/v1/admin/github-sync/runs/{runId}', {
+      params: { path: { runId } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncRunDetail>(result.data, result.error, result.response)
+  },
+  async runTasks(runId: string, page: number, size: number, signal?: AbortSignal): Promise<GithubSyncPage<GithubSyncRunTask>> {
+    const result = await client.GET('/api/v1/admin/github-sync/runs/{runId}/tasks', {
+      params: { path: { runId }, query: { page, size } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncRunTask>>(result.data, result.error, result.response)
+  },
+  async runPaths(runId: string, page: number, size: number, signal?: AbortSignal): Promise<GithubSyncPage<GithubSyncRunPath>> {
+    const result = await client.GET('/api/v1/admin/github-sync/runs/{runId}/paths', {
+      params: { path: { runId }, query: { page, size } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncRunPath>>(result.data, result.error, result.response)
+  },
+  async skillPaths(sourceId: number, page: number, size: number, signal?: AbortSignal): Promise<GithubSyncPage<GithubSyncSkillPath>> {
+    const result = await client.GET('/api/v1/admin/github-sync/sources/{sourceId}/skills', {
+      params: { path: { sourceId }, query: { page, size } }, headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncSkillPath>>(result.data, result.error, result.response)
+  },
+  async bindExistingSkill(ingestionId: string, skillId: number, reason: string): Promise<GithubSyncManualBinding> {
+    const result = await client.POST('/api/v1/admin/github-sync/conflicts/{ingestionId}/bind-skill', {
+      params: { path: { ingestionId } }, body: { skillId, reason }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncManualBinding>(result.data, result.error, result.response)
+  },
+  async ignorePatterns(sourceId: number): Promise<GithubSourceIgnore> {
+    const result = await client.GET('/api/v1/admin/github-sync/sources/{sourceId}/ignore-patterns', {
+      params: { path: { sourceId } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceIgnore>(result.data, result.error, result.response)
+  },
+  async updateIgnorePatterns(sourceId: number, ignorePatterns: string[]): Promise<GithubSourceIgnore> {
+    const result = await client.PUT('/api/v1/admin/github-sync/sources/{sourceId}/ignore-patterns', {
+      params: { path: { sourceId } }, body: { ignorePatterns }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceIgnore>(result.data, result.error, result.response)
+  },
+  async admissionPolicy(signal?: AbortSignal): Promise<GithubSyncAdmissionPolicy> {
+    const result = await client.GET('/api/v1/admin/github-sync/admission-policy', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubSyncAdmissionPolicy>(result.data, result.error, result.response)
+  },
+  async updateAdmissionPolicy(body: GithubSyncAdmissionPolicyInput): Promise<GithubSyncAdmissionPolicy> {
+    const result = await client.PUT('/api/v1/admin/github-sync/admission-policy', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncAdmissionPolicy>(result.data, result.error, result.response)
+  },
+  async discoveryEntries(signal?: AbortSignal): Promise<GithubDiscoveryEntry[]> {
+    const result = await client.GET('/api/v1/admin/github-sync/discovery-entries', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry[]>(result.data, result.error, result.response)
+  },
+  async addRepository(ownerLogin: string, repositoryName: string): Promise<GithubDiscoveryEntry> {
+    const result = await client.POST('/api/v1/admin/github-sync/discovery-entries/curated-repositories', {
+      body: { ownerLogin, repositoryName }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async addOwner(ownerLogin: string, targetHours?: number): Promise<GithubDiscoveryEntry> {
+    const result = await client.POST('/api/v1/admin/github-sync/discovery-entries/curated-owners', {
+      body: { ownerLogin, targetHours }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async addSearchRule(body: GithubSearchRuleInput): Promise<GithubDiscoveryEntry> {
+    const result = await client.POST('/api/v1/admin/github-sync/discovery-entries/search-rules', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async previewSearchRule(body: GithubSearchRuleInput): Promise<GithubSearchPreview> {
+    const result = await client.POST('/api/v1/admin/github-sync/discovery-entries/search-rules/preview', {
+      body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSearchPreview>(result.data, result.error, result.response)
+  },
+  async searchRulePreview(id: string): Promise<GithubSearchPreview> {
+    const result = await client.GET('/api/v1/admin/github-sync/discovery-entries/search-rules/previews/{id}', {
+      params: { path: { id } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSearchPreview>(result.data, result.error, result.response)
+  },
+  async updateSearchRule(id: string, body: GithubSearchRuleInput): Promise<GithubDiscoveryEntry> {
+    const result = await client.PUT('/api/v1/admin/github-sync/discovery-entries/search-rules/{id}', {
+      params: { path: { id } }, body, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async setDiscoveryEnabled(id: string, enabled: boolean): Promise<GithubDiscoveryEntry> {
+    const result = await client.PUT('/api/v1/admin/github-sync/discovery-entries/{id}/enabled', {
+      params: { path: { id } }, body: { enabled }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async credentials(signal?: AbortSignal): Promise<GithubCredential[]> {
+    const result = await client.GET('/api/v1/admin/github-sync/credentials', {
+      headers: withRequestHeaders(), signal,
+    })
+    return unwrapOpenApiResponse<GithubCredential[]>(result.data, result.error, result.response)
+  },
+  async createCredential(label: string, token: string): Promise<GithubCredential> {
+    const result = await client.POST('/api/v1/admin/github-sync/credentials', {
+      body: { label, token }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubCredential>(result.data, result.error, result.response)
+  },
+  async replaceCredential(id: string, label: string, token: string): Promise<GithubCredential> {
+    const result = await client.PUT('/api/v1/admin/github-sync/credentials/{id}', {
+      params: { path: { id } }, body: { label, token }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubCredential>(result.data, result.error, result.response)
+  },
+  async setCredentialEnabled(id: string, enabled: boolean): Promise<GithubCredential> {
+    const result = await client.PUT('/api/v1/admin/github-sync/credentials/{id}/enabled', {
+      params: { path: { id } }, body: { enabled }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubCredential>(result.data, result.error, result.response)
+  },
+}
+
+export const githubTeamSourcesApi = {
+  async rescan(namespaceSlug: string, sourceId: number): Promise<GithubSourceRescan> {
+    const result = await client.POST('/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/rescan', {
+      params: { path: { namespaceSlug, sourceId } }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceRescan>(result.data, result.error, result.response)
+  },
+  async retryRejectedSkill(namespaceSlug: string, sourceId: number, skillPath: string): Promise<GithubSourceRescan> {
+    return fetchJson<GithubSourceRescan>(`/api/v1/namespaces/${encodeURIComponent(namespaceSlug)}/github-sources/resolved/${sourceId}/retry-rejected-skill`, {
+      method: 'POST', headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ skillPath }),
+    })
+  },
+  async entries(namespaceSlug: string): Promise<GithubDiscoveryEntry[]> {
+    const result = await client.GET('/api/v1/namespaces/{namespaceSlug}/github-sources', {
+      params: { path: { namespaceSlug } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry[]>(result.data, result.error, result.response)
+  },
+  async resolved(namespaceSlug: string, page: number, size: number): Promise<GithubSyncPage<GithubSyncSource>> {
+    const result = await client.GET('/api/v1/namespaces/{namespaceSlug}/github-sources/resolved', {
+      params: { path: { namespaceSlug }, query: { page, size } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncSource>>(result.data, result.error, result.response)
+  },
+  async runs(namespaceSlug: string, page: number, size: number): Promise<GithubSyncPage<GithubSyncRun>> {
+    const result = await client.GET('/api/v1/namespaces/{namespaceSlug}/github-sources/runs', {
+      params: { path: { namespaceSlug }, query: { page, size } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncRun>>(result.data, result.error, result.response)
+  },
+  async skillPaths(namespaceSlug: string, sourceId: number, page: number, size: number): Promise<GithubSyncPage<GithubSyncSkillPath>> {
+    const result = await client.GET('/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/skills', {
+      params: { path: { namespaceSlug, sourceId }, query: { page, size } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncPage<GithubSyncSkillPath>>(result.data, result.error, result.response)
+  },
+  async bindExistingSkill(namespaceSlug: string, ingestionId: string, skillId: number, reason: string): Promise<GithubSyncManualBinding> {
+    const result = await client.POST('/api/v1/namespaces/{namespaceSlug}/github-sources/conflicts/{ingestionId}/bind-skill', {
+      params: { path: { namespaceSlug, ingestionId } }, body: { skillId, reason },
+      headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSyncManualBinding>(result.data, result.error, result.response)
+  },
+  async ignorePatterns(namespaceSlug: string, sourceId: number): Promise<GithubSourceIgnore> {
+    const result = await client.GET('/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/ignore-patterns', {
+      params: { path: { namespaceSlug, sourceId } }, headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceIgnore>(result.data, result.error, result.response)
+  },
+  async updateIgnorePatterns(namespaceSlug: string, sourceId: number, ignorePatterns: string[]): Promise<GithubSourceIgnore> {
+    const result = await client.PUT('/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/ignore-patterns', {
+      params: { path: { namespaceSlug, sourceId } }, body: { ignorePatterns }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubSourceIgnore>(result.data, result.error, result.response)
+  },
+  async create(namespaceSlug: string, ownerLogin: string, repositoryName: string, visibility: string): Promise<GithubDiscoveryEntry> {
+    const result = await client.POST('/api/v1/namespaces/{namespaceSlug}/github-sources', {
+      params: { path: { namespaceSlug } }, body: { ownerLogin, repositoryName, visibility },
+      headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async setEnabled(namespaceSlug: string, entryId: string, enabled: boolean): Promise<GithubDiscoveryEntry> {
+    const result = await client.PUT('/api/v1/namespaces/{namespaceSlug}/github-sources/{entryId}/enabled', {
+      params: { path: { namespaceSlug, entryId } }, body: { enabled }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
+  async setVisibility(namespaceSlug: string, entryId: string, visibility: string): Promise<GithubDiscoveryEntry> {
+    const result = await client.PUT('/api/v1/namespaces/{namespaceSlug}/github-sources/{entryId}/visibility', {
+      params: { path: { namespaceSlug, entryId } }, body: { visibility }, headers: await ensureCsrfHeaders(),
+    })
+    return unwrapOpenApiResponse<GithubDiscoveryEntry>(result.data, result.error, result.response)
+  },
 }
 
 export type SessionBootstrapRuntimeConfig = {
@@ -1161,6 +1573,19 @@ export const suiteApi = {
 }
 
 export const reviewApi = {
+  async listSync(params: { status: string; namespaceId?: number; page?: number; size?: number; sortDirection?: 'ASC' | 'DESC' }) {
+    const result = await client.GET('/api/v1/reviews/sync', {
+      params: { query: { status: params.status, namespaceId: params.namespaceId,
+        page: params.page ?? 0, size: params.size ?? 20,
+        sortDirection: params.sortDirection ?? 'DESC' } },
+      headers: withRequestHeaders(),
+    })
+    return unwrapOpenApiResponse<{ items: GithubSyncReviewQueueItem[]; total: number; page: number; size: number }>(
+      result.data, result.error, result.response)
+  },
+  async getSyncSource(id: number): Promise<GithubSyncReviewSource> {
+    return fetchJson<GithubSyncReviewSource>(`${WEB_API_PREFIX}/reviews/sync/${id}/source`)
+  },
   async list(params: { status: string; namespaceId?: number; page?: number; size?: number; sortDirection?: 'ASC' | 'DESC' }) {
     const searchParams = new URLSearchParams()
     searchParams.set('status', params.status)
@@ -1199,8 +1624,8 @@ export const reviewApi = {
     return fetchJson<ReviewTask[]>(`${WEB_API_PREFIX}/reviews/${reviewTaskId}/attempts`)
   },
 
-  async getSkillDetail(id: number): Promise<ReviewSkillDetail> {
-    return fetchJson<ReviewSkillDetail>(`${WEB_API_PREFIX}/reviews/${id}/skill-detail`)
+  async getSkillDetail(id: number, includeDocumentation = true): Promise<ReviewSkillDetail> {
+    return fetchJson<ReviewSkillDetail>(`${WEB_API_PREFIX}/reviews/${id}/skill-detail?includeDocumentation=${includeDocumentation}`)
   },
 
   async approve(id: number, comment?: string): Promise<void> {

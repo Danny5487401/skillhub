@@ -146,7 +146,7 @@ public class NamespacePortalQueryAppService {
     @Transactional(readOnly = true)
     public PageResponse<MemberResponse> listMembers(String slug, Pageable pageable, String userId, Set<String> platformRoles) {
         Namespace namespace = namespaceService.getNamespaceBySlug(slug);
-        if (namespace.getType() == NamespaceType.GLOBAL) {
+        if (namespace.getType() != NamespaceType.TEAM) {
             Set<String> roles = platformRoles != null ? platformRoles : Set.of();
             if (!roles.contains("SUPER_ADMIN") && !roles.contains("USER_ADMIN")) {
                 throw new DomainForbiddenException("error.namespace.global.members.platformAdmin.required");

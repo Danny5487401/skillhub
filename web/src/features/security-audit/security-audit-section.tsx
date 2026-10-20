@@ -8,6 +8,7 @@ import { getSecurityAuditDisplayState } from './display-state'
 import { VerdictBadge } from './verdict-badge'
 import { FindingItem } from './finding-item'
 import type { FindingSeverity, SecurityAuditRecord } from './types'
+import { cn } from '@/shared/lib/utils'
 
 const SEVERITY_ORDER: Record<FindingSeverity, number> = {
   CRITICAL: 0,
@@ -27,31 +28,47 @@ interface SecurityAuditSectionProps {
   skillId: number
   versionId: number
   versionStatus?: string
+  showEmptyState?: boolean
   /** When true, omits the outer Card wrapper (e.g. when rendered inside a Dialog). */
   bare?: boolean
+  compact?: boolean
 }
 
-export function SecurityAuditSection({ skillId, versionId, versionStatus, bare }: SecurityAuditSectionProps) {
+export function SecurityAuditSection({ skillId, versionId, versionStatus, showEmptyState = false, bare, compact = false }: SecurityAuditSectionProps) {
   const { t } = useTranslation()
-  const { data: audits, isLoading } = useSecurityAudits(skillId, versionId)
+  const { data: audits, isLoading, isError } = useSecurityAudits(skillId, versionId)
 
-  // Return nothing while loading or when there are no audits.
-  // This section is supplementary — showing a shimmer that then disappears
-  // for the majority of skills (no audit) would cause a jarring flicker.
-  if (isLoading || !audits || audits.length === 0) {
-    return null
+  // Review pages show an explicit state even when no scan result is available.
+  if (isLoading) {
+    if (!showEmptyState) return null
+    return <Card className={cn('space-y-3 p-5 md:p-6', compact && 'p-4 md:p-4')}>
+      <h2 className={cn('text-lg font-semibold', compact && 'text-base')}>{t('securityAudit.title')}</h2>
+      <div className="h-12 animate-shimmer rounded-lg" />
+    </Card>
+  }
+
+  if (isError || !audits || audits.length === 0) {
+    if (!showEmptyState) return null
+    return <Card className={cn('space-y-3 p-5 md:p-6', compact && 'p-4 md:p-4')}>
+      <h2 className={cn('text-lg font-semibold', compact && 'text-base')}>{t('securityAudit.title')}</h2>
+      <p className="text-sm text-muted-foreground">
+        {t(isError ? 'review.scanLoadFailed'
+          : versionStatus === 'SCANNING' ? 'review.scanPending'
+            : versionStatus === 'SCAN_FAILED' ? 'review.scanFailed' : 'review.scanUnavailable')}
+      </p>
+    </Card>
   }
 
   const content = (
     <>
       <div className="flex items-center gap-2">
-        <Shield className="w-5 h-5 text-muted-foreground" />
-        <h2 className="text-xl font-bold font-heading">{t('securityAudit.title')}</h2>
+        <Shield className={cn('w-5 h-5 text-muted-foreground', compact && 'h-4 w-4')} />
+        <h2 className={cn('text-lg font-semibold', compact && 'text-base')}>{t('securityAudit.title')}</h2>
       </div>
 
       <div className="space-y-4">
         {audits.map((audit) => (
-          <ScannerCard key={audit.id} audit={audit} versionStatus={versionStatus} />
+          <ScannerCard key={audit.id} audit={audit} versionStatus={versionStatus} compact={compact} />
         ))}
       </div>
     </>
@@ -61,22 +78,22 @@ export function SecurityAuditSection({ skillId, versionId, versionStatus, bare }
     return <div className="space-y-6">{content}</div>
   }
 
-  return <Card className="p-8 space-y-6">{content}</Card>
+  return <Card className={cn('space-y-5 p-5 md:p-6', compact && 'space-y-3 p-4 md:p-4')}>{content}</Card>
 }
 
-function ScannerCard({ audit, versionStatus }: { audit: SecurityAuditRecord; versionStatus?: string }) {
+function ScannerCard({ audit, versionStatus, compact }: { audit: SecurityAuditRecord; versionStatus?: string; compact: boolean }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const sortedFindings = sortFindings(audit.findings)
 
   return (
-    <div className="rounded-xl border border-border/60 bg-secondary/20 p-4 space-y-3">
+    <div className={cn('space-y-3 rounded-md border border-border/60 bg-muted/20 p-4', compact && 'space-y-2 p-3')}>
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold font-mono">{audit.scannerType}</span>
-          <VerdictBadge displayState={getSecurityAuditDisplayState(audit, versionStatus)} />
+        <div className="flex items-center gap-2">
+          <span className={cn('text-sm font-semibold font-mono', compact && 'text-xs')}>{audit.scannerType}</span>
+          <VerdictBadge displayState={getSecurityAuditDisplayState(audit, versionStatus)} compact={compact} />
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className={cn('flex items-center gap-4 text-sm text-muted-foreground', compact && 'gap-3 text-xs')}>
           <span>
             {t('securityAudit.findingsCount', { count: audit.findingsCount })}
           </span>
@@ -97,17 +114,18 @@ function ScannerCard({ audit, versionStatus }: { audit: SecurityAuditRecord; ver
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-muted-foreground"
+            className={cn('w-full justify-between text-muted-foreground', compact && 'h-7 px-2 text-xs')}
+            aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
           >
             <span>{t('securityAudit.findings')}</span>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
 
           {expanded && (
             <div className="space-y-3">
               {sortedFindings.map((finding, idx) => (
-                <FindingItem key={`${finding.ruleId}-${idx}`} finding={finding} />
+                <FindingItem key={`${finding.ruleId}-${idx}`} finding={finding} compact={compact} />
               ))}
             </div>
           )}

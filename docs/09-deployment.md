@@ -93,6 +93,15 @@ make dev-all-down
 make dev-all-reset
 ```
 
+可选的 GitHub 公开 Skill 采集服务在宿主机前台运行。先为 Java 和 Go 设置同一枚本地服务密钥，再启动 `make dev-all` 与 `make dev-github-sync`；后者按 `Ctrl-C` 停止，不影响 Java 和其他开发依赖。默认使用本地存储，Go 临时目录为 `.dev/github-sync-tmp`。如需使用 S3/MinIO，应按[同步运行手册](github-sync-operations.md)配置两侧的存储地址和允许上传主机。
+
+```bash
+export SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS="<本机生成的至少 32 字符密钥>"
+export SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN="$SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS"
+make dev-all
+make dev-github-sync
+```
+
 ## 5 单机交付环境
 
 ### 5.1 启动
@@ -102,6 +111,22 @@ cp .env.release.example .env.release
 make validate-release-config
 docker compose --env-file .env.release -f compose.release.yml up -d
 ```
+
+公开 GitHub Skill 采集服务使用独立的 `github-sync` profile，默认不启动。设置同一条至少
+32 字符的服务密钥到 `SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN` 与 Java 认可的
+`SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS` 后，才能显式启动；S3/MinIO 模式还需设置
+`SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS` 为内部上传主机及端口。配置和当前实现边界见
+[Go 服务说明](../github-sync-go/README.md)，启停、后台操作与排障见
+[管理员运行手册](github-sync-operations.md)。
+
+使用 S3/MinIO 时，给 Java 服务设置正值的 `SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES`，
+表示 GitHub 同步隔离暂存前缀可使用的字节预算。未设置且暂存区已有对象时容量告警为 `1`；
+扫描前缀不完整或读取失败时同样告警。预算应结合对象存储容量与试运行数据确定，
+具体指标和扫描边界见 [内部协议说明](api/github-sync-internal.md#暂存容量监控)。
+
+如需在后台配置公开读取 GitHub Token，Java 服务还需设置
+`SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS`（例如 `v1=<32 字节随机密钥的 Base64>`）和
+`SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION`（例如 `v1`）。两项缺省时保留匿名读取能力，后台不能保存 Token。轮换时同时保留旧、新版本密钥，待旧密文被替换后再移除旧版本；不要把密钥或 Token 写入 Compose 文件、仓库或命令历史。管理接口和状态见 [GitHub 同步管理接口](api/github-sync-admin.md)。
 
 默认访问地址：
 
@@ -214,13 +239,15 @@ docker compose --env-file .env.release -f compose.release.yml up -d --force-recr
 
 1. 检出代码
 2. 登录 GHCR
-3. 分别构建 `server/Dockerfile` 与 `web/Dockerfile`
+3. 分别构建 `server`、`web`、`scanner` 与 `github-sync-go` 的 Dockerfile
 4. 推送镜像：
    - `ghcr.io/iflytek/skillhub-server`
    - `ghcr.io/iflytek/skillhub-web`
+   - `ghcr.io/iflytek/skillhub-scanner`
+   - `ghcr.io/iflytek/skillhub-github-sync`
 5. 写入 `edge` / `vX.Y.Z` / `latest` / `sha-*` 标签
 6. 同时发布多架构 manifest：`server` / `web` 覆盖 `linux/amd64`、`linux/arm64` 与
-   `linux/riscv64`，`scanner` 暂保持 `linux/amd64` 与 `linux/arm64`
+   `linux/riscv64`，`scanner` 与 `github-sync` 覆盖 `linux/amd64`、`linux/arm64`
 
 ## 7 配置管理
 
@@ -743,3 +770,8 @@ Flyway 仍是唯一 schema 变更入口：
 - 路径：`server/skillhub-app/src/main/resources/db/migration/`
 - 命名：`V{version}__{description}.sql`
 - 启动策略：应用容器启动时自动执行迁移
+
+GitHub 同步的 V76 迁移会创建系统管理的 `@github` 目录和 `github-sync-publisher` 系统账户。若升级前已有同名 namespace 或账户，迁移会明确失败并回滚，不会接管或改写原数据。部署前应检查这两个标识是否被占用；遇到冲突时先处理现有数据的归属，再重新启动迁移。
+
+
+本次 GitHub 同步从 main 的 V75 schema 继续追加 V76–V119；main 已发行 V1–V75 不改名、不改 checksum。升级前备份数据库和对象存储，先在副本验证迁移与业务。早期未发布开发分支使用过 V66–V109 的不同编号，它们与 main 历史冲突，不能直接套用本次迁移，也不应通过 Flyway repair 掩盖 checksum/版本冲突。一次性开发库应使用新的隔离库重新建立；需要保留早期分支数据时须另行设计并验收数据迁移。回退镜像不等于数据库降级。

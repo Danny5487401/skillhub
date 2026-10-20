@@ -68,20 +68,13 @@ function createDetail(): ReviewSkillDetail {
 }
 
 describe('ReviewSkillDetailSection', () => {
-  it('renders the active review version and download link', () => {
+  it('renders the download link, file tree, and review-bound documentation together', () => {
     const html = renderToStaticMarkup(<ReviewSkillDetailSection detail={createDetail()} />)
 
-    expect(html).toContain('1.2.0')
-    expect(html).toContain('skillDetail.expandOverview')
-  })
-
-  it('renders the detail content inside a collapsed disclosure card by default', () => {
-    const html = renderToStaticMarkup(<ReviewSkillDetailSection detail={createDetail()} />)
-
-    expect(html).toContain('aria-expanded="false"')
-    expect(html).not.toContain('data-review-skill-detail-panel')
-    expect(html).not.toContain('/api/v1/reviews/1/download')
-    expect(html).not.toContain('README.md')
+    expect(html).toContain('/api/v1/reviews/1/download')
+    expect(html).toContain('README.md')
+    expect(html).toContain('Demo Skill')
+    expect(html).toContain('fileTree.title')
   })
 
   it('renders loading state while review detail is being fetched', () => {

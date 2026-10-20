@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * JPA-backed repository for package files attached to one skill version.
@@ -13,6 +14,7 @@ import java.util.List;
 @Repository
 public interface SkillFileJpaRepository extends JpaRepository<SkillFile, Long>, SkillFileRepository {
     List<SkillFile> findByVersionId(Long versionId);
+    Optional<SkillFile> findByVersionIdAndFilePath(Long versionId, String filePath);
     List<SkillFile> findByVersionIdIn(List<Long> versionIds);
     void deleteByVersionId(Long versionId);
     boolean existsByStorageKeyAndVersionIdNotIn(String storageKey, List<Long> versionIds);

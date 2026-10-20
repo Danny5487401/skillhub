@@ -1,6 +1,7 @@
 package com.iflytek.skillhub.exception;
 
 import com.iflytek.skillhub.auth.exception.AuthFlowException;
+import com.iflytek.skillhub.auth.policy.RouteSecurityPolicyRegistry;
 import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
 import com.iflytek.skillhub.domain.shared.exception.LocalizedDomainException;
@@ -184,15 +185,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(StorageAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleStorageAccess(StorageAccessException ex, HttpServletRequest request) {
         metrics.incrementStorageAccessFailure(ex.getOperation());
+        if (isGithubSyncSensitiveRequest(request)) {
+            logger.warn("GitHub sync storage unavailable [requestId={}, operation={}]",
+                    requestIdAccessor.current(), ex.getOperation());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                    apiResponseFactory.error(503, "error.storage.unavailable"));
+        }
         logger.warn(
-                "Object storage unavailable [requestId={}, method={}, path={}, authentication={}, operation={}, key={}]",
+                "Object storage unavailable [requestId={}, method={}, path={}, authentication={}, operation={}, type={}]",
                 requestIdAccessor.current(),
                 request.getMethod(),
                 sensitiveLogSanitizer.sanitizeRequestTarget(request),
                 resolveAuthenticationState(request),
                 ex.getOperation(),
-                ex.getKey(),
-                ex
+                ex.getClass().getSimpleName()
         );
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                 apiResponseFactory.error(503, "error.storage.unavailable"));
@@ -207,19 +213,30 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex, HttpServletRequest request) {
+        if (isGithubSyncSensitiveRequest(request)) {
+            logger.error("Unhandled GitHub sync API exception [requestId={}, type={}]",
+                    requestIdAccessor.current(), ex.getClass().getSimpleName());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    apiResponseFactory.error(500, "error.internal"));
+        }
         logger.error(
-                "Unhandled API exception [requestId={}, method={}, path={}, authentication={}]",
+                "Unhandled API exception [requestId={}, method={}, path={}, authentication={}, type={}]",
                 requestIdAccessor.current(),
                 request.getMethod(),
                 sensitiveLogSanitizer.sanitizeRequestTarget(request),
                 resolveAuthenticationState(request),
-                ex
+                ex.getClass().getSimpleName()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 apiResponseFactory.error(500, "error.internal"));
     }
 
     private void logHandledException(HttpStatus status, String messageCode, HttpServletRequest request) {
+        if (isGithubSyncSensitiveRequest(request)) {
+            logger.info("GitHub sync API request failed [requestId={}, status={}, code={}]",
+                    requestIdAccessor.current(), status.value(), messageCode);
+            return;
+        }
         logger.info(
                 "API request failed [requestId={}, status={}, method={}, path={}, authentication={}, code={}]",
                 requestIdAccessor.current(),
@@ -245,5 +262,11 @@ public class GlobalExceptionHandler {
             return "authenticated";
         }
         return "anonymous";
+    }
+
+    private boolean isGithubSyncSensitiveRequest(HttpServletRequest request) {
+        String path = RouteSecurityPolicyRegistry.requestPath(request);
+        return path != null && (path.startsWith("/internal/github-sync/")
+                || path.startsWith("/api/v1/admin/github-sync/credentials"));
     }
 }

@@ -223,7 +223,7 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                     task.getReviewedBy(), reviewedBy != null ? reviewedBy.getDisplayName() : null,
                     task.getReviewComment(), task.getSubmittedAt(), task.getReviewedAt(),
                     task.getSubjectType().name(), task.getSubjectId(),
-                    task.getSubjectVersionId(), suite.getSlug());
+                    task.getSubjectVersionId(), suite.getSlug(), task.getOriginType().name());
         }
         Long skillId = task.getSkillId() != null
                 ? task.getSkillId()
@@ -253,7 +253,7 @@ public class JpaGovernanceQueryRepository implements GovernanceQueryRepository {
                 task.getSubjectVersionId() != null ? task.getSubjectVersionId() : task.getSkillVersionId(),
                 skill.getSlug(), task.getAvatarCandidateId(), task.isAvatarRemoval(),
                 task.getPreviousVisibility() == null ? null : task.getPreviousVisibility().name(),
-                task.getRequestedVisibility() == null ? null : task.getRequestedVisibility().name()
+                task.getRequestedVisibility() == null ? null : task.getRequestedVisibility().name(), task.getOriginType().name()
         );
     }
 

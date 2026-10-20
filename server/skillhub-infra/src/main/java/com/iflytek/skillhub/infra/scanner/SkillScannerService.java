@@ -34,7 +34,7 @@ public class SkillScannerService {
 
     public SkillScannerApiResponse scanDirectory(String skillDirectory, ScanOptions options) {
         String uri = baseUrl + "/scan";
-        log.info("Scanning local directory via scanner: {} -> {}", skillDirectory, uri);
+        log.info("Scanning local directory via scanner");
 
         Map<String, Object> body = buildScanRequestBody(skillDirectory, options);
         try {
@@ -47,7 +47,7 @@ public class SkillScannerService {
 
     public SkillScannerApiResponse scanUpload(Path skillPackagePath, ScanOptions options) {
         String uri = buildUploadUri(options);
-        log.info("Uploading skill package to scanner: {}", uri);
+        log.info("Uploading skill package to scanner");
 
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
         parts.add("file", new FileSystemResource(skillPackagePath));
@@ -132,7 +132,6 @@ public class SkillScannerService {
         if (exception.getStatusCode() > 0) {
             return new HttpClientException(exception.getStatusCode(), null);
         }
-        Throwable cause = exception.getCause() == null ? exception : exception.getCause();
-        return new HttpClientException("Scanner API request failed", cause);
+        return new HttpClientException(0, null);
     }
 }

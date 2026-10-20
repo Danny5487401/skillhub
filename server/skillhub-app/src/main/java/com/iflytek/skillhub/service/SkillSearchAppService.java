@@ -292,7 +292,7 @@ public class SkillSearchAppService {
                 projection.version(),
                 projection.status(),
                 projection.displayName(),
-                projection.summary()
+                projection.summary(), projection.syncRevision()
         );
     }
 

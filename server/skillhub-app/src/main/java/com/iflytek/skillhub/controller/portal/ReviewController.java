@@ -13,6 +13,8 @@ import com.iflytek.skillhub.dto.ReviewTaskRequest;
 import com.iflytek.skillhub.dto.ReviewTaskResponse;
 import com.iflytek.skillhub.service.AuditRequestContext;
 import com.iflytek.skillhub.service.GovernanceWorkflowAppService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
@@ -183,11 +185,15 @@ public class ReviewController extends BaseApiController {
 
     @GetMapping("/{id}/skill-detail")
     public ApiResponse<ReviewSkillDetailResponse> getReviewSkillDetail(@PathVariable Long id,
+                                                                       @Parameter(description = "是否包含 README.md/SKILL.md 正文；缺省 true，false 仅返回元数据")
+                                                                       @RequestParam(defaultValue = "true") boolean includeDocumentation,
                                                                        @RequestAttribute("userId") String userId,
                                                                        @RequestAttribute(value = "userNsRoles", required = false) Map<Long, NamespaceRole> userNsRoles) {
         return ok(
                 "response.success.read",
-                governanceWorkflowAppService.getReviewSkillDetail(id, userId, userNsRoles)
+                includeDocumentation
+                        ? governanceWorkflowAppService.getReviewSkillDetail(id, userId, userNsRoles)
+                        : governanceWorkflowAppService.getReviewSkillDetail(id, userId, userNsRoles, false)
         );
     }
 
@@ -200,6 +206,8 @@ public class ReviewController extends BaseApiController {
     public ResponseEntity<InputStreamResource> getReviewFile(
             @PathVariable Long id,
             @RequestParam("path") String path,
+            @Parameter(description = "是否按 256 KiB 上限读取预览；缺省 false 保留完整文件读取")
+            @RequestParam(defaultValue = "false") boolean preview,
             @RequestAttribute("userId") String userId,
             @RequestAttribute(value = "userNsRoles", required = false) Map<Long, NamespaceRole> userNsRoles) {
 
@@ -209,7 +217,7 @@ public class ReviewController extends BaseApiController {
         }
 
         java.io.InputStream content = governanceWorkflowAppService.getReviewFileContent(
-                id, path, userId, userNsRoles
+                id, path, userId, userNsRoles, preview
         );
 
         return ResponseEntity.ok()

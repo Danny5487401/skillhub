@@ -1,0 +1,57 @@
+name: PR GitHub Sync
+
+on:
+  pull_request:
+    paths:
+      - 'github-sync-go/**'
+      - '.github/workflows/pr-github-sync.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: github-sync-go/go.mod
+          cache-dependency-path: github-sync-go/go.mod
+      - name: Test and vet
+        working-directory: github-sync-go
+        run: |
+          go test -count=1 ./...
+          go vet ./...
+
+  image:
+    name: Image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: github-sync-go
+          platforms: linux/${{ matrix.arch }}
+          tags: skillhub-github-sync-pr:${{ matrix.arch }}-${{ github.sha }}
+          load: true
+      - name: Check runtime tools and user
+        run: |
+          docker run --rm --platform linux/${{ matrix.arch }} \
+            --entrypoint sh skillhub-github-sync-pr:${{ matrix.arch }}-${{ github.sha }} \
+            -ec 'test "$(id -u)" = 10001; git --version >/dev/null; tini --version >/dev/null; test -x /usr/local/bin/github-sync'

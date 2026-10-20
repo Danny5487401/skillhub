@@ -57,6 +57,34 @@ helm -n skillhub upgrade -i skillhub ./charts/skillhub \
 `secrets.initialRoleGrantsJson`，或在 `existingSecret` 中提供
 `auth-initial-role-grants-json`。这些值仅用于数据库首次初始化；之后在后台
 “系统配置”中管理。规则格式及管理入口见 [登录开关与外部账号首次授权](../../docs/923-auth-system-settings.md)。
+### 可选的公开 GitHub 采集服务
+
+Go 采集 Pod 默认不部署。需要启用时，在受保护的 values 文件中配置：
+
+```yaml
+githubSync:
+  enabled: true
+  # S3/MinIO 模式按暂存前缀容量填写正数字节预算
+  stagingCapacityLimitBytes: 1073741824
+  # S3/MinIO 模式填写预签名 PUT 的内部主机及端口，例如 minio:9000
+  allowedS3Hosts: ""
+secrets:
+  githubSyncServiceToken: "<至少32字符的随机服务密钥>"
+```
+
+Chart 把同一服务密钥注入 Java 与 Go。使用 `existingSecret` 时，该 Secret 必须包含
+`github-sync-service-token` 键，不再在 values 中填写明文。Go 固定单副本，使用
+768 MiB 内存型临时卷；默认单仓库预算 512 MiB，预留 128 MiB，容器内存上限
+1.5 GiB。需要 GitHub 出站代理时设置 `githubSync.httpProxy`、
+`githubSync.httpsProxy` 和 `githubSync.noProxy`；Go 到 Java 的内部请求始终直连。
+运行字段和当前实现边界见 [Go 服务说明](../../github-sync-go/README.md)。
+
+系统级公开 GitHub Token 由 Java 加密保存。需同时向 Java 提供
+`github-sync-credential-keys`（`v1=<32 字节随机密钥的 Base64>`，可逗号分隔保留旧版本）
+和 `github-sync-active-credential-key-version` 两个 Secret 键。使用 `existingSecret`
+时直接写入该 Secret；Chart 自建 Secret 时对应 `secrets.githubSyncCredentialKeys` 与
+`secrets.githubSyncActiveCredentialKeyVersion`，不要将真实值提交到版本控制。不配置时
+Go 使用匿名公开 API 额度，后台创建凭证会明确拒绝。
 
 > **Ingress values 迁移：** 当前版本只支持结构化的 `ingress.hosts[]` 和
 > `ingress.tls[]`。旧的 `ingress.host`、`ingress.tls.enabled` 与

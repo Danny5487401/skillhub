@@ -2,6 +2,7 @@ package com.iflytek.skillhub.service.bundle;
 
 import com.iflytek.skillhub.config.SkillPublishProperties;
 import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
+import com.iflytek.skillhub.service.archive.ZipArchiveSafety;
 import com.iflytek.skillhub.storage.ObjectStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,12 +13,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,11 +34,6 @@ public class SkillSuiteBundleArchiveService {
     private static final Logger log = LoggerFactory.getLogger(SkillSuiteBundleArchiveService.class);
     private static final int BUFFER_SIZE = 8192;
     private static final int MAX_MEMBERS = 100;
-    private static final int ZIP_CENTRAL_HEADER_SIZE = 46;
-    private static final int ZIP_EOCD_MIN_SIZE = 22;
-    private static final int ZIP_EOCD_MAX_SEARCH = 65_557;
-    private static final int UNIX_FILE_TYPE_MASK = 0170000;
-    private static final int UNIX_SYMBOLIC_LINK = 0120000;
 
     private final SkillSuiteBundlePackageAnalyzer analyzer;
     private final ObjectStorageService objectStorageService;
@@ -81,7 +73,11 @@ public class SkillSuiteBundleArchiveService {
 
         try {
             String archiveSha256 = copyUpload(upload, archivePath);
-            rejectSymbolicLinks(archivePath);
+            try {
+                ZipArchiveSafety.rejectSymbolicLinks(archivePath);
+            } catch (IllegalArgumentException exception) {
+                throw invalid(exception.getMessage());
+            }
             try (InputStream archiveInput = Files.newInputStream(archivePath)) {
                 objectStorageService.putObject(
                         archiveObjectKey, archiveInput, Files.size(archivePath), "application/zip");
@@ -218,77 +214,6 @@ public class SkillSuiteBundleArchiveService {
             output.write(buffer, 0, read);
         }
         return copied;
-    }
-
-    /** java.util.zip does not expose Unix modes, so inspect central-directory attributes directly. */
-    private void rejectSymbolicLinks(Path archivePath) throws IOException {
-        try (FileChannel channel = FileChannel.open(archivePath, StandardOpenOption.READ)) {
-            long fileSize = channel.size();
-            int tailLength = (int) Math.min(fileSize, ZIP_EOCD_MAX_SEARCH);
-            ByteBuffer tail = ByteBuffer.allocate(tailLength).order(ByteOrder.LITTLE_ENDIAN);
-            readFully(channel, tail, fileSize - tailLength);
-            int eocd = findEndOfCentralDirectory(tail);
-            if (eocd < 0 || eocd + ZIP_EOCD_MIN_SIZE > tailLength) {
-                throw invalid("Invalid ZIP end-of-central-directory record");
-            }
-            int entryCount = Short.toUnsignedInt(tail.getShort(eocd + 10));
-            long centralSize = Integer.toUnsignedLong(tail.getInt(eocd + 12));
-            long centralOffset = Integer.toUnsignedLong(tail.getInt(eocd + 16));
-            if (entryCount == 0xffff || centralSize == 0xffffffffL || centralOffset == 0xffffffffL) {
-                throw invalid("ZIP64 Bundle archives are not supported");
-            }
-            if (centralOffset + centralSize > fileSize) {
-                throw invalid("Invalid ZIP central-directory bounds");
-            }
-
-            long cursor = centralOffset;
-            for (int index = 0; index < entryCount; index++) {
-                ByteBuffer header = ByteBuffer.allocate(ZIP_CENTRAL_HEADER_SIZE).order(ByteOrder.LITTLE_ENDIAN);
-                readFully(channel, header, cursor);
-                if (header.getInt(0) != 0x02014b50) {
-                    throw invalid("Invalid ZIP central-directory entry");
-                }
-                int creatorSystem = Byte.toUnsignedInt(header.get(5));
-                int nameLength = Short.toUnsignedInt(header.getShort(28));
-                int extraLength = Short.toUnsignedInt(header.getShort(30));
-                int commentLength = Short.toUnsignedInt(header.getShort(32));
-                long externalAttributes = Integer.toUnsignedLong(header.getInt(38));
-                int unixMode = (int) (externalAttributes >>> 16);
-                if (creatorSystem == 3 && (unixMode & UNIX_FILE_TYPE_MASK) == UNIX_SYMBOLIC_LINK) {
-                    throw invalid("Bundle archive must not contain symbolic links");
-                }
-                cursor += ZIP_CENTRAL_HEADER_SIZE + nameLength + extraLength + commentLength;
-                if (cursor > centralOffset + centralSize) {
-                    throw invalid("Invalid ZIP central-directory entry bounds");
-                }
-            }
-        }
-    }
-
-    private void readFully(FileChannel channel, ByteBuffer buffer, long position) throws IOException {
-        while (buffer.hasRemaining()) {
-            int read = channel.read(buffer, position + buffer.position());
-            if (read < 0) {
-                throw invalid("Unexpected end of ZIP archive");
-            }
-        }
-    }
-
-    private int findEndOfCentralDirectory(ByteBuffer tail) {
-        byte[] bytes = tail.array();
-        int signature = 0x06054b50;
-        for (int index = bytes.length - ZIP_EOCD_MIN_SIZE; index >= 0; index--) {
-            if ((bytes[index] & 0xff) == (signature & 0xff)
-                    && (bytes[index + 1] & 0xff) == ((signature >>> 8) & 0xff)
-                    && (bytes[index + 2] & 0xff) == ((signature >>> 16) & 0xff)
-                    && (bytes[index + 3] & 0xff) == ((signature >>> 24) & 0xff)) {
-                int commentLength = Short.toUnsignedInt(tail.getShort(index + 20));
-                if (index + ZIP_EOCD_MIN_SIZE + commentLength == bytes.length) {
-                    return index;
-                }
-            }
-        }
-        return -1;
     }
 
     private String contentType(String path) {

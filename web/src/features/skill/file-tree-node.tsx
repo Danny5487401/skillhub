@@ -2,11 +2,13 @@ import { useState, memo, useMemo } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, FileCode, File } from 'lucide-react'
 import type { FileTreeNode } from './file-tree-builder'
 import { getFileIcon } from './file-type-utils'
+import { cn } from '@/shared/lib/utils'
 
 interface FileTreeNodeProps {
   node: FileTreeNode
   onFileClick: (node: FileTreeNode) => void
   defaultExpanded?: boolean
+  compact?: boolean
 }
 
 /**
@@ -39,6 +41,7 @@ export const FileTreeNodeComponent = memo(function FileTreeNodeComponent({
   node,
   onFileClick,
   defaultExpanded = false,
+  compact = false,
 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -52,13 +55,13 @@ export const FileTreeNodeComponent = memo(function FileTreeNodeComponent({
   if (node.type === 'file') {
     return (
       <div
-        className="flex items-center justify-between px-3 py-2 hover:bg-accent/10 cursor-pointer transition-colors group"
+        className={cn('flex items-center justify-between px-3 py-2 hover:bg-accent/10 cursor-pointer transition-colors group', compact && 'py-1.5')}
         style={{ paddingLeft: `${node.depth * 16 + 12}px` }}
         onClick={() => onFileClick(node)}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <IconComponent className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="font-mono text-sm text-foreground truncate">{node.name}</span>
+          <IconComponent className={cn('h-4 w-4 text-muted-foreground flex-shrink-0', compact && 'h-3.5 w-3.5')} />
+          <span className={cn('font-mono text-sm text-foreground truncate', compact && 'text-xs')}>{node.name}</span>
         </div>
         {node.file && (
           <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
@@ -73,21 +76,21 @@ export const FileTreeNodeComponent = memo(function FileTreeNodeComponent({
   return (
     <div>
       <div
-        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+        className={cn('flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors', compact && 'py-1.5')}
         style={{ paddingLeft: `${node.depth * 16 + 12}px` }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <ChevronDown className={cn('h-4 w-4 text-muted-foreground flex-shrink-0', compact && 'h-3.5 w-3.5')} />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <ChevronRight className={cn('h-4 w-4 text-muted-foreground flex-shrink-0', compact && 'h-3.5 w-3.5')} />
         )}
         {isExpanded ? (
-          <FolderOpen className="h-4 w-4 text-amber-500 flex-shrink-0" />
+          <FolderOpen className={cn('h-4 w-4 text-amber-500 flex-shrink-0', compact && 'h-3.5 w-3.5')} />
         ) : (
-          <Folder className="h-4 w-4 text-amber-500 flex-shrink-0" />
+          <Folder className={cn('h-4 w-4 text-amber-500 flex-shrink-0', compact && 'h-3.5 w-3.5')} />
         )}
-        <span className="font-mono text-sm text-foreground truncate">{node.name}</span>
+        <span className={cn('font-mono text-sm text-foreground truncate', compact && 'text-xs')}>{node.name}</span>
       </div>
       {isExpanded && node.children && (
         <div>
@@ -97,6 +100,7 @@ export const FileTreeNodeComponent = memo(function FileTreeNodeComponent({
               node={child}
               onFileClick={onFileClick}
               defaultExpanded={false}
+              compact={compact}
             />
           ))}
         </div>

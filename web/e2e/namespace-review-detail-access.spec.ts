@@ -25,7 +25,7 @@ test.describe('Namespace Review Detail Access (Real API)', () => {
       await page.getByRole('link', { name: 'Open review' }).first().click()
 
       await expect(page).toHaveURL(new RegExp(`/dashboard/namespaces/${seeded.namespace.slug}/reviews/\\d+$`))
-      await expect(page.getByRole('heading', { name: 'Review Detail' })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: seeded.skillDisplayName, exact: true })).toBeVisible()
       await expect(page.getByText(`${seeded.namespace.slug}/${seeded.skill.slug}`).first()).toBeVisible()
     } finally {
       await seeded?.cleanup()
@@ -59,7 +59,7 @@ test.describe('Namespace Review Detail Access (Real API)', () => {
       await page.goto(`/dashboard/reviews/${seeded.reviewTaskId}`)
 
       await expect(page).toHaveURL(new RegExp(`/dashboard/namespaces/${seeded.namespace.slug}/reviews/${seeded.reviewTaskId}$`))
-      await expect(page.getByRole('heading', { name: 'Review Detail' })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: seeded.skillDisplayName, exact: true })).toBeVisible()
     } finally {
       await seeded?.cleanup()
     }

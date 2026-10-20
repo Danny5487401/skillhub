@@ -87,8 +87,14 @@ public class SkillReviewSubmitService {
                                 String actorUserId, Map<Long, NamespaceRole> userNamespaceRoles, java.util.Set<String> platformRoles) {
         Skill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.notFound", skillId));
+        if (skill.isGithubSyncManaged()) {
+            throw new DomainBadRequestException("review.submit.githubSyncManaged", versionId);
+        }
         SkillVersion version = skillVersionRepository.findById(versionId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", versionId));
+        if (version.getGithubSyncIngestionId() != null) {
+            throw new DomainBadRequestException("review.submit.githubSyncManaged", versionId);
+        }
 
         if (visibilityService != null) {
             skill = visibilityService.lockedSkill(skill.getId());
@@ -142,8 +148,14 @@ public class SkillReviewSubmitService {
                                Set<String> platformRoles) {
         Skill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.notFound", skillId));
+        if (skill.isGithubSyncManaged()) {
+            throw new DomainBadRequestException("review.submit.githubSyncManaged", versionId);
+        }
         SkillVersion version = skillVersionRepository.findById(versionId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", versionId));
+        if (version.getGithubSyncIngestionId() != null) {
+            throw new DomainBadRequestException("review.submit.githubSyncManaged", versionId);
+        }
 
         if (visibilityService != null) {
             skill = visibilityService.lockedSkill(skill.getId());

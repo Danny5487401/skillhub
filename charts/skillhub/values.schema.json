@@ -202,7 +202,10 @@
         "oauth2DingtalkClientSecret": { "type": "string" },
         "scannerLlmApiKey": { "type": "string" },
         "scannerLlmBaseUrl": { "type": "string" },
-        "scannerLlmModel": { "type": "string" }
+        "scannerLlmModel": { "type": "string" },
+        "githubSyncServiceToken": { "type": "string" },
+        "githubSyncCredentialKeys": { "type": "string" },
+        "githubSyncActiveCredentialKeyVersion": { "type": "string" }
       }
     },
     "postgresql": {
@@ -302,10 +305,40 @@
       }
     },
     "server": { "$ref": "#/definitions/serverComponent" },
+    "githubSync": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "image", "discoveryWorkers", "repositoryWorkers", "pollInterval", "maxPagesPerLease", "maxTreeRequests", "maxTreeEntries", "maxWorkspaceBytes", "totalWorkspaceBytes", "minFreeBytes", "tmpfsSizeLimit", "allowedS3Hosts", "httpProxy", "httpsProxy", "noProxy", "resources", "imagePullSecrets", "podAnnotations", "nodeSelector", "tolerations", "affinity"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "$ref": "#/definitions/image" },
+        "stagingCapacityLimitBytes": { "type": "integer", "minimum": 0 },
+        "discoveryWorkers": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "repositoryWorkers": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "pollInterval": { "type": "string", "pattern": "^[1-9][0-9]*(s|m|h)$" },
+        "maxPagesPerLease": { "type": "integer", "minimum": 1 },
+        "maxTreeRequests": { "type": "integer", "minimum": 1 },
+        "maxTreeEntries": { "type": "integer", "minimum": 1 },
+        "maxWorkspaceBytes": { "type": "integer", "minimum": 1 },
+        "totalWorkspaceBytes": { "type": "integer", "minimum": 1 },
+        "minFreeBytes": { "type": "integer", "minimum": 0 },
+        "tmpfsSizeLimit": { "type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi)$" },
+        "allowedS3Hosts": { "type": "string" },
+        "httpProxy": { "type": "string" },
+        "httpsProxy": { "type": "string" },
+        "noProxy": { "type": "string" },
+        "resources": { "$ref": "#/definitions/resources" },
+        "imagePullSecrets": { "type": "array", "items": { "type": "object" } },
+        "podAnnotations": { "$ref": "#/definitions/stringMap" },
+        "nodeSelector": { "$ref": "#/definitions/stringMap" },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" }
+      }
+    },
     "web": { "$ref": "#/definitions/webComponent" },
     "scanner": { "$ref": "#/definitions/scannerComponent" }
   },
-  "required": ["images", "auth", "builtinSkills", "ingress", "s3", "session", "bootstrapAdmin", "springProfilesActive", "secrets", "postgresql", "externalDatabase", "redis", "externalRedis", "server", "web", "scanner"],
+  "required": ["images", "auth", "builtinSkills", "ingress", "s3", "session", "bootstrapAdmin", "springProfilesActive", "secrets", "postgresql", "externalDatabase", "redis", "externalRedis", "server", "githubSync", "web", "scanner"],
   "definitions": {
     "dnsLabel": {
       "type": "string",

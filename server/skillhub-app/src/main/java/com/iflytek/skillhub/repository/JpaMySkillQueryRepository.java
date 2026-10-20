@@ -257,7 +257,7 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
         if (namespace == null) {
             return false;
         }
-        if (namespace.getType() == NamespaceType.GLOBAL) {
+        if (namespace.getType() != NamespaceType.TEAM) {
             return false;
         }
         if (namespace.getStatus() != NamespaceStatus.ACTIVE || skill.getStatus() != SkillStatus.ACTIVE) {
@@ -274,6 +274,6 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
             return null;
         }
         return new SkillLifecycleVersionResponse(projection.id(), projection.version(), projection.status(),
-                projection.displayName(), projection.summary());
+                projection.displayName(), projection.summary(), projection.syncRevision());
     }
 }

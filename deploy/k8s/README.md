@@ -62,6 +62,9 @@ cp secret.yaml.example secret.yaml
 | redis-password | Redis 数据节点密码 | 否 |
 | redis-sentinel-password | Redis Sentinel 独立密码 | 否 |
 | bootstrap-admin-password | 管理员密码 | 是 |
+| github-sync-service-token | 可选 Go 采集服务与 Java 之间的共享服务密钥，启用时至少 32 字符 | 仅启用采集时必填 |
+| github-sync-credential-keys | 系统级 GitHub Token 加密密钥环，格式 `v1=<32 字节随机密钥的 Base64>` | 后台配置 Token 时必填 |
+| github-sync-active-credential-key-version | 写入新密文时使用的密钥版本，例如 `v1` | 配置加密密钥环时必填 |
 | oauth2-github-client-id | GitHub OAuth ID | 否 |
 | oauth2-github-client-secret | GitHub OAuth 密钥 | 否 |
 | skill-scanner-llm-api-key | LLM API 密钥 | 否 |
@@ -165,6 +168,17 @@ kubectl apply -k overlays/with-infra/  # 或 overlays/external/
 ```
 
 ## 部署架构
+
+### 可选的公开 GitHub 采集服务
+
+`base/github-sync-deployment.yaml` 不在默认 Kustomize 清单中。先在 `skillhub-secret` 配置 `github-sync-service-token`，并更新 Java Pod 使其读取该 Secret；再按实际镜像版本与存储网络配置此 Deployment，然后单独运行：
+
+```bash
+kubectl apply -n skillhub -f deploy/k8s/base/github-sync-deployment.yaml
+kubectl rollout status -n skillhub deployment/skillhub-github-sync
+```
+
+Go Pod 通过 `skillhub-server:8080` 领取任务。S3/MinIO 模式还要把 `SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS` 设为预签名 PUT 的内部主机及端口；需要 GitHub 出站代理时，在可选 Deployment 中填写 `HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`，默认空值不启用。代理地址如包含凭证，应改由 Kubernetes Secret 注入，勿写入清单或 ConfigMap。Go 对内部 Java 和暂存对象上传使用直连客户端。工作目录为 768 MiB 内存型 `emptyDir`，并按 512 MiB 单仓库预算和 128 MiB 预留空间配置。完整变量说明见 [Go 服务 README](../../github-sync-go/README.md)。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

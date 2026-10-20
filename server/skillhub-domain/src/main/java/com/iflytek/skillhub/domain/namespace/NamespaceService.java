@@ -53,6 +53,9 @@ public class NamespaceService {
     public Namespace createNamespace(String slug, String displayName, String description, String creatorUserId) {
         userAccountRepository.findLockedById(creatorUserId);
         SlugValidator.validate(slug);
+        if ("github".equals(slug)) {
+            throw new DomainBadRequestException("error.slug.reserved", slug);
+        }
 
         if (namespaceRepository.findBySlug(slug).isPresent()) {
             throw new DomainBadRequestException("error.namespace.slug.exists", slug);

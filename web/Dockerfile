@@ -5,7 +5,8 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Corepack uses Node fetch; explicitly honor the build proxy for its download.
+RUN NODE_USE_ENV_PROXY=1 pnpm install --frozen-lockfile
 COPY . .
 ARG VITE_BASE_PATH=/__SKILLHUB_WEB_BASE_PATH__/
 ENV VITE_BASE_PATH=$VITE_BASE_PATH

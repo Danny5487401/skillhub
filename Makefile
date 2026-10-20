@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-backend-app build-builtin-skills build-cli build-frontend build-web check clean cli-install db-reset dev dev-all dev-all-down dev-all-reset dev-down dev-logs dev-server dev-server-restart dev-status dev-web docs-build docs-dev docs-preview generate-api help lint-cli lint-web namespace-smoke suite-smoke suite-bundle-smoke parallel-down parallel-init parallel-sync parallel-up pr publish-cli publish-cli-major publish-cli-minor staging staging-down staging-logs test test-backend test-backend-app test-builtin-skills test-cli test-e2e-frontend test-e2e-smoke-frontend test-frontend test-redis-cluster test-web typecheck-cli typecheck-web validate-release-config web-deps web-install web-install-ci
+.PHONY: build build-backend build-backend-app build-builtin-skills build-cli build-frontend build-web check clean cli-install db-reset dev dev-all dev-all-down dev-all-reset dev-down dev-github-sync dev-logs dev-server dev-server-restart dev-status dev-web docs-build docs-dev docs-preview generate-api help lint-cli lint-web namespace-smoke suite-smoke suite-bundle-smoke parallel-down parallel-init parallel-sync parallel-up pr publish-cli publish-cli-major publish-cli-minor staging staging-down staging-logs test test-backend test-backend-app test-builtin-skills test-cli test-e2e-frontend test-e2e-smoke-frontend test-frontend test-redis-cluster test-web typecheck-cli typecheck-web validate-release-config web-deps web-install web-install-ci
 
 DEV_DIR := .dev
 DEV_SERVER_PID := $(DEV_DIR)/server.pid
@@ -128,6 +128,17 @@ dev-all: ## 一键启动本地开发环境（依赖 + scanner + 后端 + 前端�
 
 dev-server: ## 启动后端开发服务器
 	cd server && bash -lc '$(DEV_SERVER_PREPARE) && exec env $(DEV_SERVER_SCANNER_ENV) $(DEV_SERVER_CMD)'
+
+dev-github-sync: ## 前台运行可选的本地 GitHub 采集服务（需先给 Java 和 Go 配置同一服务密钥）
+	@test -n "$${SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN:-}" || { echo "SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN is required" >&2; exit 1; }
+	@mkdir -p $(DEV_DIR)/github-sync-tmp
+	cd github-sync-go && go build -o ../$(DEV_DIR)/github-sync ./cmd/github-sync
+	SKILLHUB_GITHUB_SYNC_JAVA_URL=$(DEV_API_URL)/internal/github-sync/v1 \
+	SKILLHUB_GITHUB_SYNC_TEMP_ROOT=$(abspath $(DEV_DIR))/github-sync-tmp \
+	SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES=$${SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES:-536870912} \
+	SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES=$${SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES:-536870912} \
+	SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES=$${SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES:-134217728} \
+	$(DEV_DIR)/github-sync
 
 dev-server-restart: ## 重启后端开发服务器
 	@mkdir -p $(DEV_DIR)

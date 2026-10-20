@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ComponentType } from 'react'
 import { createRouter, createRoute, createRootRoute, redirect } from '@tanstack/react-router'
 import { Layout } from './layout'
-import { getCurrentUser } from '@/api/client'
+import { getCurrentUser, type GithubSyncRepositoryQuery, type GithubSyncRunQuery } from '@/api/client'
 import { RoleGuard } from '@/shared/components/role-guard'
 import { RouteError } from '@/shared/components/route-error'
 import { createRedirectAuthenticated, createRequireAuth, isSafeAuthReturnTo } from '@/shared/lib/auth-route'
@@ -32,6 +32,10 @@ function RouteLoadingFallback() {
 
 function SilentRouteFallback() {
   return <div className="min-h-[40vh]" aria-hidden />
+}
+
+function allowedSearchValue<T extends string>(value: unknown, options: readonly T[]): T | undefined {
+  return typeof value === 'string' && options.some((option) => option === value) ? value as T : undefined
 }
 
 interface LazyRouteOptions {
@@ -93,6 +97,7 @@ const RegisterPage = createLazyRouteComponent(() => import('@/pages/register'), 
 const ResetPasswordPage = createLazyRouteComponent(() => import('@/pages/reset-password'), 'ResetPasswordPage')
 const PrivacyPolicyPage = createLazyRouteComponent(() => import('@/pages/privacy'), 'PrivacyPolicyPage')
 const SearchPage = createLazyRouteComponent(() => import('@/pages/search'), 'SearchPage')
+const GithubSkillsPage = createLazyRouteComponent(() => import('@/pages/github-skills'), 'GithubSkillsPage')
 const SuitesPage = createLazyRouteComponent(() => import('@/pages/suites'), 'SuitesPage')
 const SuiteDetailPage = createLazyRouteComponent(() => import('@/pages/suite-detail'), 'SuiteDetailPage')
 const TermsOfServicePage = createLazyRouteComponent(() => import('@/pages/terms'), 'TermsOfServicePage')
@@ -153,12 +158,18 @@ const NamespaceReviewsPage = createLazyRouteComponent(
   'NamespaceReviewsPage',
   dashboardRouteOptions,
 )
+const NamespaceGithubSourcesPage = createLazyRouteComponent(
+  () => import('@/pages/dashboard/namespace-github-sources'), 'NamespaceGithubSourcesPage', dashboardRouteOptions,
+)
 const NamespaceReviewDetailPage = createLazyRouteComponent(
   () => import('@/pages/dashboard/review-detail'),
   'NamespaceReviewDetailPage',
   dashboardRouteOptions,
 )
 const GovernancePage = createLazyRouteComponent(() => import('@/pages/dashboard/governance'), 'GovernancePage', dashboardRouteOptions)
+const GithubSyncPage = createRoleProtectedRouteComponent(
+  () => import('@/pages/dashboard/github-sync'), 'GithubSyncPage', ['SUPER_ADMIN'], dashboardRouteOptions,
+)
 const ReviewsPage = createLazyRouteComponent(() => import('@/pages/dashboard/reviews'), 'ReviewsPage', dashboardRouteOptions)
 const ReviewProgressPage = createLazyRouteComponent(
   () => import('@/pages/dashboard/review-progress'),
@@ -300,6 +311,17 @@ const searchRoute = createRoute({
       starredOnly: search.starredOnly === true || search.starredOnly === 'true',
     }
   },
+})
+
+const githubSkillsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'github',
+  component: GithubSkillsPage,
+  validateSearch: (search: Record<string, unknown>): { q: string; sort: string; page: number } => ({
+    q: normalizeSearchQuery(typeof search.q === 'string' ? search.q : ''),
+    sort: search.sort === 'downloads' ? 'downloads' : 'newest',
+    page: Math.max(0, Number(search.page) || 0),
+  }),
 })
 
 const suitesRoute = createRoute({
@@ -508,7 +530,17 @@ const dashboardNamespaceReviewsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'dashboard/namespaces/$slug/reviews',
   beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>): { queue?: 'user' | 'sync' } => ({
+    queue: search.queue === 'sync' ? 'sync' : undefined,
+  }),
   component: NamespaceReviewsPage,
+})
+
+const dashboardNamespaceGithubSourcesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/namespaces/$slug/github-sources',
+  beforeLoad: requireAuth,
+  component: NamespaceGithubSourcesPage,
 })
 
 const dashboardGovernanceRoute = createRoute({
@@ -518,12 +550,54 @@ const dashboardGovernanceRoute = createRoute({
   component: GovernancePage,
 })
 
+const dashboardGithubSyncRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/github-sync',
+  beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>): {
+    runId?: string; sourceId?: number; repositoryId?: number; tab?: 'overview' | 'repositories' | 'runs';
+    drawer?: 'collection' | 'settings'; page?: number; runPage?: number; q?: string;
+    originType?: GithubSyncRepositoryQuery['originType']; state?: GithubSyncRepositoryQuery['state'];
+    sourceStatus?: GithubSyncRepositoryQuery['sourceStatus']; runKind?: GithubSyncRunQuery['kind'];
+    runStatus?: GithubSyncRunQuery['status']; asOf?: string;
+  } => ({
+    runId: typeof search.runId === 'string' && /^[0-9a-f-]{36}$/i.test(search.runId) ? search.runId : undefined,
+    sourceId: (typeof search.sourceId === 'number' || typeof search.sourceId === 'string')
+      && Number.isSafeInteger(Number(search.sourceId)) && Number(search.sourceId) > 0
+      ? Number(search.sourceId) : undefined,
+    repositoryId: (typeof search.repositoryId === 'number' || typeof search.repositoryId === 'string')
+      && Number.isSafeInteger(Number(search.repositoryId)) && Number(search.repositoryId) > 0
+      ? Number(search.repositoryId) : undefined,
+    tab: allowedSearchValue(search.tab, ['overview', 'repositories', 'runs'] as const),
+    drawer: allowedSearchValue(search.drawer, ['collection', 'settings'] as const),
+    page: Number.isSafeInteger(Number(search.page)) && Number(search.page) >= 0 ? Number(search.page) : undefined,
+    runPage: Number.isSafeInteger(Number(search.runPage)) && Number(search.runPage) >= 0 ? Number(search.runPage) : undefined,
+    q: typeof search.q === 'string' ? search.q.slice(0, 120) : undefined,
+    originType: allowedSearchValue(search.originType, ['CURATED_REPOSITORY', 'CURATED_OWNER', 'SEARCH_RULE', 'OFFICIAL_DISCOVERY', 'TEAM_CONFIG'] as const),
+    state: allowedSearchValue(search.state, ['REGISTERED', 'PENDING', 'VALIDATING', 'NO_VALID_SKILL', 'VALIDATION_FAILED', 'UNREACHABLE', 'BOUND_WITHOUT_SOURCE'] as const),
+    sourceStatus: allowedSearchValue(search.sourceStatus, ['ACTIVE', 'PAUSED', 'UNREACHABLE'] as const),
+    runKind: allowedSearchValue(search.runKind, ['DISCOVERY', 'REPOSITORY_SYNC'] as const),
+    runStatus: allowedSearchValue(search.runStatus, ['QUEUED', 'LEASED', 'RETRY_WAIT', 'PARTIAL', 'ACQUISITION_COMPLETE', 'FAILED'] as const),
+    asOf: typeof search.asOf === 'string' && !Number.isNaN(Date.parse(search.asOf)) ? search.asOf : undefined,
+  }),
+  component: GithubSyncPage,
+})
+
+const dashboardGithubDeepDiscoveryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'dashboard/github-deep-discovery',
+  beforeLoad: async (ctx) => {
+    await requireAuth(ctx)
+    throw redirect({ to: '/dashboard/github-sync', search: { drawer: 'collection' } })
+  },
+})
+
 const dashboardReviewsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'dashboard/reviews',
   beforeLoad: requireAuth,
-  validateSearch: (search: Record<string, unknown>): { type?: 'skill' | 'profile' } => ({
-    type: search.type === 'skill' || search.type === 'profile' ? search.type : undefined,
+  validateSearch: (search: Record<string, unknown>): { type?: 'skill' | 'profile' | 'sync' } => ({
+    type: search.type === 'skill' || search.type === 'profile' || search.type === 'sync' ? search.type : undefined,
   }),
   component: ReviewsPage,
 })
@@ -706,6 +780,7 @@ const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
   privacyRoute,
   searchRoute,
+  githubSkillsRoute,
   suitesRoute,
   suiteDetailRoute,
   termsRoute,
@@ -727,8 +802,11 @@ const routeTree = rootRoute.addChildren([
   dashboardNamespaceSettingsRoute,
   dashboardNamespaceMembersRoute,
   dashboardNamespaceReviewsRoute,
+  dashboardNamespaceGithubSourcesRoute,
   dashboardNamespaceReviewDetailRoute,
   dashboardGovernanceRoute,
+  dashboardGithubSyncRoute,
+  dashboardGithubDeepDiscoveryRoute,
   dashboardReviewsRoute,
   dashboardReviewProgressRoute,
   dashboardReportsRoute,

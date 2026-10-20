@@ -1,0 +1,1508 @@
+openapi: 3.0.3
+info:
+  title: SkillHub GitHub Sync Internal API
+  version: 1.0.0
+  description: |
+    Java 控制面供 Go 采集服务使用的设计合同；任务领取、续租、发现批次、规则预览、凭证下发与额度/失效回报、逐包准入、上传、摄入回报、失败诊断及仓库结算已分阶段实现。
+    仅机器身份可调用。响应中的 GitHub token、租约令牌和上传 URL 均是敏感数据，不得写入日志或持久任务。
+    官方深度探索扩展已接入 Java/Go 运行时；验证入口与限制见 openspec/changes/add-github-skill-sync/verification.md，接口定义本身不代表部署验收通过。
+    1.x 允许向响应新增可选字段，不改变既有字段、状态和错误含义；未知主版本由 Java 拒绝。
+servers:
+  - url: /internal/github-sync/v1
+security:
+  - ServiceBearer: []
+paths:
+  /heartbeat:
+    post:
+      operationId: heartbeatGithubSyncWorker
+      summary: 采集服务定时报告在线状态
+      requestBody:
+        required: false
+        description: 已接入实例与能力记录；原无body或{}心跳仍有效，仅更新legacy联系状态。
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+                maxProperties: 0
+              - $ref: '#/components/schemas/OfficialWorkerHeartbeat'
+        x-implementation-status: implemented-controlled-runtime-partially-verified
+      description: Go 服务启动后和运行期间每 30 秒调用一次；即使所有工作池正在处理任务也继续报告。
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204':
+          description: 已记录最近在线时间。
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /tasks/claim:
+    post:
+      operationId: claimGithubSyncTask
+      summary: 原子领取一个发现或仓库任务
+      x-official-claim-status: implemented-controlled-runtime-partially-verified
+      description: 官方能力、结果接收、暂停及时间分片已接线并完成受控联调；生产Go声明四项官方能力及platform-pause/v1。平台任务统一要求暂停能力，TEAM规则不变。
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workerId, protocolMajor, kind]
+              properties:
+                capabilities:
+                  type: array
+                  maxItems: 32
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 128
+                  x-implementation-status: implemented-controlled-runtime-partially-verified
+                  description: 缺省为空；平台任务必须声明platform-pause/v1，官方任务还须具备全部requiredCapabilities。TEAM沿用原任务能力要求。未知能力不报错、不视为支持。
+                workerId:
+                  type: string
+                  maxLength: 128
+                  description: 进程实例标识，仅供诊断；不得使用凭证或主机密钥。
+                protocolMajor:
+                  type: integer
+                  enum: [1]
+                kind:
+                  type: string
+                  enum: [DISCOVERY, REPOSITORY_SYNC]
+                  description: 发现池与仓库池分别领取，避免已领取任务在另一类工作池内等待。
+      responses:
+        '200':
+          description: 已领取任务；GitHub 凭证仅出现在本次响应中。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimedTask'
+        '204':
+          description: 暂无可领取任务，可按服务配置退避后再轮询。
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '426': { $ref: '#/components/responses/UpgradeRequired' }
+  /tasks/{taskId}/renew:
+    post:
+      operationId: renewGithubSyncLease
+      summary: 当前代际续租
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody: { $ref: '#/components/requestBodies/Lease' }
+      responses:
+        '200':
+          description: 续租成功。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [leaseExpiresAt]
+                properties:
+                  leaseExpiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /tasks/{taskId}/repository-metadata:
+    post:
+      operationId: updateGithubRepositoryMetadata
+      summary: 按稳定仓库 ID 对账当前公开仓库坐标
+      description: Go 从 GitHub 获取公开仓库元数据并核对任务中的 repository ID 后调用；Java 再核对当前租约与 ID，更新来源或待验证候选及任务快照。改名或转移不创建新的来源身份。
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, repositoryId, owner, name, defaultBranch]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                repositoryId: { type: integer, format: int64, minimum: 1 }
+                owner: { type: string, minLength: 1, maxLength: 39 }
+                ownerId: { type: integer, format: int64, minimum: 1, description: 可选稳定GitHub账号ID；只有带此身份的实际Java验证成功记录可成为作者seed。省略保持旧客户端兼容，不从login猜身份。 }
+                name: { type: string, minLength: 1, maxLength: 100 }
+                defaultBranch: { type: string, minLength: 1, maxLength: 256 }
+      responses:
+        '204': { description: 已按原 repository ID 更新来源或候选坐标及当前任务快照。 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /tasks/{taskId}/credential-status:
+    post:
+      operationId: reportGithubCredentialStatus
+      summary: 回报当前租约使用的系统凭证额度、认证失效或限流
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, credentialId, status]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                credentialId: { type: string, format: uuid }
+                status: { type: string, enum: [OBSERVED, AUTH_INVALID, RATE_LIMITED] }
+                retryAt:
+                  type: string
+                  format: date-time
+                  description: RATE_LIMITED 必填，其余状态不得填写。
+                githubQuota: { $ref: '#/components/schemas/GithubQuota' }
+                officialQuotaObservation:
+                  allOf:
+                  - $ref: '#/components/schemas/OfficialQuotaObservation'
+                  x-implementation-status: implemented-controlled-runtime-partially-verified
+      responses:
+        '204': { description: 凭证状态已更新，响应不含凭证内容。 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/discovered-repositories:
+    post:
+      operationId: reportGithubDiscoveryBatch
+      summary: 回报一批发现候选及可恢复游标
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, repositories, previousCheckpoint, checkpoint]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                repositories:
+                  type: array
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/RepositoryCandidate' }
+                previousCheckpoint:
+                  type: string
+                  nullable: true
+                  maxLength: 4096
+                  description: 本批次开始前 Java 已确认的游标；首批传 null。服务端据此原子防止旧批次倒退游标。
+                checkpoint:
+                  type: string
+                  minLength: 1
+                  maxLength: 4096
+                  description: Java 原样持久化的规则/分页续跑游标，不得包含 token。
+                officialBatch:
+                  $ref: '#/components/schemas/OfficialDiscoveryBatch'
+                  x-implementation-status: implemented-controlled-runtime-partially-verified
+                deferredCount: { type: integer, minimum: 0 }
+                deferralReason: { $ref: '#/components/schemas/DeferralReason' }
+      responses:
+        '202':
+          description: 批次及游标已持久接收；正式来源仍需验证存在有效 Skill。
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/preview-results:
+    post:
+      operationId: completeGithubSearchPreview
+      summary: 回报无副作用搜索预览并完成当前租约
+      description: 只接受 entryType=SEARCH_PREVIEW 的发现任务；原子保存每个条件的第一页搜索估计与最多五个公开仓库样例，不写入发现候选或来源。
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, selectors]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                selectors:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [kind, value, priority, totalCount, incompleteResults, limitReached, samples]
+                    properties:
+                      kind: { type: string, enum: [KEYWORD, TOPIC] }
+                      value: { type: string }
+                      priority: { type: string, enum: [CORE, EXTENSION] }
+                      totalCount: { type: integer, minimum: 0 }
+                      incompleteResults: { type: boolean }
+                      limitReached: { type: boolean }
+                      samples:
+                        type: array
+                        maxItems: 5
+                        items: { $ref: '#/components/schemas/RepositoryCandidate' }
+      responses:
+        '200':
+          description: 预览结果已保存，任务状态为 ACQUISITION_COMPLETE。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ACQUISITION_COMPLETE] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /tasks/{taskId}/official-quota:
+    post:
+      operationId: reportGithubOfficialQuota
+      summary: 按当前官方租约回报真实额度或共享退避（含匿名）
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      description: 仅requiredCapabilities含official-pause/v1的有效租约；凭证ID和主体由Java租约关联，不接受Go自报。无凭证租约使用匿名观察键。与旧credential-status必填credentialId/status合同分开。
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, observation]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                observation: { $ref: '#/components/schemas/OfficialQuotaObservation' }
+      responses:
+        '204': { description: 观察和适用的共享冷却已持久化。 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /tasks/{taskId}/package-admissions:
+    post:
+      operationId: admitGithubPackageAcquisition
+      summary: 下载一个 Skill 包前原子申请采集准入
+      description: Java 按全局和 namespace 积压及未完成准入占位判断；高水位返回 409 BACKPRESSURE_ACTIVE，当前来源规则忽略该路径时返回 409 PATH_IGNORED。相同租约、commit 和路径重复申请返回同一准入。
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, commitSha, skillPath]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                commitSha: { $ref: '#/components/schemas/CommitSha' }
+                skillPath: { $ref: '#/components/schemas/SkillPath' }
+      responses:
+        '200':
+          description: 已预留一个包的采集准入；准入随当前租约续期，结算或租约失效时释放。
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackageAdmission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/upload-authorizations:
+    post:
+      operationId: authorizeGithubPackageUpload
+      summary: 为一个固定 commit 的 Skill 路径签发临时上传授权
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, admissionId, commitSha, skillPath, sizeBytes, sha256]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                admissionId: { type: string, format: uuid, description: 下载前 Java 授予的当前包采集准入。 }
+                commitSha: { $ref: '#/components/schemas/CommitSha' }
+                skillPath: { $ref: '#/components/schemas/SkillPath' }
+                sizeBytes: { type: integer, format: int64, minimum: 1 }
+                sha256: { $ref: '#/components/schemas/Sha256' }
+      responses:
+        '200':
+          description: 短时授权。uploadUrl 是 bearer URL，不得记录或在客户端追随重定向。
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadAuthorization' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /uploads/{uploadId}/content:
+    put:
+      operationId: streamGithubPackageToLocalStorage
+      summary: 本地存储模式的受限流式上传
+      description: 仅 LOCAL_STREAM 票据使用；服务身份和上传票据双重校验，接收时限制实际字节数。S3/MinIO 直接使用授权 URL。
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Upload-Ticket
+          in: header
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '204': { description: 对象已写入临时隔离存储；仍须逐包回报。 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+  /tasks/{taskId}/packages/report:
+    post:
+      operationId: reportGithubPackage
+      summary: 持久接收一个包的摄入请求
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, admissionId, commitSha, skillPath, uploadId, sizeBytes, sha256]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                admissionId: { type: string, format: uuid, description: 必须与当前任务、固定 commit 和路径对应；接收后准入占位转为未解决摄入项。 }
+                commitSha: { $ref: '#/components/schemas/CommitSha' }
+                skillPath: { $ref: '#/components/schemas/SkillPath' }
+                uploadId: { type: string, format: uuid, description: Java 签发的暂存对象标识；Go 不回报下载 URL。 }
+                sizeBytes: { type: integer, format: int64, minimum: 1 }
+                sha256: { $ref: '#/components/schemas/Sha256' }
+      responses:
+        '202':
+          description: 摄入记录已持久化；并非内容校验、审核或发布成功。相同业务键与摘要重放返回原 ingestionId。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ingestionId, status]
+                properties:
+                  ingestionId: { type: string, format: uuid }
+                  status: { type: string, enum: [RECEIVED] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/complete:
+    post:
+      operationId: completeGithubSyncTask
+      summary: 结算一次发现或仓库采集任务
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskCompletion' }
+      responses:
+        '200':
+          description: 结算已持久化，返回 Java 权威任务状态。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ACQUISITION_COMPLETE, PARTIAL, RETRY_WAIT] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/fail:
+    post:
+      operationId: failGithubSyncTask
+      summary: 分类报告无法完成的任务
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease, reason]
+              properties:
+                lease: { $ref: '#/components/schemas/LeaseProof' }
+                reason: { $ref: '#/components/schemas/FailureReason' }
+                retryAt: { type: string, format: date-time }
+                githubQuota: { $ref: '#/components/schemas/GithubQuota' }
+                detail:
+                  type: string
+                  maxLength: 100
+                  pattern: '^(?:WORKER_(?:TIMEOUT|ERROR)|GITHUB_HTTP_[1-5][0-9]{2}:(?:RETRYABLE_FAILURE|AUTH_INVALID|SOURCE_UNREADABLE|GITHUB_RATE_LIMITED))$'
+                  description: 仅接受已定义的 Worker 或 GitHub HTTP 诊断码，不接收原始异常、token、上传 URL 或采集正文。
+      responses:
+        '200':
+          description: 失败类别与重试时间已持久化。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, retryAt]
+                properties:
+                  status: { type: string, enum: [RETRY_WAIT] }
+                  retryAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /tasks/{taskId}/official-control:
+    post:
+      operationId: getOfficialGithubTaskControl
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      summary: 查询官方任务是否应在安全边界暂停；适用于官方发现及官方独占候选仓库任务。
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        $ref: '#/components/requestBodies/Lease'
+      responses:
+        '200':
+          description: DISCOVERY与要求official-pause/v1的REPOSITORY_SYNC均已接线，尚未运行时联调。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficialTaskControl'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tasks/{taskId}/official-pause:
+    post:
+      operationId: pauseOfficialGithubTask
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      summary: 确认官方发现或候选仓库任务安全暂停并释放租约；保存可恢复进度。
+      description: 仅requiredCapabilities含official-pause/v1的任务可调用。事务锁定租约并复核最新配置/有效归属，当前已BOUND成为非暂停来源或其他独立入口需要继续时返回CONTROL_CHANGED，不写暂停进度、不释放租约；客户端重新查control。来源自身PAUSED优先，使用SOURCE_PAUSED暂停原因。成功时进度保存和释放租约原子完成，无需commit尚未取得时虚构SHA或retryAt。
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfficialPauseRequest'
+      responses:
+        '200':
+          description: DISCOVERY与要求official-pause/v1的REPOSITORY_SYNC均已接线，尚未运行时联调。
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - PAUSED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: 租约或检查点冲突；最新配置已允许继续时返回CONTROL_CHANGED。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficialControlError'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tasks/{taskId}/official-checkpoint-recovery:
+    post:
+      operationId: recoverOfficialGithubCheckpoint
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      summary: 回报不可续跑的官方检查点并安排安全重放
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfficialCheckpointRecovery'
+      responses:
+        '200':
+          description: 旧进度已停止，替代任务已原子安排；不表示重放已经执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                - replacementTaskId
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - REPLAY_SCHEDULED
+                  replacementTaskId:
+                    type: string
+                    format: uuid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tasks/{taskId}/platform-control:
+    post:
+      operationId: getGithubPlatformTaskControl
+      summary: 读取平台采集暂停意图
+      x-implementation-status: implemented
+      description: 仅受platform-pause/v1控制的平台任务；TEAM不受此开关控制。lease过期不代表已停止，旧epoch不得覆盖当前状态。
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformControlRequest'
+      responses:
+        '200':
+          description: 控制状态或安全停止确认；不代表Go心跳在线。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTaskControl'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tasks/{taskId}/platform-pause:
+    post:
+      operationId: acknowledgeGithubPlatformTaskPause
+      summary: 安全停止后确认平台采集暂停
+      x-implementation-status: implemented
+      description: 仅受platform-pause/v1控制的平台任务；TEAM不受此开关控制。lease过期不代表已停止，旧epoch不得覆盖当前状态。
+      parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformPauseRequest'
+      responses:
+        '200':
+          description: 控制状态或安全停止确认；不代表Go心跳在线。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformPauseResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+components:
+  securitySchemes:
+    ServiceBearer:
+      type: http
+      scheme: bearer
+      description: 独立采集服务密钥，不接受用户会话或 GitHub token；部署经 Secret 注入，支持短期双密钥轮换。
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      description: 每请求独立的日志关联 ID，不是业务幂等键。
+      schema: { type: string, maxLength: 128 }
+  requestBodies:
+    Lease:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [lease]
+            properties:
+              lease: { $ref: '#/components/schemas/LeaseProof' }
+  responses:
+    BadRequest:
+      description: 内部请求格式或字段无效。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: 服务身份无效；不泄露任务、凭证或对象信息。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Conflict:
+      description: 租约失效、代际冲突、固定 commit 不符、同业务键摘要冲突或积压阻止新包准入，按 code 判断。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unprocessable:
+      description: 路径、对象或摘要不合法；不是可盲重试的采集错误。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    TooLarge:
+      description: 包或实际上传超出平台上限。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    UpgradeRequired:
+      description: 协议主版本不兼容。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+  schemas:
+    PlatformControlRequest:
+      type: object
+      required:
+      - lease
+      properties:
+        lease:
+          $ref: '#/components/schemas/LeaseProof'
+    PlatformTaskControl:
+      type: object
+      required:
+      - action
+      - platformVersion
+      properties:
+        action:
+          type: string
+          enum:
+          - CONTINUE
+          - PAUSE
+        platformVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    PlatformPauseRequest:
+      type: object
+      required:
+      - lease
+      - observedVersion
+      - kind
+      properties:
+        lease:
+          $ref: '#/components/schemas/LeaseProof'
+        observedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - DISCOVERY
+          - REPOSITORY_SYNC
+        discoveryCheckpoint:
+          type: string
+          nullable: true
+          maxLength: 4096
+          description: 发现任务最后持久确认游标；从未接收批次时为null。
+        repositoryProgress:
+          $ref: '#/components/schemas/PlatformRepositoryProgress'
+      description: 仓库任务提交repositoryProgress，发现任务提交discoveryCheckpoint。过期租约仅可凭捕获proof确认停止，不写新进度；具体校验见配套MD。
+    PlatformRepositoryProgress:
+      type: object
+      additionalProperties: false
+      required:
+      - observedCommitSha
+      - pathCheckpoint
+      - incompleteSubtrees
+      - pathResults
+      properties:
+        observedCommitSha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          nullable: true
+        pathCheckpoint:
+          type: string
+          maxLength: 1024
+          nullable: true
+        incompleteSubtrees:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/SkillPath'
+        pathResults:
+          type: array
+          maxItems: 10000
+          items:
+            type: object
+            required:
+            - skillPath
+            - outcome
+            properties:
+              skillPath:
+                $ref: '#/components/schemas/SkillPath'
+              outcome:
+                type: string
+                enum:
+                - ACCEPTED
+                - IGNORED
+                - RETRYABLE_FAILURE
+                - TERMINAL_FAILURE
+              ingestionId:
+                type: string
+                format: uuid
+              reason:
+                type: string
+                maxLength: 500
+            description: ACCEPTED必须有已持久接收且属于同任务/commit/路径的ingestionId，其余outcome禁止ingestionId；路径去重。
+      description: 尚未取得commit时observedCommitSha=null，且pathCheckpoint必须null、两个数组必须空；仅当服务端也无固定commit/已接收包/绑定commit的准入时合法。否则须报有效SHA并与已固定commit一致。可在此原子固定首次观测SHA并保存合法路径进度；不推进来源完整处理边界。已接收包以Java摄入记录为准，不要求重复上传。
+    PlatformPauseResult:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - PAUSED
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [AUTH_INVALID, INVALID_REQUEST, PROTOCOL_UNSUPPORTED, LEASE_EXPIRED, LEASE_STALE, COMMIT_MISMATCH, PATH_INVALID, PATH_IGNORED, OBJECT_INVALID, DIGEST_MISMATCH, PACKAGE_TOO_LARGE, RESULT_CONFLICT, CHECKPOINT_CONFLICT, CANDIDATE_BUDGET_EXCEEDED, COVERAGE_UNSUPPORTED, REPORT_UNSUPPORTED, BACKPRESSURE_ACTIVE, RETRYABLE_FAILURE, GITHUB_RATE_LIMITED, SOURCE_UNREADABLE]
+        message: { type: string }
+        retryAt: { type: string, format: date-time }
+    LeaseProof:
+      type: object
+      required: [generation, token]
+      properties:
+        generation: { type: integer, format: int64, minimum: 1 }
+        token: { type: string, minLength: 1, description: 敏感租约令牌，不得记录。 }
+    ClaimedTask:
+      type: object
+      required: [taskId, runId, kind, lease, leaseExpiresAt, namespaceId]
+      properties:
+        taskId: { type: string, format: uuid }
+        runId: { type: string, format: uuid }
+        kind: { type: string, enum: [DISCOVERY, REPOSITORY_SYNC] }
+        mode: { type: string, enum: [FULL, HEAD_ONLY], description: 仅仓库任务使用。 }
+        namespaceId: { type: integer, format: int64, minimum: 1 }
+        sourceId: { type: integer, format: int64, minimum: 1, description: 已登记仓库任务使用。 }
+        lease: { $ref: '#/components/schemas/LeaseProof' }
+        leaseExpiresAt: { type: string, format: date-time }
+        platformControlVersion: { type: integer, format: int64, minimum: 1, nullable: true, description: 仅受平台采集控制的任务返回，须协商platform-pause/v1。 }
+        officialDiscovery:
+          $ref: '#/components/schemas/OfficialDiscoverySnapshot'
+          x-implementation-status: implemented-controlled-runtime-partially-verified
+        requiredCapabilities:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            maxLength: 128
+          x-implementation-status: implemented-controlled-runtime-partially-verified
+        discovery: { $ref: '#/components/schemas/DiscoverySnapshot' }
+        repository: { $ref: '#/components/schemas/RepositorySnapshot' }
+        credential:
+          type: object
+          description: 可选的系统级公开 API 凭证，仅在 claim 响应临时下发；无凭证则匿名。
+          required: [token]
+          properties:
+            credentialId: { type: string, format: uuid }
+            token: { type: string, minLength: 1, description: 敏感值，不得写入任务、URL、日志或指标。 }
+        maxPackageBytes: { type: integer, format: int64, minimum: 1, description: 当前有效发布政策的解包总量上限，默认 100 MiB。 }
+        maxSingleFileBytes: { type: integer, format: int64, minimum: 1, description: 当前有效发布政策的单文件上限，默认 10 MiB。 }
+        maxFilesPerPackage: { type: integer, minimum: 1, description: 当前有效发布政策的文件数上限，当前 application.yml 配置为 100。 }
+        maxUploadBytes: { type: integer, format: int64, minimum: 1, description: 临时归档对象的上传上限，默认沿用当前 100 MiB 上传限制；Go 在申请票据前预检。 }
+    DiscoverySnapshot:
+      type: object
+      required: [entryType, ruleVersion, candidateBudget]
+      description: SEARCH_RULE 和 SEARCH_PREVIEW 必须含 criteria 与 searchWindow；CURATED_OWNER 必须含 owner；CURATED_REPOSITORY 必须含 owner 与 repositoryName。预览每个条件只搜索第一页，不登记来源。Java 与 Go 均须按 entryType 校验，不接受条件缺失的任务。
+      properties:
+        entryType: { type: string, enum: [SEARCH_RULE, SEARCH_PREVIEW, CURATED_OWNER, CURATED_REPOSITORY] }
+        ruleId: { type: string, format: uuid }
+        ruleVersion: { type: integer, format: int64, minimum: 1 }
+        criteria:
+          $ref: '#/components/schemas/RepositorySearchCriteria'
+        searchWindow:
+          $ref: '#/components/schemas/RepositorySearchWindow'
+        owner: { type: string, description: 精选用户或组织名称。 }
+        repositoryName: { type: string, description: 精选公开仓库名称，仅 CURATED_REPOSITORY 使用。 }
+        checkpoint: { type: string, maxLength: 4096, description: Java 已持久确认的最近游标；首次领取时可缺省。 }
+        candidateBudget: { type: integer, minimum: 1 }
+    RepositorySearchCriteria:
+      type: object
+      required: [selectors]
+      additionalProperties: false
+      description: 仅 SEARCH_RULE 任务使用。Java 下发已启用规则的不可变版本快照；Go 编译安全的仓库搜索查询，不接受管理员填写的原始 GitHub 查询表达式。
+      properties:
+        selectors:
+          type: array
+          minItems: 1
+          description: 每项单独执行仓库搜索，结果按 GitHub repository ID 合并；CORE 先于 EXTENSION 消耗发现预算。
+          items: { $ref: '#/components/schemas/RepositorySearchSelector' }
+    RepositorySearchSelector:
+      type: object
+      required: [kind, value, priority]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [KEYWORD, TOPIC]
+          description: KEYWORD 搜索仓库名称、描述与 topics；TOPIC 只匹配指定 topic。均不搜索代码或 README。
+        value:
+          type: string
+          minLength: 1
+          description: 后台校验后的单个词或短语；Go 必须转义并编译为 GitHub 仓库搜索查询，不能直接拼接为原始表达式。
+        priority:
+          type: string
+          enum: [CORE, EXTENSION]
+          description: 仅决定候选处理顺序，不影响 Skill 审核和发布。
+    RepositorySearchWindow:
+      type: object
+      required: [mode, until]
+      additionalProperties: false
+      description: 仅 SEARCH_RULE 任务使用；INCREMENTAL 必须含 since，FULL_RECHECK 省略 since。窗口由 Java 固定并随任务版本持久化，分页重试时不得移动。
+      properties:
+        mode: { type: string, enum: [INCREMENTAL, FULL_RECHECK] }
+        since: { type: string, format: date-time, description: 增量轮次使用的含重叠起点；全量重查时省略。 }
+        until: { type: string, format: date-time, description: 本轮固定的搜索终点。 }
+    RepositorySnapshot:
+      type: object
+      required: [repositoryId, owner, name]
+      properties:
+        repositoryId: { type: integer, format: int64, minimum: 1 }
+        owner: { type: string }
+        name: { type: string }
+        fixedCommitSha: { $ref: '#/components/schemas/CommitSha' }
+        pathCheckpoint:
+          $ref: '#/components/schemas/SkillPath'
+          description: Java 已确认的固定 commit 下最后一个按字典序处理的 Skill 根路径。
+        incompleteSubtrees:
+          type: array
+          items: { $ref: '#/components/schemas/SkillPath' }
+        retryPaths:
+          type: array
+          items: { $ref: '#/components/schemas/SkillPath' }
+          description: 固定 commit 下需要重新采集的失败路径，即使它不大于路径检查点也须处理。
+        acceptedPaths:
+          type: array
+          items: { $ref: '#/components/schemas/SkillPath' }
+          description: 固定 commit 下已被 Java 持久接收的包路径；续跑时不得再次下载或上传。
+        ignorePatterns:
+          type: array
+          maxItems: 64
+          items: { type: string, maxLength: 1024 }
+          description: 任务创建时的来源级追加目录前缀，仅供 Go 采集优化；Java 按当前规则复核。候选忽略不剔除父包文件。
+    RepositoryCandidate:
+      type: object
+      required: [repositoryId, owner, name]
+      properties:
+        repositoryId: { type: integer, format: int64, minimum: 1 }
+        owner: { type: string }
+        name: { type: string }
+        defaultBranch: { type: string }
+        officialProvenance:
+          type: array
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/OfficialProvenance'
+          x-implementation-status: implemented-controlled-runtime-partially-verified
+    CommitSha:
+      type: string
+      pattern: '^[0-9a-f]{40}$'
+    Sha256:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    SkillPath:
+      type: string
+      maxLength: 1024
+      description: 仓库内规范化 POSIX 相对目录；根目录用单个点表示，Java 必须再验证。
+    PackageAdmission:
+      type: object
+      required: [admissionId]
+      description: 准入仅在当前租约有效时可用于上传和回报；租约失效或任务结算时释放未使用占位。
+      properties:
+        admissionId: { type: string, format: uuid }
+    UploadAuthorization:
+      type: object
+      required: [uploadId, method, mode, uploadUrl, expiresAt, maxBytes]
+      properties:
+        uploadId: { type: string, format: uuid }
+        method: { type: string, enum: [PUT] }
+        mode: { type: string, enum: [S3_PRESIGNED_PUT, LOCAL_STREAM] }
+        uploadUrl: { type: string, format: uri-reference, description: S3 为敏感预签名绝对 URL；LOCAL_STREAM 为同源相对路径，另需 uploadTicket。 }
+        uploadTicket: { type: string, description: 仅 LOCAL_STREAM 模式需要，作为 X-Upload-Ticket 发送。 }
+        expiresAt: { type: string, format: date-time }
+        maxBytes: { type: integer, format: int64, minimum: 1, description: Go 必须遵守；S3 PUT 后仍需 Java 复核实际对象大小。 }
+        headers:
+          type: object
+          additionalProperties: { type: string }
+          description: 签名要求的上传标头，不得记录其敏感值。
+    TaskCompletion:
+      type: object
+      required: [lease, coverage]
+      properties:
+        lease: { $ref: '#/components/schemas/LeaseProof' }
+        observedCommitSha: { $ref: '#/components/schemas/CommitSha' }
+        coverage: { type: string, enum: [COMPLETE, INCOMPLETE, HEAD_ONLY] }
+        incompleteSubtrees:
+          type: array
+          items: { $ref: '#/components/schemas/SkillPath' }
+        pathCheckpoint:
+          $ref: '#/components/schemas/SkillPath'
+          description: 固定 commit 下最后一个按字典序处理的 Skill 根路径；磁盘预算分批时由 Java 持久化，不得包含凭证。
+        pathResults:
+          type: array
+          items:
+            type: object
+            required: [skillPath, outcome]
+            properties:
+              skillPath: { $ref: '#/components/schemas/SkillPath' }
+              outcome: { type: string, enum: [ACCEPTED, IGNORED, RETRYABLE_FAILURE, TERMINAL_FAILURE] }
+              ingestionId: { type: string, format: uuid }
+              reason: { type: string, maxLength: 500 }
+        discoveryCheckpoint:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: 发现任务结算必须指向最后一批已持久确认的游标；COMPLETE结束当前采集。官方搜索GAP的INCOMPLETE携带未来retryAt，返回PARTIAL并轮转兄弟，不推进根覆盖；OWNER GAP、普通IN_PROGRESS及legacy延期仍返回RETRY_WAIT。
+        deferralReason: { $ref: '#/components/schemas/DeferralReason' }
+        githubQuota: { $ref: '#/components/schemas/GithubQuota' }
+        retryAt: { type: string, format: date-time }
+    GithubQuota:
+      type: object
+      required: [resource, remaining, resetAt]
+      properties:
+        credentialId: { type: string, format: uuid }
+        resource: { type: string, enum: [CORE, SEARCH, GRAPHQL, OTHER] }
+        remaining: { type: integer, minimum: 0 }
+        resetAt: { type: string, format: date-time }
+    DeferralReason:
+      type: string
+      enum: [BUDGET, RATE_LIMIT, BACKPRESSURE, CAPACITY, LOCAL_DISK_BUDGET]
+      description: LOCAL_DISK_BUDGET 表示清理工作目录后可分批续跑，通常携带 retryAt；CAPACITY 表示当前部署容量下无进展，需调整容量或规则后再重试，不应立即重新领取。
+    FailureReason:
+      type: string
+      enum: [RETRYABLE_ACQUISITION, GITHUB_RATE_LIMITED, SOURCE_UNREADABLE, INCOMPLETE_TREE, INTERNAL_FAILURE]
+    OfficialWorkerHeartbeat:
+      type: object
+      required:
+      - workerId
+      - protocolMajor
+      - capabilities
+      properties:
+        workerId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        protocolMajor:
+          type: integer
+          enum:
+          - 1
+        capabilities:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+          x-implementation-status: implemented-controlled-runtime-partially-verified
+          description: 最多32项能力；未知能力可保存但不视为支持既有官方能力。空列表不证明能执行官方探索；V119后平台兼容实例还须声明platform-pause/v1。
+      description: 带body时三个字段一起必填；workerId为进程实例随机标识，重启换ID。服务端记receivedAt，不能相信客户端时钟；心跳独立于业务进度。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialProvenance:
+      type: object
+      required:
+      - channel
+      - queryId
+      - queryVersion
+      - strategyVersion
+      - shardId
+      properties:
+        channel:
+          type: string
+          enum:
+          - REPOSITORY_METADATA
+          - README
+          - OWNER_EXPANSION
+        queryId:
+          type: string
+          format: uuid
+          minLength: 1
+          maxLength: 128
+        queryVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        strategyVersion:
+          type: string
+          minLength: 1
+          maxLength: 128
+        shardId:
+          type: string
+          format: uuid
+        seedRepositoryId:
+          type: integer
+          format: int64
+          minimum: 1
+      description: queryId为持久查询UUID。Java按候选+queryId合并长期出处；shard/seed仅保留有界最近摘要。Java从任务核对并补入口/run/task身份和接收时间；OWNER_EXPANSION必须有种子仓库，其余渠道禁止伪造种子；一次命中最多16条，其余可续批。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialQueryRange:
+      type: object
+      required:
+      - since
+      - until
+      properties:
+        since:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|\+00:00)$
+          description: Java生成的UTC整秒含起点，仓库搜索按pushed维度；Go拒绝小数秒，不静默截断。
+        until:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|\+00:00)$
+          description: Java生成的UTC整秒不含终点；since<until<=fixedCutoffAt，子分片范围不得超出父分片。
+        partition:
+          type: string
+          maxLength: 256
+          enum:
+          - ''
+          description: 首期仅允许省略或空字符串；当前Go拒绝非空值。次级分片仍待实现，只有明确扩展能力协商及执行器支持后Java才可下发非空值。
+      description: OWNER_RECHECK中range只作为固定执行身份和复查截止标记，不过滤pushed、不作时间分片、不更新搜索coverage。其他官方仓库搜索采用pushed维度UTC整秒半开区间[since,until)。Java将计划截止时间向下取整到UTC整秒并固定为fixedCutoffAt；起点从已确认覆盖边界减去重叠窗口后向下取整。后续窗口以实际确认的整秒until衔接并保留重叠，不使用原始未取整时间跳过尾部；不足一秒的空区间不下发。重叠宽度待预算/调度校准。不改变legacy
+        RepositorySearchWindow语义。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialCheckpoint:
+      type: object
+      required:
+      - formatVersion
+      - strategyVersion
+      - queryId
+      - queryVersion
+      - shardId
+      - nextPage
+      - coverage
+      properties:
+        formatVersion:
+          type: integer
+          enum:
+          - 1
+        strategyVersion:
+          type: string
+          maxLength: 128
+        queryId:
+          type: string
+          format: uuid
+          maxLength: 128
+        queryVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        shardId:
+          type: string
+          format: uuid
+        nextPage:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          description: 搜索只允许1..11；OWNER枚举使用正int32并按单租约预算持久续页，无10页总上限；最大页仍有更多结果时记GAP而不溢出。
+        cursor:
+          type: string
+          maxLength: 1024
+        coverage:
+          type: string
+          enum:
+          - IN_PROGRESS
+          - COMPLETE
+          - SPLIT
+          - GAP
+      description: 以JSON字符串放入既有checkpoint/discoveryCheckpoint，UTF-8编码后不超过4096字节，且沿用原4096字符上限；原样比较previousCheckpoint。范围和子分片保存在Java，不把整个递归队列塞入游标。COMPLETE仅当前分片完成，不能表示GitHub全覆盖。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialDiscoverySnapshot:
+      type: object
+      required:
+      - formatVersion
+      - configurationVersion
+      - strategyVersion
+      - queryId
+      - queryVersion
+      - shardId
+      - channel
+      - mode
+      - query
+      - range
+      - fixedCutoffAt
+      - budget
+      properties:
+        formatVersion:
+          type: integer
+          enum:
+          - 1
+        configurationVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        strategyVersion:
+          type: string
+          maxLength: 128
+        queryId:
+          type: string
+          format: uuid
+          maxLength: 128
+        queryVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        shardId:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum:
+          - REPOSITORY_METADATA
+          - README
+          - OWNER_EXPANSION
+        mode:
+          type: string
+          enum:
+          - HISTORICAL
+          - INCREMENTAL
+          - GAP_RECHECK
+          - OWNER_RECHECK
+        query:
+          type: object
+          required:
+          - kind
+          - value
+          - scope
+          properties:
+            kind:
+              type: string
+              enum:
+              - KEYWORD
+              - TOPIC
+              - OWNER
+            value:
+              type: string
+              minLength: 1
+              maxLength: 256
+              description: KEYWORD为有界整段短语，README同样按整段编译，不拆成独立词；仅允许字母、数字、普通空格及减号、下划线、点、斜杠，不接受原始GitHub查询语法。
+            scope:
+              type: string
+              enum:
+              - NAME_DESCRIPTION_TOPICS
+              - README
+              - OWNER_REPOSITORIES
+          additionalProperties: false
+        range:
+          $ref: '#/components/schemas/OfficialQueryRange'
+        fixedCutoffAt:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|\+00:00)$'
+          description: Java向下取整后固定的UTC整秒截止时间，range.until不得超过该值；保守重叠与后续窗口衔接由Java维护。
+        seedRepositoryId:
+          type: integer
+          format: int64
+          minimum: 1
+        ownerId:
+          type: integer
+          format: int64
+          minimum: 1
+        ownerLogin:
+          type: string
+          maxLength: 39
+        expansionDepth:
+          type: integer
+          enum:
+          - 1
+        checkpoint:
+          type: string
+          maxLength: 4096
+        budget:
+          type: object
+          required:
+          - profile
+          - maxRequests
+          - maxPages
+          - candidateBudget
+          - maxSplitDepth
+          - maxChildShards
+          properties:
+            profile:
+              type: string
+              enum:
+              - ECONOMY
+              - BALANCED
+              - ACCELERATED
+            maxRequests:
+              type: integer
+              format: int64
+              minimum: 1
+            maxPages:
+              type: integer
+              format: int64
+              minimum: 1
+            candidateBudget:
+              type: integer
+              format: int64
+              minimum: 1
+            maxSplitDepth:
+              type: integer
+              format: int64
+              minimum: 0
+              maximum: 32
+              description: 当前节点剩余可二分深度，child减1；Java复核root累计额度。
+            maxChildShards:
+              type: integer
+              format: int64
+              minimum: 0
+              maximum: 126
+              description: 当前root尚可登记的累计child数；0或1均不可二分，不能在每个child重置总额度。
+      description: metadata/README快照、结果接收、控制及顺序时间分片已接线，尚未运行时联调；作者扩展也已接线但尚未运行时联调。搜索须协商official-discovery/v1、official-checkpoint/v1、official-pause/v1；OWNER另须official-owner/v1。OWNER mode=OWNER_RECHECK、depth=1、正ownerId/seedRepositoryId、split预算0；maxRequests至少3并计身份查询/页请求/末页身份复核，maxPages仅单租约限制。kind仍为DISCOVERY；与legacy
+        discovery互斥。OWNER_EXPANSION必须有seedRepositoryId/ownerId/ownerLogin/expansionDepth=1；仅有效种子触发，不能递归。scope必须匹配channel，TOPIC不支持README。快照无凭证、不可变；configurationVersion用于追溯，接收时以最新启停/排除/准入为准。具体预算数值由D4校准，不能减少渠道。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialDiscoveryBatch:
+      type: object
+      required:
+      - shardId
+      - coverage
+      - requestsUsed
+      properties:
+        shardId:
+          type: string
+          format: uuid
+        coverage:
+          type: string
+          enum:
+          - IN_PROGRESS
+          - COMPLETE
+          - SPLIT
+          - GAP
+        requestsUsed:
+          type: integer
+          format: int64
+          minimum: 0
+        ownerLogin:
+          type: string
+          minLength: 1
+          maxLength: 39
+          description: 仅OWNER可选；稳定ownerId解析所得规范login，包含在原始幂等摘要中。lookup首空批确认后再枚举；Java保存当前坐标并重查owner排除，固定snapshot ownerId不变。
+        childRanges:
+          type: array
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/OfficialQueryRange'
+        gapReason:
+          type: string
+          enum:
+          - RESULT_LIMIT
+          - INCOMPLETE_RESULTS
+          - UNSPLITTABLE
+          - WORK_BUDGET
+      description: 官方任务必填。与checkpoint编码的shard/coverage一致；SPLIT必须包含不重叠且恰好覆盖父范围的子范围，Java原子去重登记后才能确认父进度；GAP必须有gapReason。split深度/子任务累计预算由Java复核。预算耗尽用IN_PROGRESS续排，不假装完成。requestsUsed是本批增量，重放不重复计数。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialTaskControl:
+      type: object
+      required:
+      - action
+      - configurationVersion
+      properties:
+        action:
+          type: string
+          enum:
+          - CONTINUE
+          - PAUSE
+        configurationVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          enum:
+          - DISABLED
+          - EXCLUDED
+          - CANDIDATE_CAPACITY
+          - REVIEW_BACKPRESSURE
+          - SOURCE_PAUSED
+          - QUOTA_COOLDOWN
+        retryAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: PAUSE必须带reason；QUOTA_COOLDOWN必须携带未来retryAt，pause按服务端当前共享冷却转RETRY_WAIT，已准入包可结算；SOURCE_PAUSED表示已绑定来源自身暂停，优先于官方配置和独立入口。CONTINUE不授予后续写入权限，关键接收仍校验最新配置和租约。已登记来源或另有启用入口的候选应按有效归属继续。
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+    OfficialPauseRequest:
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      description: 适用于要求official-pause/v1能力的DISCOVERY或REPOSITORY_SYNC任务；仓库任务不要求officialDiscovery快照。按服务端任务kind校验分支。不得携带retryAt，不改变既有complete的commit及未来retryAt要求。
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - lease
+        - kind
+        - discoveryCheckpoint
+        properties:
+          lease: &id001
+            $ref: '#/components/schemas/LeaseProof'
+          kind:
+            type: string
+            enum:
+            - DISCOVERY
+          discoveryCheckpoint:
+            type: string
+            maxLength: 4096
+            nullable: true
+            description: 必须等于最后持久确认游标，从未提交时null。
+      - type: object
+        additionalProperties: false
+        required:
+        - lease
+        - kind
+        - repositoryProgress
+        properties:
+          lease: *id001
+          kind:
+            type: string
+            enum:
+            - REPOSITORY_SYNC
+          repositoryProgress:
+            type: object
+            additionalProperties: false
+            required:
+            - observedCommitSha
+            - pathCheckpoint
+            - incompleteSubtrees
+            - pathResults
+            properties:
+              observedCommitSha:
+                type: string
+                pattern: ^[0-9a-f]{40}$
+                nullable: true
+              pathCheckpoint:
+                type: string
+                maxLength: 1024
+                nullable: true
+              incompleteSubtrees:
+                type: array
+                maxItems: 1000
+                items:
+                  $ref: '#/components/schemas/SkillPath'
+              pathResults:
+                type: array
+                maxItems: 10000
+                items:
+                  type: object
+                  required:
+                  - skillPath
+                  - outcome
+                  properties:
+                    skillPath:
+                      $ref: '#/components/schemas/SkillPath'
+                    outcome:
+                      type: string
+                      enum:
+                      - ACCEPTED
+                      - IGNORED
+                      - RETRYABLE_FAILURE
+                      - TERMINAL_FAILURE
+                    ingestionId:
+                      type: string
+                      format: uuid
+                    reason:
+                      type: string
+                      maxLength: 500
+                  description: ACCEPTED必须有已持久接收且属于同任务/commit/路径的ingestionId，其余outcome禁止ingestionId；路径去重。
+            description: 尚未取得commit时observedCommitSha=null，且pathCheckpoint必须null、两个数组必须空；仅当服务端也无固定commit/已接收包/绑定commit的准入时合法。否则须报有效SHA并与已固定commit一致。可在此原子固定首次观测SHA并保存合法路径进度；不推进来源完整处理边界。已接收包以Java摄入记录为准，不要求重复上传。
+    OfficialCheckpointRecovery:
+      type: object
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      required:
+      - lease
+      - reason
+      - rejectedCheckpoint
+      properties:
+        lease:
+          $ref: '#/components/schemas/LeaseProof'
+        reason:
+          type: string
+          enum:
+          - MALFORMED
+          - FORMAT_UNSUPPORTED
+          - IDENTITY_MISMATCH
+        rejectedCheckpoint:
+          type: string
+          maxLength: 4096
+      description: 只接受当前持久检查点；Java从可证明安全边界重放，无法缩小时重放原固定范围，不能静默跳过。旧任务被替代后旧租约禁止写入。
+    OfficialQuotaObservation:
+      type: object
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      required:
+      - resource
+      - observedAt
+      - state
+      properties:
+        resource:
+          type: string
+          enum:
+          - CORE
+          - SEARCH
+          - GRAPHQL
+          - OTHER
+        observedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+          - OBSERVED
+          - UNKNOWN
+          - PRIMARY_EXHAUSTED
+          - SECONDARY_COOLDOWN
+          - AUTH_INVALID
+        remaining:
+          type: integer
+          minimum: 0
+        resetAt:
+          type: string
+          format: date-time
+        retryAfterSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+      description: OBSERVED/PRIMARY_EXHAUSTED须带remaining/resetAt，PRIMARY须remaining=0且resetAt未来；UNKNOWN不填余额。observedAt须在Java接收时间前后300秒内，resetAt不得超过接收时间24小时后。Java保存receivedAt及min(observedAt+300秒,receivedAt+300秒,resetAt)有效期，未知主体保持null，不相加余额。PRIMARY按资源共享保守门控，不证明未知凭证同主体；SECONDARY部署级冷却，retryAfterSeconds缺省60、0按1，从observedAt计算以免重放延长。UNKNOWN带retryAfterSeconds表示失败共享退避，不带表示仅未知；匿名AUTH_INVALID保守退避60秒。有余额观察resource须匹配租约REST资源，Git UNKNOWN允许OTHER。旧credential-status附加观察仍保持原必填字段和status约束。
+    OfficialControlError:
+      type: object
+      x-implementation-status: implemented-controlled-runtime-partially-verified
+      required: [code, message]
+      description: 仅官方新增控制端点使用，不扩展旧ApiError的封闭枚举。
+      properties:
+        code:
+          type: string
+          enum: [LEASE_STALE, LEASE_EXPIRED, CHECKPOINT_CONFLICT, COMMIT_MISMATCH, RESULT_CONFLICT, CONTROL_CHANGED]
+        message:
+          type: string

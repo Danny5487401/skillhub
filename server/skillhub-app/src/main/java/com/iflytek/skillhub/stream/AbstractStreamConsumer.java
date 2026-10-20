@@ -236,7 +236,7 @@ public abstract class AbstractStreamConsumer<T> {
             markCompleted(payload);
             acknowledge(messageId);
         } catch (Exception e) {
-            messageObservationSupport.recordCurrentError(e);
+            messageObservationSupport.recordCurrentError(observationError(e));
             if (shouldDeferFailure(payload, e)) {
                 markDeferred(payload, e);
             } else {
@@ -301,6 +301,10 @@ public abstract class AbstractStreamConsumer<T> {
 
     protected boolean shouldDeferFailure(T payload, Exception error) {
         return false;
+    }
+
+    protected Exception observationError(Exception error) {
+        return error;
     }
 
     protected void markDeferred(T payload, Exception error) {

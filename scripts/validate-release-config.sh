@@ -338,8 +338,12 @@ case "$storage_provider" in
   s3)
     require_non_empty SKILLHUB_STORAGE_S3_ENDPOINT
     require_non_empty SKILLHUB_STORAGE_S3_BUCKET
-    require_non_empty SKILLHUB_STORAGE_S3_ACCESS_KEY
-    require_non_empty SKILLHUB_STORAGE_S3_SECRET_KEY
+    if [ -n "${SKILLHUB_STORAGE_S3_ACCESS_KEY:-}" ] && [ -z "${SKILLHUB_STORAGE_S3_SECRET_KEY:-}" ]; then
+      error "SKILLHUB_STORAGE_S3_SECRET_KEY is required when SKILLHUB_STORAGE_S3_ACCESS_KEY is set"
+    fi
+    if [ -z "${SKILLHUB_STORAGE_S3_ACCESS_KEY:-}" ] && [ -n "${SKILLHUB_STORAGE_S3_SECRET_KEY:-}" ]; then
+      error "SKILLHUB_STORAGE_S3_ACCESS_KEY is required when SKILLHUB_STORAGE_S3_SECRET_KEY is set"
+    fi
     require_non_empty SKILLHUB_STORAGE_S3_REGION
     validate_url SKILLHUB_STORAGE_S3_ENDPOINT
     validate_url SKILLHUB_STORAGE_S3_PUBLIC_ENDPOINT

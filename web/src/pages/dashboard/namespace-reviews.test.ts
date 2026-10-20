@@ -4,7 +4,13 @@ import { createElement } from 'react'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: unknown; to: string }) => createElement('a', { href: to }, children as string),
+  useNavigate: () => vi.fn(),
   useParams: () => ({ slug: 'test-ns' }),
+  useSearch: () => ({}),
+}))
+
+vi.mock('@/features/review/github-sync-review-queue', () => ({
+  GithubSyncReviewQueue: () => null,
 }))
 
 vi.mock('react-i18next', async () => {

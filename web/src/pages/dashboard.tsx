@@ -7,7 +7,7 @@ import { APP_SHELL_PAGE_CLASS_NAME } from '@/app/page-shell-style'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
 import {
   Star, Heart, Package, Boxes, Key, Shield, Flag, Globe,
-  UserCog, Lock, Bell, Clock, ChevronDown, ChevronRight,
+  UserCog, Lock, Bell, Clock, ChevronDown, ChevronRight, Github,
 } from 'lucide-react'
 
 /**
@@ -23,6 +23,7 @@ interface SidebarItem {
   label: string
   to: string
   admin?: boolean
+  superAdmin?: boolean
   passwordCapability?: boolean
   badge?: string
 }
@@ -58,6 +59,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { key: 'governance', icon: Shield, label: 'sidebar.governance', to: '/dashboard/governance', admin: true },
       { key: 'reports', icon: Flag, label: 'sidebar.reports', to: '/dashboard/reports', admin: true },
+      { key: 'githubSync', icon: Github, label: 'sidebar.githubSync', to: '/dashboard/github-sync', superAdmin: true },
     ],
   },
 ]
@@ -65,12 +67,13 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
 // Flatten for backward compatibility with layout.tsx
 const SIDEBAR_NAV_ITEMS = SIDEBAR_GROUPS.flatMap((g) => g.items)
 
-export const SIDEBAR_NAV = SIDEBAR_NAV_ITEMS.map(({ key, icon, label, to, admin, passwordCapability }) => ({
+export const SIDEBAR_NAV = SIDEBAR_NAV_ITEMS.map(({ key, icon, label, to, admin, superAdmin, passwordCapability }) => ({
   key,
   icon,
   label,
   to,
   admin,
+  superAdmin,
   passwordCapability,
   exact: false,
 }))
@@ -101,6 +104,7 @@ export function DashboardPage() {
       ...group,
       items: group.items.filter((item) => (
         (!item.admin || governanceVisible)
+        && (!item.superAdmin || user?.platformRoles?.includes('SUPER_ADMIN'))
         && (!item.passwordCapability || user?.canChangePassword === true)
       )),
     }))

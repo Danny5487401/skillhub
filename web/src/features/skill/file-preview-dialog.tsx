@@ -19,6 +19,7 @@ interface FilePreviewDialogProps {
   error: Error | null
   onDownload: () => void
   onLinkClick?: (href: string, event: MouseEvent<HTMLAnchorElement>) => void
+  maxPreviewBytes?: number
 }
 
 /**
@@ -35,6 +36,7 @@ export function FilePreviewDialog({
   error,
   onDownload,
   onLinkClick,
+  maxPreviewBytes,
 }: FilePreviewDialogProps) {
   const { t } = useTranslation()
   // Tracks the copy animation state: idle → spinning → done
@@ -43,7 +45,9 @@ export function FilePreviewDialog({
   if (!node) return null
 
   const fileTypeLabel = getFileTypeLabel(node.name)
-  const previewCheck = canPreviewFile(node.name, node.file?.fileSize || 0)
+  const previewCheck = maxPreviewBytes != null && (node.file?.fileSize ?? 0) > maxPreviewBytes
+    ? { canPreview: false, reason: 'too-large' as const }
+    : canPreviewFile(node.name, node.file?.fileSize || 0)
   const isMarkdown = ['md', 'mdx', 'markdown'].includes(fileTypeLabel)
   const fileSize = node.file?.fileSize || 0
   const language = getLanguageForHighlight(node.name)

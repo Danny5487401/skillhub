@@ -426,6 +426,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/{entryId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 设置团队来源后续导入内容的可见范围 */
+        put: operations["setVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/{entryId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 设置团队来源后续导入内容的可见范围 */
+        put: operations["setVisibility_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/{entryId}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 暂停或恢复团队 GitHub 来源同步 */
+        put: operations["setEnabled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/{entryId}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 暂停或恢复团队 GitHub 来源同步 */
+        put: operations["setEnabled_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/ignore-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看团队 GitHub 来源的候选路径忽略规则 */
+        get: operations["ignorePatterns"];
+        /** 设置团队 GitHub 来源的候选路径忽略规则 */
+        put: operations["updateIgnorePatterns"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/ignore-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看团队 GitHub 来源的候选路径忽略规则 */
+        get: operations["ignorePatterns_1"];
+        /** 设置团队 GitHub 来源的候选路径忽略规则 */
+        put: operations["updateIgnorePatterns_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/web/authoring/drafts/{draftId}/files": {
         parameters: {
             query?: never;
@@ -601,6 +705,167 @@ export interface paths {
         };
         get?: never;
         put: operations["updateSortOrder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/sources/{sourceId}/ignore-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看平台 GitHub 来源的候选路径忽略规则 */
+        get: operations["ignorePatterns_2"];
+        /** 设置平台 GitHub 来源的候选路径忽略规则 */
+        put: operations["updateIgnorePatterns_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/schedule-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取 GitHub 同步三类任务目标周期 */
+        get: operations["schedulePolicy"];
+        /** 按类别调整 GitHub 同步任务目标周期 */
+        put: operations["updateSchedulePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/platform-control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取平台技能采集控制状态 */
+        get: operations["get_2"];
+        /** 暂停或恢复平台技能采集 */
+        put: operations["update_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 启用或停用 GitHub 发现入口 */
+        put: operations["setEnabled_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/search-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 编辑仓库搜索规则并生成新版本 */
+        put: operations["updateSearchRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 读取官方 GitHub 深度探索配置
+         * @description 配置启用与采集服务在线及执行状态独立
+         */
+        get: operations["get_3"];
+        /** 按配置版本更新官方 GitHub 深度探索设置 */
+        put: operations["update_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 替换系统级公开 GitHub 凭证并恢复健康状态 */
+        put: operations["replace"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/credentials/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 启用或停用系统级公开 GitHub 凭证 */
+        put: operations["setEnabled_3"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/admission-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取 GitHub 同步准入水位与当前积压 */
+        get: operations["getAdmissionPolicy"];
+        /** 更新 GitHub 同步准入水位与候选预算 */
+        put: operations["updateAdmissionPolicy"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2306,6 +2571,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/retry-rejected-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新采集并送审一个已拒绝的团队 GitHub Skill */
+        post: operations["retryRejectedSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/retry-rejected-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新采集并送审一个已拒绝的团队 GitHub Skill */
+        post: operations["retryRejectedSkill_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 按现有任务队列安排团队 GitHub 来源重新检查 */
+        post: operations["rescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 按现有任务队列安排团队 GitHub 来源重新检查 */
+        post: operations["rescan_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/conflicts/{ingestionId}/bind-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 确认团队 GitHub 来源与既有 Skill ID 的绑定 */
+        post: operations["bindExistingSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/conflicts/{ingestionId}/bind-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 确认团队 GitHub 来源与既有 Skill ID 的绑定 */
+        post: operations["bindExistingSkill_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看团队 GitHub 公开仓库来源配置 */
+        get: operations["list_6"];
+        put?: never;
+        /** 为团队登记 GitHub 公开仓库 */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看团队 GitHub 公开仓库来源配置 */
+        get: operations["list_7"];
+        put?: never;
+        /** 为团队登记 GitHub 公开仓库 */
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/web/namespaces": {
         parameters: {
             query?: never;
@@ -2547,9 +2950,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_8"];
         put?: never;
-        post: operations["create_2"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3175,6 +3578,143 @@ export interface paths {
         get: operations["listLabels_2"];
         put?: never;
         post: operations["createLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/sources/{sourceId}/retry-rejected-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新采集并送审一个已拒绝的 GitHub Skill */
+        post: operations["retryRejectedSkill_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/sources/{sourceId}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 按现有任务队列安排平台 GitHub 来源重新检查 */
+        post: operations["rescan_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/search-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建初始停用的仓库搜索规则 */
+        post: operations["createSearchRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/search-rules/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 预览搜索规则的仓库命中情况，不登记来源 */
+        post: operations["previewSearchRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/curated-repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 登记精选 GitHub 公开仓库 */
+        post: operations["createCuratedRepository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/curated-owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 登记精选 GitHub 用户或组织 */
+        post: operations["createCuratedOwner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看系统级公开 GitHub 凭证的脱敏状态 */
+        get: operations["list_11"];
+        put?: never;
+        /** 加密保存系统级公开 GitHub 凭证 */
+        post: operations["create_5"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/conflicts/{ingestionId}/bind-skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 确认平台 GitHub 来源与既有 Skill ID 的绑定 */
+        post: operations["bindExistingSkill_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4315,6 +4855,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reviews/sync/{id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看同步审核的 GitHub 来源和许可证证据 */
+        get: operations["getSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/reviews/sync/{id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看同步审核的 GitHub 来源和许可证证据 */
+        get: operations["getSource_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/sync/{id}/base-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 预览同步审核基线版本的变更文件 */
+        get: operations["getBaseFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/reviews/sync/{id}/base-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 预览同步审核基线版本的变更文件 */
+        get: operations["getBaseFile_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviews/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 按审核权限查询 GitHub 同步审核队列 */
+        get: operations["list_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/reviews/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 按审核权限查询 GitHub 同步审核队列 */
+        get: operations["list_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/web/reviews/pending": {
         parameters: {
             query?: never;
@@ -4740,7 +5382,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4756,7 +5398,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4821,6 +5463,108 @@ export interface paths {
             cookie?: never;
         };
         get: operations["history_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队 GitHub 来源的发现与采集运行 */
+        get: operations["runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队 GitHub 来源的发现与采集运行 */
+        get: operations["runs_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队 GitHub 来源的逐 Skill 路径状态 */
+        get: operations["skillPaths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/resolved/{sourceId}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队 GitHub 来源的逐 Skill 路径状态 */
+        get: operations["skillPaths_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/web/namespaces/{namespaceSlug}/github-sources/resolved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队已解析 GitHub 来源与摄入进度 */
+        get: operations["resolved"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{namespaceSlug}/github-sources/resolved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看团队已解析 GitHub 来源与摄入进度 */
+        get: operations["resolved_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5734,7 +6478,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5783,6 +6527,329 @@ export interface paths {
             cookie?: never;
         };
         get: operations["searchMemberCandidates_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/worker-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看 GitHub 采集服务最后在线时间 */
+        get: operations["workerStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台 GitHub 来源及摄入进度 */
+        get: operations["sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/sources/{sourceId}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台 GitHub 来源的逐 Skill 路径状态 */
+        get: operations["skillPaths_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台 GitHub 发现与仓库采集运行 */
+        get: operations["runs_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看平台 GitHub 同步单次运行详情 */
+        get: operations["runDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/runs/{runId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台 GitHub 同步单次运行的任务 */
+        get: operations["runTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/runs/{runId}/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台 GitHub 同步单次运行的逐 Skill 路径结果 */
+        get: operations["runPaths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看平台全部发现方式的仓库 */
+        get: operations["repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/repositories/{repositoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看统一仓库登记和最近检查摘要 */
+        get: operations["repository"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/repositories/{repositoryId}/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看统一仓库技能路径及审核链接 */
+        get: operations["paths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/repositories/{repositoryId}/origins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查看仓库全部持久出处 */
+        get: operations["origins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看 GitHub 发现规则与精选入口 */
+        get: operations["list_10"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/discovery-entries/search-rules/previews/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看搜索规则预览结果 */
+        get: operations["searchRulePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看官方探索近期成果与当前积压 */
+        get: operations["summary_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查询官方探索命中的仓库 */
+        get: operations["repositories_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 按需读取仓库检查摘要 */
+        get: operations["repository_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}/provenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查询仓库命中出处 */
+        get: operations["provenance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/repositories/{repositoryId}/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页查询仓库技能路径最新结果 */
+        get: operations["paths_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/github-sync/deep-discovery/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看官方探索渠道进度与等待原因 */
+        get: operations["progress"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6354,13 +7421,82 @@ export interface components {
             status?: "ACTIVE" | "FROZEN" | "ARCHIVED";
             description?: string;
             /** @enum {string} */
-            type?: "GLOBAL" | "TEAM";
+            type?: "GLOBAL" | "CATALOG" | "TEAM";
             avatarUrl?: string;
             createdBy?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        GithubTeamSourceVisibilityRequest: {
+            visibility: string;
+        };
+        ApiResponseGithubDiscoveryEntryResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDiscoveryEntryResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        Execution: {
+            /** Format: uuid */
+            taskId?: string;
+            /** Format: uuid */
+            runId?: string;
+            status?: string;
+            errorCode?: string;
+            /** Format: date-time */
+            retryAt?: string;
+        };
+        GithubDiscoveryEntryResponse: {
+            /** Format: uuid */
+            id?: string;
+            entryType?: string;
+            title?: string;
+            ownerLogin?: string;
+            repositoryName?: string;
+            /** Format: int64 */
+            repositoryId?: number;
+            sourceVisibility?: string;
+            selectors?: components["schemas"]["GithubSearchSelectorRequest"][];
+            /** Format: int64 */
+            ruleVersion?: number;
+            enabled?: boolean;
+            /** Format: int32 */
+            targetHours?: number;
+            /** Format: date-time */
+            nextDueAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            latestExecution?: components["schemas"]["Execution"];
+        };
+        GithubSearchSelectorRequest: {
+            kind?: string;
+            value?: string;
+            priority?: string;
+        };
+        GithubDiscoveryEntryEnabledRequest: {
+            enabled: boolean;
+        };
+        GithubSourceIgnoreRequest: {
+            ignorePatterns: string[];
+        };
+        ApiResponseGithubSourceIgnoreResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSourceIgnoreResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSourceIgnoreResponse: {
+            /** Format: int64 */
+            sourceId?: number;
+            ignorePatterns?: string[];
         };
         SaveDraftFileRequest: {
             path: string;
@@ -6591,6 +7727,198 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
             requestId?: string;
+        };
+        GithubSyncSchedulePolicyRequest: {
+            /** Format: int32 */
+            repositoryHours?: number;
+            /** Format: int32 */
+            curatedOwnerHours?: number;
+            /** Format: int32 */
+            searchRuleHours?: number;
+        };
+        ApiResponseGithubSyncSchedulePolicyResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncSchedulePolicyResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncSchedulePolicyResponse: {
+            /** Format: int32 */
+            repositoryHours?: number;
+            /** Format: int32 */
+            curatedOwnerHours?: number;
+            /** Format: int32 */
+            searchRuleHours?: number;
+            effectiveRepositoryInterval?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        GithubPlatformControlUpdateRequest: {
+            /** Format: int64 */
+            expectedVersion: number;
+            paused: boolean;
+        };
+        ApiResponseGithubPlatformControlState: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubPlatformControlState"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubPlatformControlState: {
+            /** Format: int64 */
+            namespaceId?: number;
+            /** Format: int64 */
+            version?: number;
+            desiredPaused?: boolean;
+            state?: string;
+            /** Format: int64 */
+            pendingStopCount?: number;
+            /** Format: int64 */
+            expiredUnconfirmedCount?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        GithubSearchRuleRequest: {
+            title: string;
+            selectors: components["schemas"]["GithubSearchSelectorRequest"][];
+            /** Format: int32 */
+            targetHours?: number;
+        };
+        ExclusionRequest: {
+            /** @enum {string} */
+            kind: "OWNER" | "REPOSITORY";
+            value: string;
+        };
+        GithubDeepDiscoveryConfigurationRequest: {
+            /** Format: int64 */
+            expectedVersion: number;
+            enabled: boolean;
+            /** @enum {string} */
+            budgetProfile: "ECONOMY" | "BALANCED" | "ACCELERATED";
+            exclusions: components["schemas"]["ExclusionRequest"][];
+        };
+        ApiResponseGithubDeepDiscoveryConfigurationResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDeepDiscoveryConfigurationResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        Exclusion: {
+            /** @enum {string} */
+            kind?: "OWNER" | "REPOSITORY";
+            value?: string;
+        };
+        GithubDeepDiscoveryConfigurationResponse: {
+            /** Format: int64 */
+            version?: number;
+            enabled?: boolean;
+            /** @enum {string} */
+            budgetProfile?: "ECONOMY" | "BALANCED" | "ACCELERATED";
+            exclusions?: components["schemas"]["Exclusion"][];
+            /** @description 尚未装载官方策略时为空；配置启用不表示正在执行 */
+            strategyVersion?: string | null;
+            /** Format: date-time */
+            updatedAt?: string;
+            updatedBy?: string | null;
+        };
+        GithubCredentialUpsertRequest: {
+            label: string;
+            token: string;
+        };
+        ApiResponseGithubCredentialResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubCredentialResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubCredentialQuota: {
+            resource?: string;
+            /** Format: int32 */
+            remaining?: number;
+            /** Format: date-time */
+            resetAt?: string;
+            /** Format: date-time */
+            observedAt?: string;
+        };
+        GithubCredentialResponse: {
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            fingerprint?: string;
+            status?: string;
+            keyVersion?: string;
+            keyAvailable?: boolean;
+            /** Format: date-time */
+            rateLimitedUntil?: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            quotas?: components["schemas"]["GithubCredentialQuota"][];
+        };
+        GithubCredentialEnabledRequest: {
+            enabled: boolean;
+        };
+        GithubSyncAdmissionPolicyUpdateRequest: {
+            /** Format: int32 */
+            globalHigh: number;
+            /** Format: int32 */
+            globalLow: number;
+            /** Format: int32 */
+            namespaceHigh: number;
+            /** Format: int32 */
+            namespaceLow: number;
+            /** Format: int32 */
+            candidatePendingLimit: number;
+            /** Format: int32 */
+            candidatePerLeaseLimit: number;
+        };
+        ApiResponseGithubSyncAdmissionPolicyResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncAdmissionPolicyResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncAdmissionPolicyResponse: {
+            /** Format: int32 */
+            globalHigh?: number;
+            /** Format: int32 */
+            globalLow?: number;
+            /** Format: int32 */
+            namespaceHigh?: number;
+            /** Format: int32 */
+            namespaceLow?: number;
+            /** Format: int32 */
+            candidatePendingLimit?: number;
+            /** Format: int32 */
+            candidatePerLeaseLimit?: number;
+            globalPaused?: boolean;
+            /** Format: int32 */
+            globalUnresolvedCount?: number;
+            /** Format: int32 */
+            platformUnresolvedCount?: number;
+            /** Format: int32 */
+            platformPendingCandidateCount?: number;
+            platformPaused?: boolean;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         SkillSuiteReasonRequest: {
             reason: string;
@@ -6917,6 +8245,7 @@ export interface components {
             avatarRemoval?: boolean;
             previousVisibility?: string;
             requestedVisibility?: string;
+            originType?: string;
         };
         ReviewTaskRequest: {
             /** Format: int64 */
@@ -7074,6 +8403,58 @@ export interface components {
         };
         NamespaceLifecycleRequest: {
             reason?: string;
+        };
+        GithubSyncRetrySkillRequest: {
+            skillPath: string;
+        };
+        ApiResponseGithubSourceRescanResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSourceRescanResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSourceRescanResponse: {
+            /** Format: int64 */
+            sourceId?: number;
+            status?: string;
+            /** Format: uuid */
+            taskId?: string;
+            taskStatus?: string;
+            /** Format: date-time */
+            nextCheckAt?: string;
+        };
+        GithubSyncManualBindingRequest: {
+            /** Format: int64 */
+            skillId: number;
+            reason: string;
+        };
+        ApiResponseGithubSyncManualBindingResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncManualBindingResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncManualBindingResponse: {
+            /** Format: uuid */
+            ingestionId?: string;
+            /** Format: int64 */
+            sourceId?: number;
+            /** Format: int64 */
+            skillId?: number;
+            skillSlug?: string;
+            skillPath?: string;
+            status?: string;
+        };
+        GithubTeamRepositoryRequest: {
+            ownerLogin: string;
+            repositoryName: string;
+            visibility?: string;
         };
         NamespaceInvitationTokenRequest: {
             token: string;
@@ -7452,6 +8833,15 @@ export interface components {
             sortOrder?: number;
             translations: components["schemas"]["LabelTranslationItemRequest"][];
         };
+        GithubCuratedRepositoryRequest: {
+            ownerLogin: string;
+            repositoryName: string;
+        };
+        GithubCuratedOwnerRequest: {
+            ownerLogin: string;
+            /** Format: int32 */
+            targetHours?: number;
+        };
         MergeVerifyRequest: {
             /** Format: int64 */
             mergeRequestId: number;
@@ -7760,6 +9150,8 @@ export interface components {
             status?: string;
             displayName?: string;
             summary?: string;
+            /** Format: int32 */
+            syncRevision?: number;
         };
         SkillSummaryResponse: {
             /** Format: int64 */
@@ -7956,6 +9348,8 @@ export interface components {
             /** Format: int64 */
             id?: number;
             version?: string;
+            /** Format: int32 */
+            syncRevision?: number;
             status?: string;
             changelog?: string | null;
             /** Format: int32 */
@@ -8050,6 +9444,21 @@ export interface components {
             timestamp?: string;
             requestId?: string;
         };
+        GithubSkillSourceResponse: {
+            ownerLogin?: string;
+            repositoryName?: string;
+            skillPath?: string;
+            commitSha?: string;
+            /** Format: int32 */
+            syncRevision?: number;
+            licenseStatus?: string;
+            licenseDocuments?: components["schemas"]["LicenseDocument"][];
+        };
+        LicenseDocument: {
+            scope?: string;
+            path?: string;
+            bundled?: boolean;
+        };
         SkillDetailResponse: {
             /** Format: int64 */
             id?: number;
@@ -8085,6 +9494,7 @@ export interface components {
             memberOfSuites?: components["schemas"]["PageResponseSkillSuiteReferenceResponse"];
             avatarUrl?: string;
             ownerReadOnly?: boolean;
+            githubSource?: components["schemas"]["GithubSkillSourceResponse"];
         };
         ApiResponseReviewSkillDetailResponse: {
             /** Format: int32 */
@@ -8130,6 +9540,94 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
             requestId?: string;
+        };
+        ApiResponseGithubSyncReviewSourceResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncReviewSourceResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        EvidenceDocument: {
+            scope?: string;
+            path?: string;
+            gitSha?: string;
+            sha256?: string;
+            /** Format: int64 */
+            size?: number;
+            bundled?: boolean;
+            text?: string;
+        };
+        FileChange: {
+            path?: string;
+            changeType?: string;
+            /** Format: int64 */
+            oldSize?: number;
+            /** Format: int64 */
+            newSize?: number;
+            oldSha256?: string;
+            newSha256?: string;
+        };
+        GithubSyncReviewSourceResponse: {
+            /** Format: uuid */
+            ingestionId?: string;
+            /** Format: uuid */
+            runId?: string;
+            /** Format: int64 */
+            sourceId?: number;
+            /** Format: int64 */
+            repositoryId?: number;
+            ownerLogin?: string;
+            repositoryName?: string;
+            commitSha?: string;
+            skillPath?: string;
+            contentSha256?: string;
+            /** Format: int32 */
+            syncRevision?: number;
+            ingestionStatus?: string;
+            /** Format: date-time */
+            receivedAt?: string;
+            evidence?: components["schemas"]["LicenseEvidence"];
+            /** Format: int64 */
+            baseVersionId?: number;
+            fileChanges?: components["schemas"]["FileChange"][];
+        };
+        LicenseEvidence: {
+            status?: string;
+            documents?: components["schemas"]["EvidenceDocument"][];
+        };
+        ApiResponsePageResponseGithubSyncReviewQueueItemResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncReviewQueueItemResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncReviewQueueItemResponse: {
+            review?: components["schemas"]["ReviewTaskResponse"];
+            /** Format: uuid */
+            ingestionId?: string;
+            /** Format: uuid */
+            runId?: string;
+            /** Format: int64 */
+            repositoryId?: number;
+            ownerLogin?: string;
+            repositoryName?: string;
+            skillPath?: string;
+            commitSha?: string;
+        };
+        PageResponseGithubSyncReviewQueueItemResponse: {
+            items?: components["schemas"]["GithubSyncReviewQueueItemResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
         };
         ApiResponsePageResponseReviewTaskResponse: {
             /** Format: int32 */
@@ -8433,6 +9931,165 @@ export interface components {
         InvitationStatus: {
             active?: boolean;
         };
+        ApiResponsePageResponseGithubSyncRunSummaryResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncRunSummaryResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRunSummaryResponse: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            status?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: date-time */
+            nextRetryAt?: string;
+            /** Format: int64 */
+            taskCount?: number;
+            /** Format: int64 */
+            receivedPackages?: number;
+            /** Format: int64 */
+            processingPackages?: number;
+            /** Format: int64 */
+            pendingReviewPackages?: number;
+            /** Format: int64 */
+            blockedPackages?: number;
+            /** Format: int64 */
+            failedPackages?: number;
+            lastErrorCode?: string;
+            target?: components["schemas"]["GithubSyncRunTarget"];
+            /** Format: int64 */
+            targetCount?: number;
+        };
+        GithubSyncRunTarget: {
+            type?: string;
+            value?: string;
+        };
+        PageResponseGithubSyncRunSummaryResponse: {
+            items?: components["schemas"]["GithubSyncRunSummaryResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+        };
+        ApiResponsePageResponseGithubSyncSkillPathResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncSkillPathResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncSkillPathResponse: {
+            skillPath?: string;
+            commitSha?: string;
+            acquisitionOutcome?: string;
+            acquisitionReason?: string;
+            /** Format: date-time */
+            acquisitionRetryAt?: string;
+            /** Format: date-time */
+            acquisitionUpdatedAt?: string;
+            /** Format: uuid */
+            ingestionId?: string;
+            ingestionStatus?: string;
+            ingestionErrorCode?: string;
+            targetSkillSlug?: string;
+            /** Format: int64 */
+            skillId?: number;
+            upstreamPresence?: string;
+            presenceCommitSha?: string;
+            /** Format: date-time */
+            missingSince?: string;
+            /** Format: int64 */
+            reviewId?: number;
+            reviewStatus?: string;
+            latestBindingIngestionStatus?: string;
+            retryRequested?: boolean;
+            retryInProgress?: boolean;
+            ignoredByCurrentPolicy?: boolean;
+        };
+        PageResponseGithubSyncSkillPathResponse: {
+            items?: components["schemas"]["GithubSyncSkillPathResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+        };
+        ApiResponsePageResponseGithubSyncSourceSummaryResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncSourceSummaryResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncSourceSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            repositoryId?: number;
+            ownerLogin?: string;
+            repositoryName?: string;
+            defaultBranch?: string;
+            visibility?: string;
+            status?: string;
+            lastObservedCommit?: string;
+            lastFullyProcessedCommit?: string;
+            /** Format: date-time */
+            nextCheckAt?: string;
+            lastErrorCode?: string;
+            /** Format: uuid */
+            latestTaskId?: string;
+            latestTaskStatus?: string;
+            latestTaskMode?: string;
+            latestTaskErrorCode?: string;
+            latestTaskErrorDetail?: string;
+            /** Format: date-time */
+            latestTaskRetryAt?: string;
+            /** Format: int64 */
+            receivedPackages?: number;
+            /** Format: int64 */
+            processingPackages?: number;
+            /** Format: int64 */
+            pendingReviewPackages?: number;
+            /** Format: int64 */
+            blockedPackages?: number;
+            /** Format: int64 */
+            failedPackages?: number;
+            /** Format: int64 */
+            trackedSkills?: number;
+        };
+        PageResponseGithubSyncSourceSummaryResponse: {
+            items?: components["schemas"]["GithubSyncSourceSummaryResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+        };
+        ApiResponseListGithubDiscoveryEntryResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDiscoveryEntryResponse"][];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
         ApiResponsePageResponseNamespaceResponse: {
             /** Format: int32 */
             code?: number;
@@ -8559,7 +10216,7 @@ export interface components {
             status?: "ACTIVE" | "FROZEN" | "ARCHIVED";
             description?: string;
             /** @enum {string} */
-            type?: "GLOBAL" | "TEAM";
+            type?: "GLOBAL" | "CATALOG" | "TEAM";
             avatarUrl?: string;
             createdBy?: string;
             /** Format: date-time */
@@ -9295,6 +10952,498 @@ export interface components {
             code?: number;
             msg?: string;
             data?: components["schemas"]["AdminNamespaceListResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        ApiResponseGithubSyncWorkerStatusResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncWorkerStatusResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncWorkerStatusResponse: {
+            /** Format: date-time */
+            lastSeenAt?: string;
+            online?: boolean;
+        };
+        ApiResponseGithubSyncRunDetailResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncRunDetailResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRunDetailResponse: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            status?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: int64 */
+            taskCount?: number;
+            /** Format: int64 */
+            pathCount?: number;
+            /** Format: date-time */
+            nextRetryAt?: string;
+            /** Format: int64 */
+            receivedPackages?: number;
+            /** Format: int64 */
+            processingPackages?: number;
+            /** Format: int64 */
+            pendingReviewPackages?: number;
+            /** Format: int64 */
+            blockedPackages?: number;
+            /** Format: int64 */
+            failedPackages?: number;
+            lastErrorCode?: string;
+        };
+        ApiResponsePageResponseGithubSyncRunTaskResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncRunTaskResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRunTaskResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: int64 */
+            sourceId?: number;
+            repository?: string;
+            kind?: string;
+            mode?: string;
+            status?: string;
+            fixedCommitSha?: string;
+            lastErrorCode?: string;
+            /** Format: date-time */
+            retryAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        PageResponseGithubSyncRunTaskResponse: {
+            items?: components["schemas"]["GithubSyncRunTaskResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+        };
+        ApiResponsePageResponseGithubSyncRunPathResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageResponseGithubSyncRunPathResponse"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRunPathResponse: {
+            /** Format: uuid */
+            taskId?: string;
+            /** Format: int64 */
+            sourceId?: number;
+            repository?: string;
+            skillPath?: string;
+            commitSha?: string;
+            outcome?: string;
+            reason?: string;
+            ingestionStatus?: string;
+            ingestionErrorCode?: string;
+            reviewStatus?: string;
+            /** Format: date-time */
+            retryAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PageResponseGithubSyncRunPathResponse: {
+            items?: components["schemas"]["GithubSyncRunPathResponse"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+        };
+        ApiResponsePageGithubSyncRepositorySummary: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageGithubSyncRepositorySummary"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRepositorySummary: {
+            /** Format: int64 */
+            repositoryId?: number;
+            /** Format: int64 */
+            sourceId?: number;
+            /** Format: int64 */
+            candidateId?: number;
+            owner?: string;
+            name?: string;
+            /** Format: date-time */
+            firstSeenAt?: string;
+            /** @enum {string} */
+            state?: "REGISTERED" | "PENDING" | "VALIDATING" | "NO_VALID_SKILL" | "VALIDATION_FAILED" | "UNREACHABLE" | "BOUND_WITHOUT_SOURCE";
+            /** @enum {string} */
+            sourceStatus?: "ACTIVE" | "PAUSED" | "UNREACHABLE";
+            candidateStatus?: string;
+            originTypes?: ("CURATED_REPOSITORY" | "CURATED_OWNER" | "SEARCH_RULE" | "OFFICIAL_DISCOVERY" | "TEAM_CONFIG")[];
+        };
+        PageGithubSyncRepositorySummary: {
+            items?: components["schemas"]["GithubSyncRepositorySummary"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        ApiResponseGithubSyncRepositoryDetail: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubSyncRepositoryDetail"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRepositoryDetail: {
+            repository?: components["schemas"]["GithubSyncRepositorySummary"];
+            /** Format: uuid */
+            latestRunId?: string;
+            /** Format: date-time */
+            lastCheckedAt?: string;
+            /** Format: date-time */
+            nextCheckAt?: string;
+            lastErrorCode?: string;
+        };
+        ApiResponsePageGithubDeepDiscoveryPathResult: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageGithubDeepDiscoveryPathResult"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubDeepDiscoveryPathResult: {
+            skillPath?: string;
+            outcome?: string;
+            reasonCode?: string;
+            /** Format: int64 */
+            skillId?: number;
+            /** Format: int64 */
+            versionId?: number;
+            /** Format: int64 */
+            reviewId?: number;
+            /** Format: uuid */
+            runId?: string;
+            /** Format: date-time */
+            observedAt?: string;
+        };
+        PageGithubDeepDiscoveryPathResult: {
+            items?: components["schemas"]["GithubDeepDiscoveryPathResult"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        ApiResponsePageGithubSyncRepositoryOrigin: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["PageGithubSyncRepositoryOrigin"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubSyncRepositoryOrigin: {
+            /** @enum {string} */
+            originType?: "CURATED_REPOSITORY" | "CURATED_OWNER" | "SEARCH_RULE" | "OFFICIAL_DISCOVERY" | "TEAM_CONFIG";
+            originKey?: string;
+            /** Format: date-time */
+            firstSeenAt?: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            /** Format: uuid */
+            entryId?: string;
+            channel?: string;
+            /** Format: uuid */
+            queryId?: string;
+            /** Format: uuid */
+            runId?: string;
+            /** Format: int64 */
+            seedRepositoryId?: number;
+        };
+        PageGithubSyncRepositoryOrigin: {
+            items?: components["schemas"]["GithubSyncRepositoryOrigin"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        ApiResponseGithubDeepDiscoverySummary: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDeepDiscoverySummary"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubDeepDiscoveryCurrent: {
+            /** Format: int64 */
+            pendingRepositoryChecks?: number;
+            /** Format: int64 */
+            pendingReviewVersions?: number;
+            /** Format: date-time */
+            observedAt?: string;
+        };
+        GithubDeepDiscoveryRecent: {
+            /** Format: date-time */
+            from?: string;
+            /** Format: date-time */
+            until?: string;
+            /** Format: int64 */
+            newCandidateRepositories?: number;
+            /** Format: int64 */
+            firstValidRepositories?: number;
+            /** Format: int64 */
+            newSkills?: number;
+            /** Format: int64 */
+            updatedVersions?: number;
+            complete?: boolean;
+            /** Format: date-time */
+            availableSince?: string;
+        };
+        GithubDeepDiscoverySummary: {
+            /** Format: int64 */
+            configurationVersion?: number;
+            strategyVersion?: string;
+            state?: string;
+            /** Format: date-time */
+            observedAt?: string;
+            worker?: components["schemas"]["GithubOfficialWorkerAvailabilityResponse"];
+            recent?: components["schemas"]["GithubDeepDiscoveryRecent"];
+            current?: components["schemas"]["GithubDeepDiscoveryCurrent"];
+            waits?: components["schemas"]["GithubDeepDiscoveryWait"][];
+            recentRunIds?: string[];
+        };
+        GithubDeepDiscoveryWait: {
+            reason?: string;
+            affectedWork?: string[];
+            continuingWork?: string[];
+            /** Format: date-time */
+            retryAt?: string;
+            recoveryCondition?: string;
+            action?: string;
+        };
+        GithubOfficialWorkerAvailabilityResponse: {
+            state?: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            /** Format: int64 */
+            compatibleInstanceCount?: number;
+            /** Format: date-time */
+            observedAt?: string;
+        };
+        ApiResponseDiscoveryPageGithubDeepDiscoveryRepositorySummary: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["DiscoveryPageGithubDeepDiscoveryRepositorySummary"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        DiscoveryPageGithubDeepDiscoveryRepositorySummary: {
+            items?: components["schemas"]["GithubDeepDiscoveryRepositorySummary"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        GithubDeepDiscoveryRepositorySummary: {
+            /** Format: int64 */
+            repositoryId?: number;
+            owner?: string;
+            name?: string;
+            /** Format: date-time */
+            firstDiscoveredAt?: string;
+            /** Format: date-time */
+            lastDiscoveredAt?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "VALIDATING" | "VALID" | "NO_VALID_SKILL" | "VALIDATION_FAILED" | "UNREACHABLE";
+            channels?: ("REPOSITORY_METADATA" | "README" | "OWNER_EXPANSION")[];
+            /** Format: int64 */
+            sourceId?: number;
+            paused?: boolean;
+            waitReason?: string;
+            /** Format: int64 */
+            candidateId?: number;
+        };
+        ApiResponseGithubDeepDiscoveryRepositoryDetail: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDeepDiscoveryRepositoryDetail"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubDeepDiscoveryRepositoryDetail: {
+            repository?: components["schemas"]["GithubDeepDiscoveryRepositorySummary"];
+            /** Format: date-time */
+            lastCheckedAt?: string;
+            /** Format: date-time */
+            nextEligibleAt?: string;
+            notImportedReason?: string;
+            waits?: components["schemas"]["GithubDeepDiscoveryWait"][];
+            /** Format: uuid */
+            latestRunId?: string;
+            /** Format: date-time */
+            historyAvailableSince?: string;
+        };
+        ApiResponseDiscoveryPageGithubDeepDiscoveryProvenance: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["DiscoveryPageGithubDeepDiscoveryProvenance"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        DiscoveryPageGithubDeepDiscoveryProvenance: {
+            items?: components["schemas"]["GithubDeepDiscoveryProvenance"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        GithubDeepDiscoveryProvenance: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            channel?: "REPOSITORY_METADATA" | "README" | "OWNER_EXPANSION";
+            strategyVersion?: string;
+            /** Format: uuid */
+            queryId?: string;
+            /** Format: int64 */
+            queryVersion?: number;
+            /** Format: uuid */
+            shardId?: string;
+            /** Format: uuid */
+            runId?: string;
+            /** Format: date-time */
+            firstSeenAt?: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            /** Format: int64 */
+            seedRepositoryId?: number;
+        };
+        ApiResponseDiscoveryPageGithubDeepDiscoveryPathResult: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["DiscoveryPageGithubDeepDiscoveryPathResult"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        DiscoveryPageGithubDeepDiscoveryPathResult: {
+            items?: components["schemas"]["GithubDeepDiscoveryPathResult"][];
+            /** Format: int64 */
+            total?: number;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: date-time */
+            asOf?: string;
+        };
+        ApiResponseGithubDeepDiscoveryProgress: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubDeepDiscoveryProgress"];
+            /** Format: date-time */
+            timestamp?: string;
+            requestId?: string;
+        };
+        GithubDeepDiscoveryChannelProgress: {
+            /** @enum {string} */
+            channel?: "REPOSITORY_METADATA" | "README" | "OWNER_EXPANSION";
+            state?: string;
+            /** Format: int64 */
+            completedShards?: number;
+            /** Format: int64 */
+            pendingShards?: number;
+            /** Format: int64 */
+            gapShards?: number;
+            /** Format: date-time */
+            lastProgressAt?: string;
+            waits?: components["schemas"]["GithubDeepDiscoveryWait"][];
+        };
+        GithubDeepDiscoveryProgress: {
+            strategyVersion?: string;
+            /** Format: date-time */
+            observedAt?: string;
+            channels?: components["schemas"]["GithubDeepDiscoveryChannelProgress"][];
+            quotas?: components["schemas"]["GithubDeepDiscoveryQuota"][];
+            quotaObservationsTruncated?: boolean;
+        };
+        GithubDeepDiscoveryQuota: {
+            resource?: string;
+            subjectKey?: string;
+            state?: string;
+            /** Format: int64 */
+            remaining?: number;
+            /** Format: date-time */
+            observedAt?: string;
+            /** Format: date-time */
+            validUntil?: string;
+            /** Format: date-time */
+            retryAt?: string;
+        };
+        ApiResponseListGithubCredentialResponse: {
+            /** Format: int32 */
+            code?: number;
+            msg?: string;
+            data?: components["schemas"]["GithubCredentialResponse"][];
             /** Format: date-time */
             timestamp?: string;
             requestId?: string;
@@ -10688,6 +12837,214 @@ export interface operations {
             };
         };
     };
+    setVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubTeamSourceVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    setVisibility_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubTeamSourceVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    setEnabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubDiscoveryEntryEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    setEnabled_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubDiscoveryEntryEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    ignorePatterns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
+    updateIgnorePatterns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSourceIgnoreRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
+    ignorePatterns_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
+    updateIgnorePatterns_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSourceIgnoreRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
     listDraftFiles: {
         parameters: {
             query?: never;
@@ -11145,6 +13502,334 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListLabelDefinitionResponse"];
+                };
+            };
+        };
+    };
+    ignorePatterns_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
+    updateIgnorePatterns_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSourceIgnoreRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceIgnoreResponse"];
+                };
+            };
+        };
+    };
+    schedulePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncSchedulePolicyResponse"];
+                };
+            };
+        };
+    };
+    updateSchedulePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncSchedulePolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncSchedulePolicyResponse"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubPlatformControlState"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubPlatformControlUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubPlatformControlState"];
+                };
+            };
+        };
+    };
+    setEnabled_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubDiscoveryEntryEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    updateSearchRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSearchRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDeepDiscoveryConfigurationResponse"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubDeepDiscoveryConfigurationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDeepDiscoveryConfigurationResponse"];
+                };
+            };
+        };
+    };
+    replace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCredentialUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubCredentialResponse"];
+                };
+            };
+        };
+    };
+    setEnabled_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCredentialEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubCredentialResponse"];
+                };
+            };
+        };
+    };
+    getAdmissionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncAdmissionPolicyResponse"];
+                };
+            };
+        };
+    };
+    updateAdmissionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncAdmissionPolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncAdmissionPolicyResponse"];
                 };
             };
         };
@@ -14171,6 +16856,256 @@ export interface operations {
             };
         };
     };
+    retryRejectedSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncRetrySkillRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    retryRejectedSkill_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncRetrySkillRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    rescan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    rescan_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    bindExistingSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                ingestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncManualBindingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncManualBindingResponse"];
+                };
+            };
+        };
+    };
+    bindExistingSkill_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                ingestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncManualBindingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncManualBindingResponse"];
+                };
+            };
+        };
+    };
+    list_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubTeamRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    list_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubTeamRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
     listNamespaces: {
         parameters: {
             query: {
@@ -14623,7 +17558,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_8: {
         parameters: {
             query?: {
                 page?: number;
@@ -14646,7 +17581,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -15712,6 +18647,220 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLabelDefinitionResponse"];
+                };
+            };
+        };
+    };
+    retryRejectedSkill_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncRetrySkillRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    rescan_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSourceRescanResponse"];
+                };
+            };
+        };
+    };
+    createSearchRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSearchRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    previewSearchRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSearchRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreview"];
+                };
+            };
+        };
+    };
+    createCuratedRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCuratedRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    createCuratedOwner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCuratedOwnerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    list_11: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListGithubCredentialResponse"];
+                };
+            };
+        };
+    };
+    create_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCredentialUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubCredentialResponse"];
+                };
+            };
+        };
+    };
+    bindExistingSkill_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ingestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSyncManualBindingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncManualBindingResponse"];
                 };
             };
         };
@@ -17317,7 +20466,10 @@ export interface operations {
     };
     getReviewSkillDetail: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 是否包含 README.md/SKILL.md 正文；缺省 true，false 仅返回元数据 */
+                includeDocumentation?: boolean;
+            };
             header?: never;
             path: {
                 id: number;
@@ -17339,7 +20491,10 @@ export interface operations {
     };
     getReviewSkillDetail_1: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 是否包含 README.md/SKILL.md 正文；缺省 true，false 仅返回元数据 */
+                includeDocumentation?: boolean;
+            };
             header?: never;
             path: {
                 id: number;
@@ -17363,6 +20518,8 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
+                /** @description 是否按 256 KiB 上限读取预览；缺省 false 保留完整文件读取 */
+                preview?: boolean;
             };
             header?: never;
             path: {
@@ -17387,6 +20544,8 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
+                /** @description 是否按 256 KiB 上限读取预览；缺省 false 保留完整文件读取 */
+                preview?: boolean;
             };
             header?: never;
             path: {
@@ -17535,6 +20694,154 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseReviewTaskResponse"];
+                };
+            };
+        };
+    };
+    getSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncReviewSourceResponse"];
+                };
+            };
+        };
+    };
+    getSource_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncReviewSourceResponse"];
+                };
+            };
+        };
+    };
+    getBaseFile: {
+        parameters: {
+            query: {
+                path: string;
+                /** @description 是否按 256 KiB 上限读取预览；缺省 false 保留原读取行为 */
+                preview?: boolean;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    getBaseFile_1: {
+        parameters: {
+            query: {
+                path: string;
+                /** @description 是否按 256 KiB 上限读取预览；缺省 false 保留原读取行为 */
+                preview?: boolean;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query: {
+                status: string;
+                namespaceId?: number;
+                page?: number;
+                size?: number;
+                sortDirection?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncReviewQueueItemResponse"];
+                };
+            };
+        };
+    };
+    list_3: {
+        parameters: {
+            query: {
+                status: string;
+                namespaceId?: number;
+                page?: number;
+                size?: number;
+                sortDirection?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncReviewQueueItemResponse"];
                 };
             };
         };
@@ -18133,7 +21440,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_4: {
         parameters: {
             query?: {
                 category?: string;
@@ -18157,7 +21464,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_5: {
         parameters: {
             query?: {
                 category?: string;
@@ -18277,6 +21584,158 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseInvitationHistoryPage"];
+                };
+            };
+        };
+    };
+    runs: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncRunSummaryResponse"];
+                };
+            };
+        };
+    };
+    runs_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncRunSummaryResponse"];
+                };
+            };
+        };
+    };
+    skillPaths: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSkillPathResponse"];
+                };
+            };
+        };
+    };
+    skillPaths_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSkillPathResponse"];
+                };
+            };
+        };
+    };
+    resolved: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSourceSummaryResponse"];
+                };
+            };
+        };
+    };
+    resolved_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                namespaceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSourceSummaryResponse"];
                 };
             };
         };
@@ -19598,7 +23057,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_9: {
         parameters: {
             query?: {
                 status?: string;
@@ -19692,6 +23151,460 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListNamespaceCandidateUserResponse"];
+                };
+            };
+        };
+    };
+    workerStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncWorkerStatusResponse"];
+                };
+            };
+        };
+    };
+    sources: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSourceSummaryResponse"];
+                };
+            };
+        };
+    };
+    skillPaths_2: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                sourceId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncSkillPathResponse"];
+                };
+            };
+        };
+    };
+    runs_2: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                kind?: "DISCOVERY" | "REPOSITORY_SYNC";
+                status?: "QUEUED" | "LEASED" | "RETRY_WAIT" | "PARTIAL" | "ACQUISITION_COMPLETE" | "FAILED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncRunSummaryResponse"];
+                };
+            };
+        };
+    };
+    runDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncRunDetailResponse"];
+                };
+            };
+        };
+    };
+    runTasks: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncRunTaskResponse"];
+                };
+            };
+        };
+    };
+    runPaths: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseGithubSyncRunPathResponse"];
+                };
+            };
+        };
+    };
+    repositories: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+                q?: string;
+                originType?: "CURATED_REPOSITORY" | "CURATED_OWNER" | "SEARCH_RULE" | "OFFICIAL_DISCOVERY" | "TEAM_CONFIG";
+                state?: "REGISTERED" | "PENDING" | "VALIDATING" | "NO_VALID_SKILL" | "VALIDATION_FAILED" | "UNREACHABLE" | "BOUND_WITHOUT_SOURCE";
+                sourceStatus?: "ACTIVE" | "PAUSED" | "UNREACHABLE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageGithubSyncRepositorySummary"];
+                };
+            };
+        };
+    };
+    repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubSyncRepositoryDetail"];
+                };
+            };
+        };
+    };
+    paths: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+            };
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageGithubDeepDiscoveryPathResult"];
+                };
+            };
+        };
+    };
+    origins: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+            };
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageGithubSyncRepositoryOrigin"];
+                };
+            };
+        };
+    };
+    list_10: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListGithubDiscoveryEntryResponse"];
+                };
+            };
+        };
+    };
+    searchRulePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreview"];
+                };
+            };
+        };
+    };
+    summary_2: {
+        parameters: {
+            query: {
+                from: string;
+                until: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDeepDiscoverySummary"];
+                };
+            };
+        };
+    };
+    repositories_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+                q?: string;
+                status?: "PENDING" | "VALIDATING" | "VALID" | "NO_VALID_SKILL" | "VALIDATION_FAILED" | "UNREACHABLE";
+                channel?: "REPOSITORY_METADATA" | "README" | "OWNER_EXPANSION";
+                paused?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDiscoveryPageGithubDeepDiscoveryRepositorySummary"];
+                };
+            };
+        };
+    };
+    repository_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDeepDiscoveryRepositoryDetail"];
+                };
+            };
+        };
+    };
+    provenance: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+            };
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDiscoveryPageGithubDeepDiscoveryProvenance"];
+                };
+            };
+        };
+    };
+    paths_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                asOf?: string;
+            };
+            header?: never;
+            path: {
+                repositoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDiscoveryPageGithubDeepDiscoveryPathResult"];
+                };
+            };
+        };
+    };
+    progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGithubDeepDiscoveryProgress"];
                 };
             };
         };

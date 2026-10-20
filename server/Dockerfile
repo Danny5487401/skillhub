@@ -11,13 +11,18 @@ COPY skillhub-search/pom.xml skillhub-search/
 COPY skillhub-infra/pom.xml skillhub-infra/
 COPY skillhub-storage/pom.xml skillhub-storage/
 COPY skillhub-notification/pom.xml skillhub-notification/
+COPY skillhub-github-sync/pom.xml skillhub-github-sync/
 COPY skillhub-app/pom.xml skillhub-app/
 COPY mvnw .
 COPY .mvn .mvn
-RUN ./mvnw dependency:go-offline -B
+RUN --mount=type=secret,id=maven_settings,target=/root/.m2/settings.xml,required=false \
+    ./mvnw dependency:go-offline -B
 
 COPY . .
-RUN ./mvnw package -DskipTests -B
+# The shared build context permits target/ for Dockerfile.dev. Recompile
+# from source here instead of reusing host build outputs copied above.
+RUN --mount=type=secret,id=maven_settings,target=/root/.m2/settings.xml,required=false \
+    ./mvnw clean package -DskipTests -B
 
 # ---- Runtime Stage ----
 # The Noble variant publishes a linux/riscv64 image; the Alpine JRE currently

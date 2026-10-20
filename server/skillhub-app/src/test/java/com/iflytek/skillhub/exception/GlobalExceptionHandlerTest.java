@@ -137,15 +137,18 @@ class GlobalExceptionHandlerTest {
 
         try (RequestIdAccessor.Scope ignored = requestIdAccessor.open("request-123")) {
             ResponseEntity<ApiResponse<Void>> response = handler.handleGlobalException(
-                    new RuntimeException("boom"), request);
+                    new RuntimeException("synthetic-token-and-skill-content-marker"), request);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         assertThat(loggedMessages()).anySatisfy(message -> assertThat(message)
                 .contains("requestId=request-123")
                 .contains("authentication=authenticated")
+                .contains("type=RuntimeException")
                 .doesNotContain(STABLE_USER_ID)
+                .doesNotContain("synthetic-token-and-skill-content-marker")
                 .doesNotContain("userId="));
+        assertThat(appender.list).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
     }
 
     @Test
@@ -173,7 +176,8 @@ class GlobalExceptionHandlerTest {
                 .thenReturn("/api/v1/skills/test/download");
 
         StorageAccessException exception = new StorageAccessException(
-                "download", "skills/test.zip", new RuntimeException("unavailable"));
+                "download", "synthetic-object-key-secret",
+                new RuntimeException("synthetic-storage-token"));
         try (RequestIdAccessor.Scope ignored = requestIdAccessor.open("request-123")) {
             ResponseEntity<ApiResponse<Void>> response =
                     handler.handleStorageAccess(exception, request);
@@ -184,7 +188,27 @@ class GlobalExceptionHandlerTest {
                 .contains("requestId=request-123")
                 .contains("authentication=authenticated")
                 .doesNotContain(STABLE_USER_ID)
+                .doesNotContain("synthetic-object-key-secret", "synthetic-storage-token")
                 .doesNotContain("userId="));
+        assertThat(appender.list).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
+    }
+
+    @Test
+    void githubSyncStorageFailureOmitsUntrustedContentFromResponseAndLogs() {
+        String marker = "GITHUB_SYNC_STORAGE_WITH_SKILL_BODY_AND_TOKEN";
+        when(request.getServletPath()).thenReturn("/internal/github-sync/v1/uploads/123/content");
+        attachAppender();
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleStorageAccess(
+                new StorageAccessException("putObject", "staging-key",
+                        new IllegalStateException(marker)), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().toString()).doesNotContain(marker, "staging-key");
+        assertThat(loggedMessages()).allSatisfy(message -> assertThat(message)
+                .doesNotContain(marker, "staging-key", "/internal/github-sync/v1/uploads/123/content"));
+        assertThat(appender.list).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
     }
 
     @Test
@@ -211,7 +235,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleMvcBadRequest_shouldReturn400WithoutUnhandledErrorLog() {
         attachAppender();
-        prepareClientErrorRequest("POST", "/api/v1/skills?bad=value");
+        prepareClientErrorRequest("POST", "/api/v1/skills");
 
         List<Exception> exceptions = List.of(
                 new MissingServletRequestParameterException("namespace", "String"),

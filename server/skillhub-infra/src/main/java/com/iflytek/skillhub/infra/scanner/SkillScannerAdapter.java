@@ -39,8 +39,10 @@ public class SkillScannerAdapter implements SecurityScanner {
                     : skillScannerService.scanUpload(Path.of(request.skillPackagePath()), scanOptions);
             return mapToResponse(apiResponse);
         } catch (HttpClientException e) {
-            log.error("Security scan failed for versionId={}: {}", request.skillVersionId(), e.getMessage());
-            throw new SecurityScanException("Security scan request failed: " + e.getMessage(), e);
+            log.error("Security scan failed for versionId={}, status={}",
+                    request.skillVersionId(), e.getStatusCode());
+            throw new SecurityScanException("Security scan request failed",
+                    new HttpClientException(e.getStatusCode(), null));
         }
     }
 
@@ -55,9 +57,8 @@ public class SkillScannerAdapter implements SecurityScanner {
     }
 
     private SecurityScanResponse mapToResponse(SkillScannerApiResponse apiResponse) {
-        log.info("Scanner API raw response: scanId={}, skillName={}, isSafe={}, maxSeverity={}, findingsCount={}, duration={}s",
-                apiResponse.scanId(), apiResponse.skillName(), apiResponse.isSafe(),
-                apiResponse.maxSeverity(), apiResponse.findingsCount(), apiResponse.scanDurationSeconds());
+        log.info("Scanner API response: isSafe={}, findingsCount={}",
+                apiResponse.isSafe(), apiResponse.findingsCount());
 
         SecurityScanResponse response = new SecurityScanResponse(
                 apiResponse.scanId(),
@@ -68,14 +69,8 @@ public class SkillScannerAdapter implements SecurityScanner {
                 apiResponse.scanDurationSeconds() != null ? apiResponse.scanDurationSeconds() : 0.0
         );
 
-        log.info("Mapped response: scanId={}, verdict={}, findingsCount={}, maxSeverity={}",
-                response.scanId(), response.verdict(), response.findingsCount(), response.maxSeverity());
-        if (!response.findings().isEmpty()) {
-            for (SecurityFinding f : response.findings()) {
-                log.debug("Mapped finding: ruleId={}, severity={}, category={}, filePath={}, lineNumber={}",
-                        f.ruleId(), f.severity(), f.category(), f.filePath(), f.lineNumber());
-            }
-        }
+        log.info("Mapped scanner response: verdict={}, findingsCount={}",
+                response.verdict(), response.findingsCount());
 
         return response;
     }

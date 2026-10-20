@@ -3,6 +3,7 @@ package com.iflytek.skillhub.stream;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iflytek.skillhub.domain.security.ScanTaskProducer;
@@ -13,10 +14,14 @@ import com.iflytek.skillhub.domain.security.SecurityScanner;
 import com.iflytek.skillhub.domain.skill.SkillVersion;
 import com.iflytek.skillhub.domain.skill.SkillVersionRepository;
 import com.iflytek.skillhub.domain.skill.SkillVersionStatus;
+import com.iflytek.skillhub.infra.http.HttpClientException;
+import com.iflytek.skillhub.infra.scanner.SecurityScanException;
 import com.iflytek.skillhub.observability.MessageObservationSupport;
 import com.iflytek.skillhub.observability.RequestIdAccessor;
 import com.iflytek.skillhub.storage.ObjectMetadata;
 import com.iflytek.skillhub.storage.ObjectStorageService;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -30,11 +35,13 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -81,12 +88,13 @@ class ScanTaskConsumerLoggingTest {
 
     @Test
     void handleMessage_logsBundleStageFailureBeforeRetry() {
+        String marker = "STORAGE_ERROR_WITH_SKILL_BODY_AND_TOKEN";
         TestableLoggingConsumer consumer = new TestableLoggingConsumer(
                 new FailingScanner(null),
                 new NoOpSecurityScanService(),
                 new EmptySkillVersionRepository(),
                 new TestProducer(),
-                new InMemoryObjectStorageService(new IllegalStateException("bundle missing"))
+                new InMemoryObjectStorageService(new IllegalStateException(marker))
         );
         attachAppender();
 
@@ -100,15 +108,23 @@ class ScanTaskConsumerLoggingTest {
         assertThat(loggedMessages()).anyMatch(message -> message.contains(
                 "Failed to stage security scan bundle: taskId=task-2, versionId=43, bundleKey=packages/8/43/bundle.zip"
         ));
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(marker));
+        assertThat(appender.list).allSatisfy(event -> {
+            if (event.getThrowableProxy() != null) {
+                assertThat(ThrowableProxyUtil.asString(event.getThrowableProxy()))
+                        .doesNotContain(marker);
+            }
+        });
     }
 
     @Test
     void handleMessage_logsFinalFailureAfterRetriesExhausted() {
+        String marker = "SCANNER_ERROR_WITH_SKILL_BODY_AND_TOKEN";
         SkillVersion version = new SkillVersion(8L, "1.0.0", "publisher-1");
         setVersionId(version, 44L);
         version.setStatus(SkillVersionStatus.SCANNING);
         TestableLoggingConsumer consumer = new TestableLoggingConsumer(
-                new FailingScanner(new IllegalStateException("scanner unavailable")),
+                new FailingScanner(new IllegalStateException(marker)),
                 new NoOpSecurityScanService(),
                 new SingleSkillVersionRepository(version),
                 new TestProducer(),
@@ -127,6 +143,116 @@ class ScanTaskConsumerLoggingTest {
         assertThat(loggedMessages()).anyMatch(message -> message.contains(
                 "Security scan task failed permanently: taskId=task-3, versionId=44, scanner=SKILL_SCANNER"
         ));
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(marker));
+    }
+
+    @Test
+    void retryPublishFailureDoesNotExposeProducerException() {
+        String marker = "REDIS_ERROR_WITH_SKILL_BODY_AND_TOKEN";
+        ScanTaskProducer failingProducer = task -> {
+            throw new IllegalStateException(marker);
+        };
+        TestableLoggingConsumer consumer = new TestableLoggingConsumer(
+                new FailingScanner(new IllegalStateException("scanner unavailable")),
+                new NoOpSecurityScanService(),
+                new EmptySkillVersionRepository(),
+                failingProducer,
+                new InMemoryObjectStorageService(Map.of("packages/8/45/bundle.zip", "zip".getBytes()))
+        );
+        attachAppender();
+
+        assertThatThrownBy(() -> consumer.handleMessage(new StreamMessageId(4, 0), Map.of(
+                "taskId", "task-retry-publish",
+                "versionId", "45",
+                "bundleKey", "packages/8/45/bundle.zip",
+                "scannerType", ScannerType.SKILL_SCANNER.getValue()
+        ))).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Security scan retry publication failed")
+                .hasNoCause();
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(marker));
+    }
+
+    @Test
+    void scanFailureDoesNotExposeExceptionContentToObservation() {
+        String marker = "OBSERVATION_ERROR_WITH_SKILL_BODY_AND_TOKEN";
+        ObservationRegistry registry = ObservationRegistry.create();
+        List<Throwable> observedErrors = new ArrayList<>();
+        registry.observationConfig().observationHandler(new ObservationHandler<Observation.Context>() {
+            @Override
+            public void onStop(Observation.Context context) {
+                if (context.getError() != null) {
+                    observedErrors.add(context.getError());
+                }
+            }
+
+            @Override
+            public boolean supportsContext(Observation.Context context) {
+                return true;
+            }
+        });
+        TestableLoggingConsumer consumer = new TestableLoggingConsumer(
+                new FailingScanner(null),
+                new NoOpSecurityScanService(),
+                new EmptySkillVersionRepository(),
+                new TestProducer(),
+                new InMemoryObjectStorageService(new IllegalStateException(marker)),
+                registry
+        );
+
+        consumer.handleMessage(new StreamMessageId(5, 0), Map.of(
+                "taskId", "task-observed",
+                "versionId", "46",
+                "bundleKey", "packages/8/46/bundle.zip",
+                "scannerType", ScannerType.SKILL_SCANNER.getValue()
+        ));
+
+        assertThat(observedErrors).hasSize(1);
+        assertThat(observedErrors.get(0).getMessage()).doesNotContain(marker);
+        assertThat(observedErrors.get(0).getCause()).isNull();
+    }
+
+    @Test
+    void unavailableScannerDoesNotExposeResponseContentWhileDeferring() {
+        String marker = "SCANNER_503_WITH_SKILL_BODY_AND_TOKEN";
+        ObservationRegistry registry = ObservationRegistry.create();
+        List<Throwable> observedErrors = new ArrayList<>();
+        registry.observationConfig().observationHandler(new ObservationHandler<Observation.Context>() {
+            @Override
+            public void onStop(Observation.Context context) {
+                if (context.getError() != null) {
+                    observedErrors.add(context.getError());
+                }
+            }
+
+            @Override
+            public boolean supportsContext(Observation.Context context) {
+                return true;
+            }
+        });
+        TestableLoggingConsumer consumer = new TestableLoggingConsumer(
+                new FailingScanner(new SecurityScanException(marker, new HttpClientException(503, marker))),
+                new NoOpSecurityScanService(),
+                new EmptySkillVersionRepository(),
+                new TestProducer(),
+                new InMemoryObjectStorageService(Map.of("packages/8/47/bundle.zip", "zip".getBytes())),
+                registry
+        );
+        attachAppender();
+
+        consumer.handleMessage(new StreamMessageId(6, 0), Map.of(
+                "taskId", "task-scanner-unavailable",
+                "versionId", "47",
+                "bundleKey", "packages/8/47/bundle.zip",
+                "scannerType", ScannerType.SKILL_SCANNER.getValue(),
+                "createdAtMillis", Long.toString(System.currentTimeMillis())
+        ));
+
+        assertThat(loggedMessages()).anyMatch(message -> message.contains(
+                "Scanner unavailable; keeping task pending for later recovery"));
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(marker));
+        assertThat(observedErrors).hasSize(1);
+        assertThat(observedErrors.get(0).getMessage()).doesNotContain(marker);
+        assertThat(observedErrors.get(0).getCause()).isNull();
     }
 
     private void attachAppender() {
@@ -169,6 +295,16 @@ class ScanTaskConsumerLoggingTest {
                                         SkillVersionRepository skillVersionRepository,
                                         ScanTaskProducer scanTaskProducer,
                                         ObjectStorageService objectStorageService) {
+            this(securityScanner, securityScanService, skillVersionRepository, scanTaskProducer,
+                    objectStorageService, ObservationRegistry.NOOP);
+        }
+
+        private TestableLoggingConsumer(SecurityScanner securityScanner,
+                                        SecurityScanService securityScanService,
+                                        SkillVersionRepository skillVersionRepository,
+                                        ScanTaskProducer scanTaskProducer,
+                                        ObjectStorageService objectStorageService,
+                                        ObservationRegistry observationRegistry) {
             super(
                     redissonClientWithAvailableProcessingLock(),
                     "skillhub:scan:requests",
@@ -178,7 +314,7 @@ class ScanTaskConsumerLoggingTest {
                     skillVersionRepository,
                     scanTaskProducer,
                     objectStorageService,
-                    new MessageObservationSupport(ObservationRegistry.NOOP, new RequestIdAccessor())
+                    new MessageObservationSupport(observationRegistry, new RequestIdAccessor())
             );
         }
 

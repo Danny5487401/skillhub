@@ -313,6 +313,7 @@ export interface SkillLifecycleVersion {
   id: number
   version: string
   status: string
+  syncRevision?: number | null
 }
 
 export interface ComplianceEvidence {
@@ -351,6 +352,15 @@ export type SkillSuiteReference = Omit<
 }
 
 type GeneratedSkillDetail = components['schemas']['SkillDetailResponse']
+export interface GithubSkillSource {
+  ownerLogin: string
+  repositoryName: string
+  skillPath: string
+  commitSha: string
+  syncRevision: number
+  licenseStatus: string
+  licenseDocuments: Array<{ scope: string; path: string; bundled: boolean }>
+}
 export type SkillDetail = Omit<
   RequiredGenerated<
     GeneratedSkillDetail,
@@ -369,7 +379,7 @@ export type SkillDetail = Omit<
     | 'entryForSuites'
     | 'memberOfSuites'
   >,
-  'avatarUrl' | 'labels' | 'headlineVersion' | 'publishedVersion' | 'ownerPreviewVersion' | 'entryForSuites' | 'memberOfSuites'
+  'avatarUrl' | 'labels' | 'headlineVersion' | 'publishedVersion' | 'ownerPreviewVersion' | 'entryForSuites' | 'memberOfSuites' | 'githubSource'
 > & {
   avatarUrl?: string | null
   labels?: LabelItem[]
@@ -378,6 +388,7 @@ export type SkillDetail = Omit<
   ownerPreviewVersion?: SkillLifecycleVersion
   entryForSuites?: SkillSuiteReference[]
   memberOfSuites?: PagedResponse<SkillSuiteReference>
+  githubSource?: GithubSkillSource | null
 }
 
 export interface SubmitPromotionRequest {
@@ -413,6 +424,7 @@ export interface PromotionRevocation {
 export interface SkillVersion {
   id: number
   version: string
+  syncRevision?: number | null
   status: string
   changelog?: string
   fileCount: number
@@ -611,7 +623,7 @@ export interface ReviewTask {
   namespace: string
   skillSlug?: string | null
   version: string | null
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED'
   submittedBy: string
   submittedByName?: string
   reviewedBy?: string
@@ -627,6 +639,55 @@ export interface ReviewTask {
   previousVisibility?: string
   requestedVisibility?: string
   avatarRemoval?: boolean
+  originType?: 'USER' | 'GITHUB_SYNC'
+}
+
+export interface GithubSyncReviewSource {
+  ingestionId: string
+  runId: string
+  sourceId?: number | null
+  repositoryId: number
+  ownerLogin: string
+  repositoryName: string
+  commitSha: string
+  skillPath: string
+  contentSha256: string
+  syncRevision: number
+  ingestionStatus: string
+  receivedAt: string
+  baseVersionId?: number | null
+  fileChanges: Array<{
+    path: string
+    changeType: 'ADDED' | 'MODIFIED' | 'REMOVED'
+    oldSize?: number | null
+    newSize?: number | null
+    oldSha256?: string | null
+    newSha256?: string | null
+  }>
+  evidence: {
+    status: string
+    documents: Array<{
+      scope: string
+      path: string
+      gitSha?: string | null
+      sha256?: string | null
+      size: number
+      bundled: boolean
+      text?: string | null
+    }>
+  }
+}
+
+export type GithubSyncReviewQueueItem = Omit<components['schemas']['GithubSyncReviewQueueItemResponse'],
+  'review' | 'ingestionId' | 'runId' | 'repositoryId' | 'skillPath' | 'commitSha'> & {
+  review: ReviewTask
+  ingestionId: string
+  runId: string
+  repositoryId: number
+  ownerLogin?: string | null
+  repositoryName?: string | null
+  skillPath: string
+  commitSha: string
 }
 
 export interface ReviewProgress extends Pick<components['schemas']['ReviewProgressResponse'],

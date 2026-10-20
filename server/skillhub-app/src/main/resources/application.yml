@@ -142,6 +142,25 @@ skillhub:
     run-timeout-ms: ${SKILLHUB_AUTHORING_RUN_TIMEOUT_MS:900000}
     # Active runs older than this are swept to TIMED_OUT (crash recovery)
     stale-run-minutes: ${SKILLHUB_AUTHORING_STALE_RUN_MINUTES:30}
+  github-sync:
+    discovery-scheduler-interval-ms: ${SKILLHUB_GITHUB_SYNC_DISCOVERY_SCHEDULER_INTERVAL_MS:60000}
+    candidate-scheduler-interval-ms: ${SKILLHUB_GITHUB_SYNC_CANDIDATE_SCHEDULER_INTERVAL_MS:60000}
+    source-scheduler-interval-ms: ${SKILLHUB_GITHUB_SYNC_SOURCE_SCHEDULER_INTERVAL_MS:60000}
+    upload-ticket-ttl: ${SKILLHUB_GITHUB_SYNC_UPLOAD_TICKET_TTL:PT5M}
+    signed-upload-cleanup-grace: ${SKILLHUB_GITHUB_SYNC_SIGNED_UPLOAD_CLEANUP_GRACE:PT1H}
+    upload-cleanup-interval-ms: ${SKILLHUB_GITHUB_SYNC_UPLOAD_CLEANUP_INTERVAL_MS:300000}
+    staging-capacity-limit-bytes: ${SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES:0}
+    staging-capacity-sample-interval-ms: ${SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_SAMPLE_INTERVAL_MS:3600000}
+    ingestion-validation-lease: ${SKILLHUB_GITHUB_SYNC_INGESTION_VALIDATION_LEASE:PT30M}
+    ingestion-validation-interval-ms: ${SKILLHUB_GITHUB_SYNC_INGESTION_VALIDATION_INTERVAL_MS:5000}
+    publication-lease: ${SKILLHUB_GITHUB_SYNC_PUBLICATION_LEASE:PT4H}
+    publication-interval-ms: ${SKILLHUB_GITHUB_SYNC_PUBLICATION_INTERVAL_MS:5000}
+    service-tokens: ${SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS:}
+    credential-keys: ${SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS:}
+    active-credential-key-version: ${SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION:}
+    lease-duration: ${SKILLHUB_GITHUB_SYNC_LEASE_DURATION:PT5M}
+    repository-check-interval: ${SKILLHUB_GITHUB_SYNC_REPOSITORY_CHECK_INTERVAL:PT24H}
+
   suite:
     # Fail closed for deployment modes whose upgrade topology is unknown. Single-instance
     # distributions explicitly enable this after ruling out mixed application versions.

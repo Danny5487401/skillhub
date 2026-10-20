@@ -219,6 +219,8 @@ test.describe('Rejected version replacement (Real API)', () => {
       await page.screenshot({ path: testInfo.outputPath('author-review-progress-mobile.png'), fullPage: true })
 
       await adminPage.goto(`/dashboard/reviews/${replacementReviewId}`)
+      await adminPage.getByRole('tab', { name: 'Review History', exact: true }).click()
+      await expect(adminPage.getByRole('tab', { name: 'Review History', exact: true })).toHaveAttribute('aria-selected', 'true')
       await expect(adminPage.getByRole('heading', { name: 'Submission History' })).toBeVisible()
       await expect(adminPage.getByText('Attempt 2')).toBeVisible()
       await expect(adminPage.getByText('Attempt 1')).toBeVisible()

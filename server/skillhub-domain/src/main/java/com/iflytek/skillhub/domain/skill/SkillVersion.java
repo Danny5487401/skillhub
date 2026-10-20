@@ -3,6 +3,7 @@ package com.iflytek.skillhub.domain.skill;
 import jakarta.persistence.*;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -38,6 +39,12 @@ public class SkillVersion {
     @Enumerated(EnumType.STRING)
     @Column(name = "requested_visibility", length = 20)
     private SkillVisibility requestedVisibility;
+
+    @Column(name = "github_sync_ingestion_id")
+    private UUID githubSyncIngestionId;
+
+    @Column(name = "github_sync_revision")
+    private Integer githubSyncRevision;
 
     @Column(name = "file_count", nullable = false)
     private Integer fileCount = 0;
@@ -115,6 +122,18 @@ public class SkillVersion {
 
     public SkillVisibility getRequestedVisibility() {
         return requestedVisibility;
+    }
+
+    public UUID getGithubSyncIngestionId() {
+        return githubSyncIngestionId;
+    }
+
+    public Integer getGithubSyncRevision() {
+        return githubSyncRevision;
+    }
+
+    public void setGithubSyncIngestionId(UUID githubSyncIngestionId) {
+        this.githubSyncIngestionId = githubSyncIngestionId;
     }
 
     public Integer getFileCount() {

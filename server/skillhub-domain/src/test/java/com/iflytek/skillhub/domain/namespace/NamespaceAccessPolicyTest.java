@@ -20,6 +20,18 @@ class NamespaceAccessPolicyTest {
     }
 
     @Test
+    void githubCatalogNamespaceIsImmutable() {
+        Namespace namespace = new Namespace("github", "GitHub Skills", "github-sync-publisher");
+        namespace.setType(NamespaceType.CATALOG);
+
+        assertThat(policy.isImmutable(namespace)).isTrue();
+        assertThat(policy.canMutateSettings(namespace)).isFalse();
+        assertThat(policy.canManageMembers(namespace)).isFalse();
+        assertThat(policy.canTransferOwnership(namespace)).isFalse();
+        assertThat(policy.canDelete(namespace, NamespaceRole.OWNER)).isFalse();
+    }
+
+    @Test
     void activeTeamNamespaceAllowsAdminAndOwnerToFreezeButNotMember() {
         Namespace namespace = new Namespace("team-a", "Team A", "owner");
         namespace.setType(NamespaceType.TEAM);

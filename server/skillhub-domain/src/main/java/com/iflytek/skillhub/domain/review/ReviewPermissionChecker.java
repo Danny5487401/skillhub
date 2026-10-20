@@ -67,7 +67,7 @@ public class ReviewPermissionChecker {
         if (hasPlatformReviewRole(platformRoles)) {
             return true;
         }
-        if (namespaceType == NamespaceType.GLOBAL) {
+        if (namespaceType != NamespaceType.TEAM) {
             return false;
         }
 
@@ -140,7 +140,7 @@ public class ReviewPermissionChecker {
     private boolean canSelfReviewNamespace(Long namespaceId,
                                            NamespaceType namespaceType,
                                            Map<Long, NamespaceRole> userNamespaceRoles) {
-        if (namespaceType == NamespaceType.GLOBAL) {
+        if (namespaceType != NamespaceType.TEAM) {
             return false;
         }
 
