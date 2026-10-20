@@ -149,3 +149,29 @@ test('plugin peer copies cannot mask mismatched or absent Host dependency resolu
     }
   }
 });
+
+for (const release of ['0.2.0-rc.2', '0.2.1-rc.2'] as const) {
+  test(`complete ${release} Host and Client graph matches; every mixed release is rejected`, () => {
+    const { packages, clients, check } = fixture();
+    for (const value of packages.values()) if (value.name.startsWith('@deepseek-ai/dsh')) value.version = release;
+    packages.get('@deepseek-ai/cordis')!.version = '4.0.5';
+    packages.get('@deepseek-ai/cordis-plugin-loader')!.version = '1.0.6';
+    packages.get('@deepseek-ai/cordis-plugin-include')!.version = '1.0.10';
+    packages.get('@deepseek-ai/cordis-plugin-timer')!.version = '1.1.7';
+    for (const name of clients.keys()) clients.set(name, { name, version: release });
+    expect(check()).toBe(release);
+    const other = release === '0.2.0-rc.2' ? '0.2.1-rc.2' : '0.2.0-rc.2';
+    for (const value of packages.values()) {
+      if (!value.name.startsWith('@deepseek-ai/dsh')) continue;
+      value.version = other;
+      expect(check).toThrow('local writes are disabled');
+      value.version = release;
+      expect(check()).toBe(release);
+    }
+    for (const name of clients.keys()) {
+      clients.set(name, { name, version: other });
+      expect(check).toThrow('local writes are disabled');
+      clients.set(name, { name, version: release });
+    }
+  });
+}

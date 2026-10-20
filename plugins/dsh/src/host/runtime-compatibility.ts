@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { assertHostDependencies, cordisFamilies, hostDependencyBaseline } from './compatibility.js';
+import { assertHostDependencies, cordisFamilies, hostDependencyBaseline, supportedDshVersions, type SupportedDshVersion } from './compatibility.js';
 
 /** Candidate runtime range, validated at its lower bound and current Node 24 release. */
 export const nodeRuntimeRange = '>=24.2.0 <25';
@@ -60,7 +60,7 @@ export function assertRuntimeCompatibility(
   parentURL: string,
   readClientManifest: (file: string, name: string) => unknown = clientManifest,
   readHostManifest: (file: string) => unknown = file => JSON.parse(readFileSync(file, 'utf8')),
-): void {
+): SupportedDshVersion {
   try {
     assertNodeRuntime();
     const readPackage = (name: string, parent: string) => {
@@ -74,9 +74,12 @@ export function assertRuntimeCompatibility(
     };
     const packages = new Map(Object.keys(runtimePackageBaseline).map(name => [name, readPackage(name, parentURL)]));
     const family = cordisFamilies.find(candidate => Object.entries(candidate).every(([name, version]) => packages.get(name)?.version === version));
-    if (!family) throw new Error('Runtime Cordis family mismatch');
+    const release = packages.get('@deepseek-ai/dsh')?.version;
+    if (!supportedDshVersions.some(version => version === release)) throw new Error('Unsupported DSH release');
+    if (!family || (release === '0.2.1-rc.2' && family['@deepseek-ai/cordis'] !== '4.0.5')) throw new Error('Runtime Cordis family mismatch');
     for (const [name, version] of Object.entries({ ...runtimePackageBaseline, ...family })) {
-      if (packages.get(name)?.version !== version) throw new Error('Runtime package mismatch');
+      const expected = name.startsWith('@deepseek-ai/dsh') ? release : version;
+      if (packages.get(name)?.version !== expected) throw new Error('Runtime package mismatch');
     }
     // Check the Host's own dependency lookup, not just the plugin's peer copies.
     // A nested peer can otherwise hide an unsupported Host dependency graph.
@@ -92,8 +95,9 @@ export function assertRuntimeCompatibility(
       if (!file) throw new Error('Client module unavailable');
       const manifest = readClientManifest(file, name);
       if (!manifest || typeof manifest !== 'object' || !('name' in manifest) || !('version' in manifest)
-        || manifest.name !== name || manifest.version !== '0.2.0-rc.2') throw new Error('Client package mismatch');
+        || manifest.name !== name || manifest.version !== release) throw new Error('Client package mismatch');
     }
+    return release as SupportedDshVersion;
   } catch {
     throw new Error('Host runtime baseline could not be verified; local writes are disabled.');
   }

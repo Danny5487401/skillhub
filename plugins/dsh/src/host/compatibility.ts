@@ -1,6 +1,9 @@
 import { createRequire } from 'node:module';
 
-/** Exact Host dependency baseline; a match is necessary, not full product acceptance. */
+export const supportedDshVersions = ['0.2.0-rc.2', '0.2.1-rc.2'] as const;
+export type SupportedDshVersion = typeof supportedDshVersions[number];
+
+/** Retained Host dependency baseline; a match is necessary, not full product acceptance. */
 export const hostDependencyBaseline = {
   '@deepseek-ai/cordis': '4.0.4',
   '@deepseek-ai/dsh-fs': '0.2.0-rc.2',
@@ -23,16 +26,19 @@ export const cordisFamilies = [
 ] as const;
 
 const require = createRequire(import.meta.url);
-export function assertHostDependencies(readManifest: (name: string) => unknown = name => require(`${name}/package.json`)): void {
-  for (const [name, version] of Object.entries(hostDependencyBaseline)) {
+export function assertHostDependencies(readManifest: (name: string) => unknown = name => require(`${name}/package.json`)): SupportedDshVersion {
+  let release: unknown;
+  for (const name of Object.keys(hostDependencyBaseline)) {
     let manifest: unknown;
     try { manifest = readManifest(name); }
     catch { throw new Error('Host dependency baseline could not be verified; local writes are disabled.'); }
     if (!manifest || typeof manifest !== 'object' || !('name' in manifest) || !('version' in manifest)
       || manifest.name !== name || (name === '@deepseek-ai/cordis'
         ? !cordisFamilies.some(family => family['@deepseek-ai/cordis'] === manifest.version)
-        : manifest.version !== version)) {
+        : !supportedDshVersions.some(candidate => candidate === manifest.version) || (release !== undefined && manifest.version !== release))) {
       throw new Error('Host dependency baseline does not match; local writes are disabled.');
     }
+    if (name !== '@deepseek-ai/cordis') release = manifest.version;
   }
+  return release as SupportedDshVersion;
 }

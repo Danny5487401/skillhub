@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
-import { assertHostDependencies, hostDependencyBaseline } from '../src/host/compatibility.js';
+import { assertHostDependencies, hostDependencyBaseline, supportedDshVersions } from '../src/host/compatibility.js';
 
 test('Host dependency guard matches exact peer versions and installed development artifacts', async () => {
   const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   expect(manifest.peerDependenciesMeta).toEqual({ '@deepseek-ai/dsh-user-questions': { optional: true } });
-  expect(Object.fromEntries(Object.entries(manifest.peerDependencies).filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional))).toEqual({ ...hostDependencyBaseline, '@deepseek-ai/cordis': '4.0.4 || 4.0.5' });
+  expect(Object.fromEntries(Object.entries(manifest.peerDependencies).filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional))).toEqual(Object.fromEntries(Object.keys(hostDependencyBaseline).map(name => [name, name === '@deepseek-ai/cordis' ? '4.0.4 || 4.0.5' : supportedDshVersions.join(' || ')])));
   expect(() => assertHostDependencies()).not.toThrow();
 });
 
@@ -19,3 +19,14 @@ test('every mismatched, missing or malformed Host package fails closed without e
   }
   expect(() => assertHostDependencies(() => { throw new Error('/private/host/path'); })).toThrow('could not be verified');
 });
+
+for (const release of supportedDshVersions) {
+  test(`coherent Host dependencies accept ${release} and reject mixed releases`, () => {
+    const manifest = (name: string) => ({ name, version: name === '@deepseek-ai/cordis' ? '4.0.5' : release });
+    expect(assertHostDependencies(manifest)).toBe(release);
+    for (const target of Object.keys(hostDependencyBaseline).filter(name => name !== '@deepseek-ai/cordis')) {
+      expect(() => assertHostDependencies(name => name === target
+        ? { name, version: release === '0.2.0-rc.2' ? '0.2.1-rc.2' : '0.2.0-rc.2' } : manifest(name))).toThrow('does not match');
+    }
+  });
+}
