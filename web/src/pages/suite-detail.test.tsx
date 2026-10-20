@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SkillSuite, SkillSuiteVersion } from '@/api/types'
@@ -13,8 +13,15 @@ const mocks = vi.hoisted(() => ({
   submit: { mutateAsync: vi.fn(), isPending: false },
   suiteLabels: [] as Array<{ slug: string; type: string; displayName: string }>,
   entryGuideCalls: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
 }))
 const originalRuntimeConfig = window.__SKILLHUB_RUNTIME_CONFIG__
+const originalExecCommand = Object.getOwnPropertyDescriptor(document, 'execCommand')
+
+vi.mock('@/shared/lib/toast', () => ({
+  toast: { success: mocks.toastSuccess, error: mocks.toastError },
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
@@ -119,6 +126,12 @@ describe('SuiteDetailPage', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    if (originalExecCommand) {
+      Object.defineProperty(document, 'execCommand', originalExecCommand)
+    } else {
+      Reflect.deleteProperty(document, 'execCommand')
+    }
     mocks.suiteLabels = []
     mocks.versions = []
     window.__SKILLHUB_RUNTIME_CONFIG__ = originalRuntimeConfig
@@ -219,5 +232,56 @@ describe('SuiteDetailPage', () => {
     rerender(<SuiteDetailPage />)
     expect(screen.queryByRole('button', { name: 'suite.installSuite' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'suite.copyInstallCommand' })).toBeNull()
+  })
+
+  it.each(['suite.installSuite', 'suite.copyInstallCommand'])('copies the exact install command over HTTP via %s', async (button) => {
+    mocks.detail = { data: suite(), isLoading: false, error: null }
+    vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: undefined } }))
+    const execCommand = vi.fn(() => {
+      const selected = document.querySelector('textarea')
+      expect(selected).toBeInstanceOf(HTMLTextAreaElement)
+      expect(selected?.value).toBe(
+        `skillhub suite install @global/care-workflow --version 1.0.0 --registry ${window.location.origin}`,
+      )
+      return true
+    })
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand })
+
+    render(<SuiteDetailPage />)
+    fireEvent.click(screen.getByRole('button', { name: button }))
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('suite.commandCopied'))
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(document.querySelector('textarea')).toBeNull()
+  })
+
+  it('copies with the secure clipboard API when available', async () => {
+    mocks.detail = { data: suite(), isLoading: false, error: null }
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: { writeText } } }))
+
+    render(<SuiteDetailPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'suite.copyInstallCommand' }))
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('suite.commandCopied'))
+    expect(writeText).toHaveBeenCalledWith(
+      `skillhub suite install @global/care-workflow --version 1.0.0 --registry ${window.location.origin}`,
+    )
+  })
+
+  it.each(['http', 'secure'])('shows a failure instead of success when the %s clipboard refuses copying', async (context) => {
+    mocks.detail = { data: suite(), isLoading: false, error: null }
+    vi.stubGlobal('navigator', Object.create(navigator, {
+      clipboard: { value: context === 'http' ? undefined : { writeText: vi.fn().mockRejectedValue(new Error('Copy denied')) } },
+    }))
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn(() => false) })
+
+    render(<SuiteDetailPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'suite.copyInstallCommand' }))
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('suite.actionFailed', expect.any(String)))
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(document.querySelector('textarea')).toBeNull()
   })
 })

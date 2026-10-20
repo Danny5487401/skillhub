@@ -13,6 +13,7 @@ import { useSuiteDetail, useSuiteVersions, useSubmitSuite } from '@/shared/hooks
 import { NamespaceBadge } from '@/shared/components/namespace-badge'
 import { SkeletonList } from '@/shared/components/skeleton-loader'
 import { toast } from '@/shared/lib/toast'
+import { copyToClipboard } from '@/shared/lib/clipboard'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
@@ -43,8 +44,12 @@ export function SuiteDetailPage() {
 
   const copyCommand = async () => {
     if (!command) return
-    await navigator.clipboard.writeText(command)
-    toast.success(t('suite.commandCopied'))
+    try {
+      await copyToClipboard(command)
+      toast.success(t('suite.commandCopied'))
+    } catch (copyError) {
+      toast.error(t('suite.actionFailed'), copyError instanceof Error ? copyError.message : '')
+    }
   }
 
   const submit = async () => {
