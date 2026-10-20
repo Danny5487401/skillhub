@@ -1,0 +1,142 @@
+.github-sync-surface {
+  --sync-teal: #0b7169;
+  --sync-blue: #2859a8;
+  --sync-amber: #9a5a08;
+  --sync-red: #b03a35;
+  --sync-ink: hsl(var(--card-foreground));
+  --sync-subtle: hsl(var(--muted-foreground));
+  --sync-line: hsl(var(--border));
+  --sync-canvas: hsl(var(--secondary));
+  --sync-panel: hsl(var(--card));
+  --sync-teal-soft: #e5f3ef;
+  --sync-blue-soft: #e9f0fb;
+  --sync-amber-soft: #fff2d9;
+  --sync-red-soft: #fcebea;
+  color: var(--sync-ink);
+}
+
+.dark .github-sync-surface {
+  --sync-teal: #72d7c8;
+  --sync-blue: #9dbcf7;
+  --sync-amber: #f3c477;
+  --sync-red: #f2a39d;
+  --sync-teal-soft: #173d39;
+  --sync-blue-soft: #253954;
+  --sync-amber-soft: #42341f;
+  --sync-red-soft: #482c2e;
+}
+
+.github-sync-surface .sync-hero {
+  border-bottom: 1px solid var(--sync-line);
+  padding: 0 0 1.25rem;
+}
+
+.github-sync-surface .sync-section {
+  border: 1px solid var(--sync-line);
+  border-radius: 0.25rem;
+  background: var(--sync-panel);
+  box-shadow: none !important;
+}
+
+.github-sync-surface .sync-section:hover { border-color: var(--sync-line); }
+
+.github-sync-surface .sync-section table thead {
+  background: var(--sync-canvas);
+  color: var(--sync-ink);
+}
+
+.github-sync-surface .sync-section-header {
+  border-bottom: 1px solid var(--sync-line);
+  padding: 1rem 1.25rem;
+}
+
+.github-sync-surface .sync-ledger-row {
+  display: grid;
+  gap: 0.75rem;
+  align-items: center;
+  border-top: 1px solid var(--sync-line);
+  padding: 1rem 1.25rem;
+}
+
+.github-sync-surface .sync-ledger-row:first-child { border-top: 0; }
+.github-sync-surface .sync-ledger-row:hover { background: var(--sync-canvas); }
+
+.github-sync-surface .sync-rail {
+  border-left: 3px solid var(--sync-blue);
+  background: var(--sync-canvas);
+}
+
+.github-sync-surface .sync-rail[data-tone='teal'] { border-color: var(--sync-teal); }
+.github-sync-surface .sync-rail[data-tone='amber'] { border-color: var(--sync-amber); }
+.github-sync-surface .sync-rail[data-tone='red'] { border-color: var(--sync-red); }
+
+.github-sync-surface .sync-state {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--sync-line);
+  border-radius: 0.2rem;
+  background: var(--sync-canvas);
+  padding: 0.2rem 0.45rem;
+  color: var(--sync-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.github-sync-surface .sync-state[data-tone='teal'] { border-color: var(--sync-teal); background: var(--sync-teal-soft); color: var(--sync-teal); }
+.github-sync-surface .sync-state[data-tone='blue'] { border-color: var(--sync-blue); background: var(--sync-blue-soft); color: var(--sync-blue); }
+.github-sync-surface .sync-state[data-tone='amber'] { border-color: var(--sync-amber); background: var(--sync-amber-soft); color: var(--sync-amber); }
+.github-sync-surface .sync-state[data-tone='red'] { border-color: var(--sync-red); background: var(--sync-red-soft); color: var(--sync-red); }
+
+.github-sync-surface .sync-action {
+  height: 1.875rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+}
+
+.github-sync-surface input:not([type='checkbox']):not([type='radio']),
+.github-sync-surface select {
+  height: 2.125rem;
+  border: 1px solid var(--sync-line);
+  border-radius: 0.2rem;
+  background: var(--sync-panel);
+  box-shadow: none;
+}
+
+.github-sync-surface textarea {
+  border: 1px solid var(--sync-line);
+  border-radius: 0.2rem;
+  background: var(--sync-panel);
+  box-shadow: none;
+}
+
+.github-sync-surface input:focus-visible,
+.github-sync-surface select:focus-visible,
+.github-sync-surface textarea:focus-visible {
+  border-color: var(--sync-teal);
+  outline: 2px solid var(--sync-teal);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.github-sync-surface .sync-preview {
+  border-left: 3px solid var(--sync-blue);
+  background: var(--sync-canvas);
+}
+
+.github-sync-surface .sync-tabs {
+  border-bottom: 1px solid var(--sync-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.github-sync-surface .sync-tabs [data-state='active'] {
+  border-bottom: 3px solid var(--sync-teal);
+  border-radius: 0;
+  color: var(--sync-teal);
+  box-shadow: none;
+}
+
+@media (min-width: 640px) {
+  .github-sync-surface .sync-ledger-row { grid-template-columns: minmax(0, 1fr) auto; }
+}

@@ -118,6 +118,10 @@ secrets:
   scannerLlmApiKey: ""
   scannerLlmBaseUrl: ""
   scannerLlmModel: ""
+  githubSyncServiceToken: ""
+  # 格式：v1=<32 字节密钥的 Base64>。轮换时保留旧版本并追加新版本。
+  githubSyncCredentialKeys: ""
+  githubSyncActiveCredentialKeyVersion: ""
 
 # ============================================================================
 # PostgreSQL 配置（Bitnami）
@@ -385,6 +389,44 @@ server:
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
+
+# 公开 GitHub Skill 采集服务；默认不创建任务执行 Pod。
+githubSync:
+  enabled: false
+  # S3/MinIO 暂存前缀容量预算（字节）；启用同步前按部署存储能力设置正值。
+  stagingCapacityLimitBytes: 0
+  image:
+    registry: ""
+    tag: ""
+  # 与 Java 的 SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS 使用同一服务密钥。
+  # 在 secrets.githubSyncServiceToken 或 existingSecret 中配置。
+  discoveryWorkers: 1
+  repositoryWorkers: 1
+  pollInterval: 5s
+  maxPagesPerLease: 20
+  maxTreeRequests: 100
+  maxTreeEntries: 100000
+  maxWorkspaceBytes: 536870912
+  totalWorkspaceBytes: 536870912
+  minFreeBytes: 134217728
+  tmpfsSizeLimit: 768Mi
+  # S3 模式需填写上传票据指向的内部存储主机及端口，例如 minio:9000。
+  allowedS3Hosts: ""
+  httpProxy: ""
+  httpsProxy: ""
+  noProxy: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+  imagePullSecrets: []
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 # ============================================================================
 # Web 配置

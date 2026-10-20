@@ -105,7 +105,7 @@ class RequestLoggingFilterTest {
     }
 
     @Test
-    void doFilterInternal_redactsOAuthCallbackQueryParameters() throws Exception {
+    void doFilterInternal_omitsOAuthCallbackQueryParameters() throws Exception {
         RequestLoggingFilter filter = new RequestLoggingFilter();
         attachAppender();
 
@@ -119,11 +119,43 @@ class RequestLoggingFilterTest {
                 .filter(entry -> entry.contains("GET /login/oauth2/code/feishu"))
                 .findFirst()
                 .orElseThrow();
-        assertThat(message).contains("code=[REDACTED]");
-        assertThat(message).contains("state=[REDACTED]");
-        assertThat(message).contains("scope=contact:user.base:readonly");
-        assertThat(message).doesNotContain("authorization-code");
-        assertThat(message).doesNotContain("csrf-state");
+        assertThat(message).doesNotContain("?", "code=", "state=", "scope=",
+                "authorization-code", "csrf-state");
+    }
+
+    @Test
+    void doFilterInternal_skipsGithubCredentialRoute() throws Exception {
+        RequestLoggingFilter filter = new RequestLoggingFilter();
+        attachAppender();
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "GET", "/api/v1/admin/github-sync/credentials");
+        request.addHeader("Authorization", "Bearer header-secret");
+        request.setQueryString("token=credential-value&github_token=another-value&api_key=third-value"
+                + "&authorization=query-secret&service_token=machine-secret&page=1");
+
+        filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+
+        assertThat(loggedMessages()).isEmpty();
+    }
+
+    @Test
+    void doFilterInternal_omitsUntrustedQueryAndUserAgent() throws Exception {
+        RequestLoggingFilter filter = new RequestLoggingFilter();
+        attachAppender();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/skills");
+        request.addHeader("Authorization", "Bearer synthetic-auth-secret");
+        request.addHeader("User-Agent", "SKILL.md full-content-marker synthetic-agent-secret");
+        request.addHeader("Content-Type", "application/json; synthetic-content-secret");
+        request.setQueryString("custom=synthetic-query-secret&synthetic-key-secret=value&page=1");
+
+        filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> {});
+
+        String message = loggedMessages().getFirst();
+        assertThat(message).contains("GET /api/v1/skills");
+        assertThat(message).doesNotContain("?", "synthetic-auth-secret",
+                "synthetic-agent-secret", "synthetic-content-secret", "synthetic-query-secret",
+                "synthetic-key-secret",
+                "full-content-marker", "page=1");
     }
 
     @Test

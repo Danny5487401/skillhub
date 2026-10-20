@@ -86,6 +86,17 @@ public class GovernanceWorkflowAppService {
         return reviewPortalAppService.listReviews(status, namespaceId, page, size, sortDirection, userId, userNsRoles);
     }
 
+    public PageResponse<ReviewTaskResponse> listSyncReviews(String status,
+                                                            Long namespaceId,
+                                                            int page,
+                                                            int size,
+                                                            String sortDirection,
+                                                            String userId,
+                                                            Map<Long, NamespaceRole> userNsRoles) {
+        return reviewPortalAppService.listSyncReviews(
+                status, namespaceId, page, size, sortDirection, userId, userNsRoles);
+    }
+
     public PageResponse<ReviewTaskResponse> listPendingReviews(Long namespaceId,
                                                                int page,
                                                                int size,
@@ -135,6 +146,21 @@ public class GovernanceWorkflowAppService {
         );
     }
 
+    public ReviewSkillDetailResponse getReviewSkillDetail(Long reviewTaskId,
+                                                          String userId,
+                                                          Map<Long, NamespaceRole> userNsRoles,
+                                                          boolean includeDocumentation) {
+        if (includeDocumentation) {
+            return getReviewSkillDetail(reviewTaskId, userId, userNsRoles);
+        }
+        return reviewSkillDetailAppService.getReviewSkillDetail(
+                reviewTaskId,
+                userId,
+                userNsRoles != null ? userNsRoles : Map.of(),
+                includeDocumentation
+        );
+    }
+
     public SkillDownloadService.DownloadResult downloadReviewPackage(Long reviewTaskId,
                                                                      String userId,
                                                                      Map<Long, NamespaceRole> userNsRoles) {
@@ -153,11 +179,20 @@ public class GovernanceWorkflowAppService {
                                             String filePath,
                                             String userId,
                                             Map<Long, NamespaceRole> userNsRoles) {
+        return getReviewFileContent(reviewTaskId, filePath, userId, userNsRoles, false);
+    }
+
+    public InputStream getReviewFileContent(Long reviewTaskId,
+                                            String filePath,
+                                            String userId,
+                                            Map<Long, NamespaceRole> userNsRoles,
+                                            boolean preview) {
         return reviewSkillDetailAppService.getReviewFileContent(
                 reviewTaskId,
                 filePath,
                 userId,
-                userNsRoles != null ? userNsRoles : Map.of()
+                userNsRoles != null ? userNsRoles : Map.of(),
+                preview
         );
     }
 

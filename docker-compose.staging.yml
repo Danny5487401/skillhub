@@ -34,6 +34,10 @@ services:
       SKILLHUB_STORAGE_S3_REGION: us-east-1
       SKILLHUB_STORAGE_S3_FORCE_PATH_STYLE: "true"
       SKILLHUB_STORAGE_S3_AUTO_CREATE_BUCKET: "true"
+      SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS: ${SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS:-}
+      SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS: ${SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS:-}
+      SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION: ${SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION:-}
+      SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES: ${SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES:-0}
       BOOTSTRAP_ADMIN_ENABLED: "true"
       BOOTSTRAP_ADMIN_USER_ID: staging-admin
       BOOTSTRAP_ADMIN_USERNAME: admin
@@ -84,3 +88,32 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+
+  github-sync:
+    profiles: [github-sync]
+    build: ./github-sync-go
+    image: skillhub-github-sync:staging
+    environment:
+      SKILLHUB_GITHUB_SYNC_JAVA_URL: http://server:8080/internal/github-sync/v1
+      SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN: ${SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN:-}
+      SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES: ${SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES:-536870912}
+      SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES: ${SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES:-536870912}
+      SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES: ${SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES:-134217728}
+      SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS: minio:9000
+      HTTP_PROXY: ${SKILLHUB_GITHUB_SYNC_HTTP_PROXY:-}
+      HTTPS_PROXY: ${SKILLHUB_GITHUB_SYNC_HTTPS_PROXY:-}
+      NO_PROXY: ${SKILLHUB_GITHUB_SYNC_NO_PROXY:-}
+    tmpfs:
+      - /var/lib/skillhub-github-sync:size=${SKILLHUB_GITHUB_SYNC_TMPFS_BYTES:-805306368},mode=1777
+    mem_limit: ${SKILLHUB_GITHUB_SYNC_MEMORY_LIMIT_BYTES:-1610612736}
+    depends_on:
+      server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-Y", "off", "-qO-", "http://127.0.0.1:8090/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

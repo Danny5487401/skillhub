@@ -24,6 +24,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URLEncoder;
@@ -40,6 +42,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Read-side domain service for skill detail, version browsing, and packaged
@@ -51,6 +54,8 @@ import java.util.stream.Collectors;
 @Service
 public class SkillQueryService {
     private final SkillOwnerAccessPolicy ownerAccess;
+
+    private static final int MAX_REVIEW_PREVIEW_BYTES = 256 * 1024;
 
     private final NamespaceRepository namespaceRepository;
     private final SkillRepository skillRepository;
@@ -603,6 +608,10 @@ public class SkillQueryService {
     }
 
     public ReviewSkillSnapshotDTO getReviewSkillSnapshot(Long skillVersionId) {
+        return getReviewSkillSnapshot(skillVersionId, true);
+    }
+
+    public ReviewSkillSnapshotDTO getReviewSkillSnapshot(Long skillVersionId, boolean includeDocumentation) {
         SkillVersion activeVersion = skillVersionRepository.findById(skillVersionId)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", skillVersionId));
         Skill skill = skillRepository.findById(activeVersion.getSkillId())
@@ -629,11 +638,18 @@ public class SkillQueryService {
                                 Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(SkillVersion::getId, Comparator.reverseOrder()))
                 .toList();
-        List<SkillFile> files = availableFiles(activeVersion.getId());
-        String documentationPath = resolveDocumentationPath(files);
-        String documentationContent = documentationPath == null
-                ? null
-                : readTextContent(findFile(activeVersion, documentationPath));
+        // The review file tree uses stored package metadata. Checking every object here would
+        // turn one page load into up to MAX_FILE_COUNT remote storage requests.
+        List<SkillFile> files = skillFileRepository.findByVersionId(activeVersion.getId());
+        SkillFile documentationFile = Stream.of("README.md", "SKILL.md")
+                .map(path -> files.stream().filter(file -> file.getFilePath().equals(path)).findFirst().orElse(null))
+                .filter(Objects::nonNull)
+                .filter(file -> !includeDocumentation || objectStorageService.exists(file.getStorageKey()))
+                .findFirst()
+                .orElse(null);
+        String documentationPath = documentationFile == null ? null : documentationFile.getFilePath();
+        String documentationContent = !includeDocumentation || documentationFile == null
+                ? null : readTextContent(documentationFile);
         SkillVersion publishedVersion = versions.stream()
                 .filter(version -> version.getStatus() == SkillVersionStatus.PUBLISHED)
                 .findFirst()
@@ -829,11 +845,32 @@ public class SkillQueryService {
         return readFileContent(file);
     }
 
+    /** Reads at most one review preview into memory before returning any response bytes. */
+    public InputStream getFilePreviewContentByVersionId(Long versionId, String filePath) {
+        SkillVersion version = skillVersionRepository.findById(versionId)
+                .orElseThrow(() -> new DomainBadRequestException("error.skill.version.notFound", versionId));
+        SkillFile file = findFile(version, filePath);
+        if (file.getFileSize() != null && file.getFileSize() > MAX_REVIEW_PREVIEW_BYTES) {
+            throw new DomainBadRequestException("error.skill.file.previewTooLarge", filePath);
+        }
+        try (InputStream content = readFileContent(file)) {
+            byte[] bytes = content.readNBytes(MAX_REVIEW_PREVIEW_BYTES + 1);
+            if (bytes.length > MAX_REVIEW_PREVIEW_BYTES) {
+                throw new DomainBadRequestException("error.skill.file.previewTooLarge", filePath);
+            }
+            return new ByteArrayInputStream(bytes);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read skill file preview", e);
+        }
+    }
+
     private SkillFile findFile(SkillVersion skillVersion, String filePath) {
-        return availableFiles(skillVersion.getId()).stream()
-                .filter(f -> f.getFilePath().equals(filePath))
-                .findFirst()
+        SkillFile file = skillFileRepository.findByVersionIdAndFilePath(skillVersion.getId(), filePath)
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.file.notFound", filePath));
+        if (!objectStorageService.exists(file.getStorageKey())) {
+            throw new DomainBadRequestException("error.skill.file.notFound", filePath);
+        }
+        return file;
     }
 
     private List<SkillFile> availableFiles(Long versionId) {
@@ -991,7 +1028,8 @@ public class SkillQueryService {
             String currentUserId,
             Map<Long, NamespaceRole> userNsRoles,
             Set<String> platformRoles) {
-        if (namespace.getType() == NamespaceType.GLOBAL) {
+        if (namespace.getType() != NamespaceType.TEAM) {
+
             return false;
         }
         if (namespace.getStatus() != NamespaceStatus.ACTIVE || skill.getStatus() != SkillStatus.ACTIVE) {

@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import type { SecurityAuditDisplayState, SecurityVerdict } from './types'
+import { cn } from '@/shared/lib/utils'
 
 interface VerdictBadgeProps {
   verdict?: SecurityVerdict
   displayState?: SecurityAuditDisplayState
+  compact?: boolean
 }
 
-export function VerdictBadge({ verdict, displayState }: VerdictBadgeProps) {
+export function VerdictBadge({ verdict, displayState, compact = false }: VerdictBadgeProps) {
   const { t } = useTranslation()
   const state = displayState ?? verdict
 
@@ -31,7 +33,7 @@ export function VerdictBadge({ verdict, displayState }: VerdictBadgeProps) {
 
   return (
     <span
-      className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${styles[state]}`}
+      className={cn('rounded-full px-2.5 py-0.5 text-sm font-medium', styles[state], compact && 'rounded px-2 text-xs')}
     >
       {label}
     </span>

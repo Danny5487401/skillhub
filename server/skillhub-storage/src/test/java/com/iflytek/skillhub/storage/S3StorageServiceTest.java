@@ -13,6 +13,9 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.CreateBucketResponse;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -126,6 +129,64 @@ class S3StorageServiceTest {
         verify(client, never()).headBucket(any(HeadBucketRequest.class));
         verify(client, never()).createBucket(any(CreateBucketRequest.class));
         verify(client).getObject(any(GetObjectRequest.class));
+    }
+
+    @Test
+    void prefixUsageCountsActualObjectsAcrossPagesWithoutCreatingBucket() {
+        S3Client client = mock(S3Client.class);
+        S3Presigner presigner = mock(S3Presigner.class);
+        when(client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenReturn(ListObjectsV2Response.builder().isTruncated(true)
+                        .nextContinuationToken("page-2")
+                        .contents(S3Object.builder().key("github-sync/staging/a.zip").size(30L).build())
+                        .build())
+                .thenReturn(ListObjectsV2Response.builder().isTruncated(false)
+                        .contents(S3Object.builder().key("github-sync/staging/b.zip").size(50L).build())
+                        .build());
+        TestableS3StorageService service = new TestableS3StorageService(properties(false), client, presigner);
+        service.init();
+
+        assertThat(service.listPrefixUsage("github-sync/staging/", 10_000))
+                .contains(new StoragePrefixUsage(80, 2, true));
+        verify(client, times(2)).listObjectsV2(any(ListObjectsV2Request.class));
+        verify(client, never()).createBucket(any(CreateBucketRequest.class));
+    }
+
+    @Test
+    void prefixUsageReportsIncompleteWhenObjectBudgetIsReached() {
+        S3Client client = mock(S3Client.class);
+        S3Presigner presigner = mock(S3Presigner.class);
+        when(client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenReturn(ListObjectsV2Response.builder().isTruncated(true)
+                        .nextContinuationToken("page-2")
+                        .contents(S3Object.builder().key("github-sync/staging/a.zip").size(30L).build())
+                        .build());
+        TestableS3StorageService service = new TestableS3StorageService(properties(false), client, presigner);
+        service.init();
+
+        assertThat(service.listPrefixUsage("github-sync/staging/", 1))
+                .contains(new StoragePrefixUsage(30, 1, false));
+        verify(client, times(1)).listObjectsV2(any(ListObjectsV2Request.class));
+    }
+
+    @Test
+    void missingBucketIsEmptyOnlyBeforeTheFirstStagedWrite() {
+        S3Client client = mock(S3Client.class);
+        S3Presigner presigner = mock(S3Presigner.class);
+        when(client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenThrow(NoSuchBucketException.builder().message("missing").build());
+        when(client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
+        TestableS3StorageService service = new TestableS3StorageService(properties(true), client, presigner);
+        service.init();
+
+        assertThat(service.listPrefixUsage("github-sync/staging/", 10))
+                .contains(new StoragePrefixUsage(0, 0, true));
+        byte[] content = "hello".getBytes(StandardCharsets.UTF_8);
+        service.putObject("github-sync/staging/demo.zip", new ByteArrayInputStream(content),
+                content.length, "application/zip");
+        assertThatThrownBy(() -> service.listPrefixUsage("github-sync/staging/", 10))
+                .isInstanceOf(StorageAccessException.class);
     }
 
     @Test

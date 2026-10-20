@@ -30,15 +30,23 @@ public class LocalFileStorageService implements ObjectStorageService {
      */
     @Override
     public void putObject(String key, InputStream data, long size, String contentType) {
+        Path tmp = null;
         try {
             Path target = resolve(key);
             Files.createDirectories(target.getParent());
-            Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
+            tmp = target.resolveSibling(target.getFileName() + ".tmp");
             try (OutputStream out = Files.newOutputStream(tmp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 data.transferTo(out);
             }
             Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException e) { throw new StorageAccessException("putObject", key, e); }
+        } catch (IOException e) {
+            throw new StorageAccessException("putObject", key, e);
+        } finally {
+            if (tmp != null) {
+                try { Files.deleteIfExists(tmp); }
+                catch (IOException ignored) { /* Best effort after a failed or completed move. */ }
+            }
+        }
     }
 
     /**

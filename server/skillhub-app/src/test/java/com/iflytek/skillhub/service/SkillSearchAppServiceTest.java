@@ -175,6 +175,7 @@ class SkillSearchAppServiceTest {
         second.setLatestVersionId(102L);
 
         SkillVersion firstVersion = publishedVersion(10L, 101L, "1.0.0");
+        setField(firstVersion, "githubSyncRevision", 2);
         SkillVersion secondVersion = publishedVersion(11L, 102L, "2.0.0");
 
         Namespace namespace = new Namespace("team-a", "Team A", "owner-1");
@@ -191,7 +192,9 @@ class SkillSearchAppServiceTest {
 
         assertEquals(2, response.items().size());
         assertEquals("1.0.0", response.items().get(0).publishedVersion().version());
+        assertEquals(2, response.items().get(0).publishedVersion().syncRevision());
         assertEquals("2.0.0", response.items().get(1).publishedVersion().version());
+        assertNull(response.items().get(1).publishedVersion().syncRevision());
         verify(skillVersionRepository, times(1)).findByIdIn(List.of(101L, 102L));
         verify(skillVersionRepository, times(0))
                 .findBySkillIdInAndStatus(List.of(10L, 11L), com.iflytek.skillhub.domain.skill.SkillVersionStatus.PUBLISHED);

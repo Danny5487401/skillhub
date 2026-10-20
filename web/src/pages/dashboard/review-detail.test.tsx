@@ -1,14 +1,18 @@
+/** @vitest-environment jsdom */
+
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const navigateMock = vi.fn()
+const route = vi.hoisted(() => ({ id: '13' }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
   useParams: (options?: { from?: string }) => (
     options?.from === '/dashboard/namespaces/$slug/reviews/$id'
-      ? { id: '13', slug: 'team-alpha' }
-      : { id: '13' }
+      ? { id: route.id, slug: 'team-alpha' }
+      : { id: route.id }
   ),
 }))
 
@@ -117,11 +121,22 @@ const useReviewAttemptsMock = vi.fn<() => unknown>(() => ({
   isLoading: false,
   isError: false,
 }))
+const useSuiteDetailMock = vi.fn<() => unknown>(() => ({ data: undefined, isLoading: false, refetch: vi.fn() }))
+
+vi.mock('@/shared/hooks/use-suite-queries', () => ({
+  useSuiteDetail: () => useSuiteDetailMock(),
+}))
+
+vi.mock('@/shared/components/confirm-dialog', () => ({
+  ConfirmDialog: ({ open, title }: { open: boolean; title: string }) =>
+    open ? <div role="dialog">{title}</div> : null,
+}))
 
 vi.mock('@/features/review/use-review-detail', () => ({
   useReviewDetail: () => useReviewDetailMock(),
   useReviewSkillDetail: () => useReviewSkillDetailMock(),
   useReviewAttempts: () => useReviewAttemptsMock(),
+  useGithubSyncReviewSource: () => ({ data: undefined, isLoading: false, isError: false }),
   useApproveReview: () => ({
     mutate: vi.fn(),
     isPending: false,
@@ -152,12 +167,15 @@ import { NamespaceReviewDetailPage, ReviewDetailPage } from './review-detail'
 
 describe('ReviewDetailPage', () => {
   beforeEach(() => {
+    route.id = '13'
     navigateMock.mockReset()
     reviewFileMock.mockClear()
     userMock.platformRoles = ['SKILL_ADMIN']
     useReviewDetailMock.mockReset()
     useReviewSkillDetailMock.mockReset()
     useReviewAttemptsMock.mockReset()
+    useSuiteDetailMock.mockReset()
+    useSuiteDetailMock.mockReturnValue({ data: undefined, isLoading: false, refetch: vi.fn() })
     useReviewAttemptsMock.mockReturnValue({
       data: [{
         id: 13,
@@ -231,13 +249,57 @@ describe('ReviewDetailPage', () => {
     })
   })
 
-  it('keeps the page in a single-column flow and leaves the skill detail behind a collapsed section', () => {
+  afterEach(cleanup)
+
+  it('clears comment, reject form and confirmation when the route switches to another review', () => {
+    const view = render(<ReviewDetailPage />)
+    fireEvent.change(screen.getByLabelText('review.commentLabel'), { target: { value: 'previous review reason' } })
+    fireEvent.click(screen.getByRole('button', { name: /^review\.reject$/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'review.confirmReject' }))
+    expect(screen.getByRole('dialog').textContent).toContain('review.rejectTitle')
+
+    route.id = '14'
+    view.rerender(<ReviewDetailPage />)
+
+    expect((screen.getByLabelText('review.commentLabel') as HTMLTextAreaElement).value).toBe('')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: /^review\.reject$/ })).not.toBeNull()
+  })
+
+  it('shows a failed safety summary after review metadata fails instead of a permanent spinner', () => {
+    useReviewSkillDetailMock.mockReturnValue({ data: undefined, isLoading: false, error: new Error('offline') })
+    const html = renderToStaticMarkup(<ReviewDetailPage />)
+    expect(html).toContain('review.scanLoadFailed')
+    expect(html).not.toContain('review.scanLoading')
+  })
+
+  it('requires a loaded Suite snapshot before approving and offers a retry on failure', () => {
+    const review = (useReviewDetailMock() as { data: Record<string, unknown> }).data
+    useReviewDetailMock.mockReturnValue({ data: { ...review, subjectType: 'SUITE_VERSION', subjectSlug: 'suite-demo' }, isLoading: false })
+    const refetch = vi.fn()
+    useSuiteDetailMock.mockReturnValue({ data: undefined, isLoading: false, refetch })
+
+    const view = render(<ReviewDetailPage />)
+    expect((screen.getByRole('button', { name: 'review.approve' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'suite.reviewSnapshotRetry' }))
+    expect(refetch).toHaveBeenCalledOnce()
+
+    useSuiteDetailMock.mockReturnValue({ data: { members: [] }, isLoading: false, refetch })
+    view.rerender(<ReviewDetailPage />)
+    expect((screen.getByRole('button', { name: 'review.approve' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('renders the shared review overview and content tab in a single-column flow', () => {
     const html = renderToStaticMarkup(<ReviewDetailPage />)
 
-    expect(html).toContain('max-w-6xl mx-auto flex')
-    expect(html).toContain('aria-expanded="false"')
-    expect(html).toContain('review.attemptHistory')
-    expect(html).toContain('reviewProgress.attemptNumber')
+    expect(html).toContain('mx-auto flex min-h-[calc(100dvh-5.25rem)] w-full max-w-[1440px]')
+    expect(html).toContain('review.tabContent')
+    expect(html).toContain('review.tabChanges')
+    expect(html).toContain('review.tabHistory')
+    expect(html).toContain('sticky bottom-0')
+    expect(html).toContain('review.commentLabel')
+    expect(html).toContain('review.approve')
+    expect(html).not.toContain('<aside')
   })
 
   it('renders not-found state when the review record is missing', () => {
@@ -425,6 +487,36 @@ describe('ReviewDetailPage', () => {
     const html = renderToStaticMarkup(<ReviewDetailPage />)
     expect(html).toContain('review.avatarOverrideReason')
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>review.approve<\/button>/)
+  })
+
+  it('keeps visibility changes and their approval gate inside the unified detail tabs', () => {
+    metadataDetail()
+    const review = useReviewDetailMock() as { data: Record<string, unknown> }
+    const detail = useReviewSkillDetailMock() as { data: Record<string, unknown> }
+    useReviewDetailMock.mockReturnValue({ ...review, data: { ...review.data, previousVisibility: 'PRIVATE', requestedVisibility: 'PUBLIC' } })
+    useReviewSkillDetailMock.mockReturnValue({ ...detail, data: { ...detail.data, avatarChange: null,
+      visibilityChange: { previousVisibility: 'PRIVATE', requestedVisibility: 'PUBLIC', scanStatus: 'PROCESSING', readyForApproval: false },
+    } })
+    render(<ReviewDetailPage />)
+    expect(screen.getByText('skillVisibility.PRIVATE → skillVisibility.PUBLIC')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'review.approve' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('tab', { name: 'review.tabSourceSecurity' })).toBeTruthy()
+    expect(screen.getByLabelText('review.commentLabel')).toBeTruthy()
+  })
+
+  it('enables the shared avatar decision only after the machine override explanation is entered', () => {
+    metadataDetail()
+    const detail = useReviewSkillDetailMock() as { data: { avatarChange: Record<string, unknown> } }
+    useReviewSkillDetailMock.mockReturnValue({ ...detail, data: { ...detail.data,
+      avatarChange: { ...detail.data.avatarChange, machineStatus: 'BLOCKED' },
+    } })
+    render(<ReviewDetailPage />)
+    const approve = screen.getByRole('button', { name: 'review.approve' })
+    expect(approve.hasAttribute('disabled')).toBe(true)
+    fireEvent.change(screen.getByLabelText('review.commentLabel'), { target: { value: 'Reviewed the candidate and accept the exception.' } })
+    expect(approve.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(approve)
+    expect(screen.getByRole('dialog').textContent).toBe('review.approveTitle')
   })
 
 })

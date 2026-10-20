@@ -24,7 +24,8 @@ server/
 ├── skillhub-auth                # OAuth2 认证 + RBAC + 授权判定
 ├── skillhub-search              # 搜索 SPI + PostgreSQL 全文实现
 ├── skillhub-storage             # 对象存储抽象 + LocalFile/S3 双实现
-└── skillhub-infra               # JPA、通用工具、配置基础
+├── skillhub-infra               # JPA、通用工具、配置基础
+└── skillhub-github-sync         # GitHub 来源与同步控制面模型；仍在 Java 应用进程内
 ```
 
 ## 4. 模块依赖方向（依赖倒置，禁止领域层依赖基础设施）
@@ -35,6 +36,7 @@ infra → domain          # infra 实现 domain 定义的 Repository 接口
 auth → domain           # auth 引用 UserAccount 等领域实体
 search → domain         # search 引用 SkillSearchDocument 等领域模型
 storage → (独立抽象)     # 纯 SPI，不依赖 domain
+app, infra → github-sync → domain, storage
 ```
 
 核心原则：
@@ -115,6 +117,7 @@ web/
 skillhub/
 ├── server/               # Maven 多模块 Java 后端
 │   └── Dockerfile        # 后端多阶段构建
+├── github-sync-go/       # 独立 Go 采集服务（实施中）
 ├── web/                  # React 前端
 │   ├── Dockerfile        # 前端多阶段构建
 │   ├── nginx.conf.template        # Nginx 运行时模板

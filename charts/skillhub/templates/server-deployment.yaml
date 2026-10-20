@@ -79,6 +79,27 @@ spec:
               value: {{ $profiles | quote }}
             - name: SKILLHUB_SUITE_REVIEW_WRITES_ENABLED
               value: {{ .Values.server.suiteReviewWritesEnabled | quote }}
+            - name: SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES
+              value: {{ .Values.githubSync.stagingCapacityLimitBytes | quote }}
+            {{- if .Values.githubSync.enabled }}
+            - name: SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skillhub.secretName" . }}
+                  key: github-sync-service-token
+            {{- end }}
+            - name: SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skillhub.secretName" . }}
+                  key: github-sync-credential-keys
+                  optional: true
+            - name: SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "skillhub.secretName" . }}
+                  key: github-sync-active-credential-key-version
+                  optional: true
 
             # Database
             - name: SPRING_DATASOURCE_URL

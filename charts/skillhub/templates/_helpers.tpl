@@ -70,6 +70,15 @@ app.kubernetes.io/component: scanner
 app.kubernetes.io/component: scanner
 {{- end }}
 
+{{- define "skillhub.githubSync.labels" -}}
+{{ include "skillhub.labels" . }}
+app.kubernetes.io/component: github-sync
+{{- end }}
+{{- define "skillhub.githubSync.selectorLabels" -}}
+{{ include "skillhub.selectorLabels" . }}
+app.kubernetes.io/component: github-sync
+{{- end }}
+
 {{- /* Bitnami PostgreSQL subchart 完整名称 */}}
 {{- define "skillhub.postgresql.fullname" -}}
 {{- if .Values.postgresql.fullnameOverride -}}

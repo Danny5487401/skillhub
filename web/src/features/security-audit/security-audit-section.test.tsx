@@ -160,8 +160,7 @@ describe('SecurityAuditSection', () => {
 
     const html = renderToStaticMarkup(<SecurityAuditSection skillId={1} versionId={10} />)
 
-    // The Card renders with p-8 class
-    expect(html).toContain('p-8')
+    expect(html).toContain('space-y-5 p-5 md:p-6')
   })
 
   it('renders a plain div wrapper when bare is true', () => {

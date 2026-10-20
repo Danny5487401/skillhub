@@ -16,12 +16,24 @@ public interface ReviewTaskRepository {
     ReviewTask save(ReviewTask reviewTask);
     Optional<ReviewTask> findById(Long id);
     Optional<ReviewTask> findBySkillVersionIdAndStatus(Long skillVersionId, ReviewTaskStatus status);
+    default List<ReviewTask> findBySkillIdAndStatus(Long skillId, ReviewTaskStatus status) {
+        throw new UnsupportedOperationException("Skill-scoped review queries are not supported");
+    }
     default Optional<ReviewTask> findBySubjectTypeAndSubjectVersionIdAndStatus(
             ReviewSubjectType subjectType, Long subjectVersionId, ReviewTaskStatus status) {
         throw new UnsupportedOperationException("Typed review subjects are not supported by this repository");
     }
     Page<ReviewTask> findByStatus(ReviewTaskStatus status, Pageable pageable);
     Page<ReviewTask> findByNamespaceIdAndStatus(Long namespaceId, ReviewTaskStatus status, Pageable pageable);
+    default Page<ReviewTask> findByOriginTypeAndStatus(ReviewOriginType originType,
+                                                       ReviewTaskStatus status, Pageable pageable) {
+        throw new UnsupportedOperationException("Origin-specific review queries are not supported");
+    }
+    default Page<ReviewTask> findByNamespaceIdAndOriginTypeAndStatus(Long namespaceId,
+                                                                      ReviewOriginType originType,
+                                                                      ReviewTaskStatus status, Pageable pageable) {
+        throw new UnsupportedOperationException("Origin-specific review queries are not supported");
+    }
     Page<ReviewTask> findBySubmittedByAndStatus(String submittedBy, ReviewTaskStatus status, Pageable pageable);
     List<ReviewTask> findBySubmittedByAndSkillIdAndSkillVersionOrderBySubmittedAtDescIdDesc(
             String submittedBy, Long skillId, String skillVersion);

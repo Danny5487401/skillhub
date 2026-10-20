@@ -11,13 +11,14 @@ interface FileTreeProps {
   onFileClick?: (node: FileTreeNode) => void
   /** When true, renders without the outer border/header (for embedding in a Card) */
   bare?: boolean
+  compact?: boolean
 }
 
 /**
  * Displays a hierarchical file tree with expandable directories.
  * Converts flat file list into tree structure and renders with proper nesting.
  */
-export function FileTree({ files, onFileClick, bare }: FileTreeProps) {
+export function FileTree({ files, onFileClick, bare, compact = false }: FileTreeProps) {
   const { t } = useTranslation()
 
   // Cache tree structure to avoid rebuilding on every render
@@ -41,6 +42,7 @@ export function FileTree({ files, onFileClick, bare }: FileTreeProps) {
           node={node}
           onFileClick={handleFileClick}
           defaultExpanded={false}
+          compact={compact}
         />
       ))}
     </div>

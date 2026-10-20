@@ -73,8 +73,10 @@ public class ScanTaskOutboxDispatcher {
     private void handlePublishFailure(ScanTaskOutbox outbox, Exception error) {
         Instant now = Instant.now(clock);
         int nextAttempt = outbox.getRetryCount() + 1;
+        String errorType = error.getClass().getSimpleName();
+        String failureCode = "SCAN_TASK_PUBLISH_FAILED:" + errorType;
         if (nextAttempt >= maxAttempts) {
-            outbox.markFailed(now, error.toString());
+            outbox.markFailed(now, failureCode);
             repository.save(outbox);
             versionRepository.findById(outbox.getVersionId())
                     .filter(version -> version.getStatus() == SkillVersionStatus.SCANNING)
@@ -82,15 +84,15 @@ public class ScanTaskOutboxDispatcher {
                         version.setStatus(SkillVersionStatus.SCAN_FAILED);
                         versionRepository.save(version);
                     });
-            log.error("Scan task publish failed permanently: taskId={}, versionId={}, attempts={}",
-                    outbox.getTaskId(), outbox.getVersionId(), outbox.getRetryCount(), error);
+            log.error("Scan task publish failed permanently: taskId={}, versionId={}, attempts={}, errorType={}",
+                    outbox.getTaskId(), outbox.getVersionId(), outbox.getRetryCount(), errorType);
             return;
         }
         Duration delay = retryDelay(nextAttempt);
-        outbox.markRetry(now, delay, error.toString());
+        outbox.markRetry(now, delay, failureCode);
         repository.save(outbox);
-        log.warn("Failed to publish scan task; will retry taskId={}, retryCount={}, nextDelay={}",
-                outbox.getTaskId(), outbox.getRetryCount(), delay, error);
+        log.warn("Failed to publish scan task; will retry taskId={}, retryCount={}, nextDelay={}, errorType={}",
+                outbox.getTaskId(), outbox.getRetryCount(), delay, errorType);
     }
 
     @Scheduled(cron = "0 20 2 * * ?")

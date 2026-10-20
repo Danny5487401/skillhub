@@ -32,7 +32,8 @@ public record SkillDetailResponse(
         List<SkillSuiteReferenceResponse> entryForSuites,
         PageResponse<SkillSuiteReferenceResponse> memberOfSuites,
         String avatarUrl,
-        boolean ownerReadOnly
+        boolean ownerReadOnly,
+        GithubSkillSourceResponse githubSource
 ) {
     public SkillDetailResponse(Long id,
         String slug,
@@ -62,6 +63,6 @@ public record SkillDetailResponse(
         List<SkillSuiteReferenceResponse> entryForSuites,
         PageResponse<SkillSuiteReferenceResponse> memberOfSuites,
         String avatarUrl) {
-        this(id, slug, displayName, ownerId, ownerDisplayName, summary, visibility, status, downloadCount, starCount, subscriptionCount, ratingAvg, ratingCount, hidden, namespace, labels, canManageLifecycle, canSubmitPromotion, canInteract, canReport, headlineVersion, publishedVersion, ownerPreviewVersion, ownerPreviewReviewComment, resolutionMode, entryForSuites, memberOfSuites, avatarUrl, false);
+        this(id, slug, displayName, ownerId, ownerDisplayName, summary, visibility, status, downloadCount, starCount, subscriptionCount, ratingAvg, ratingCount, hidden, namespace, labels, canManageLifecycle, canSubmitPromotion, canInteract, canReport, headlineVersion, publishedVersion, ownerPreviewVersion, ownerPreviewReviewComment, resolutionMode, entryForSuites, memberOfSuites, avatarUrl, false, null);
     }
 }

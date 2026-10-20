@@ -1,0 +1,16 @@
+package com.iflytek.skillhub.githubsync;
+
+/** Controlled internal protocol failure; carries no upstream body or credential details. */
+public class GithubOfficialProtocolException extends RuntimeException {
+    private final int status;
+    private final String code;
+
+    public GithubOfficialProtocolException(int status, String code) {
+        super(code);
+        this.status = status;
+        this.code = code;
+    }
+
+    public int status() { return status; }
+    public String code() { return code; }
+}

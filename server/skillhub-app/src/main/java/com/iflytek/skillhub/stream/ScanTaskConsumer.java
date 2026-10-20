@@ -116,6 +116,11 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
     }
 
     @Override
+    protected Exception observationError(Exception error) {
+        return new IllegalStateException("Security scan failed: " + error.getClass().getSimpleName());
+    }
+
+    @Override
     protected boolean shouldDeferFailure(ScanTaskPayload payload, Exception error) {
         return error instanceof ConcurrentScanInProgressException
                 || (isScannerUnavailable(error) && !hasUnavailableRecoveryExpired(payload));
@@ -131,8 +136,9 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
 
     @Override
     protected String finalFailureReason(ScanTaskPayload payload, Exception error, int retryCount) {
-        log.error("Security scan failed after retries: taskId={}, versionId={}, scanner={}, retryCount={}",
-                payload.taskId(), payload.versionId(), payload.scannerType(), retryCount, error);
+        log.error("Security scan failed after retries: taskId={}, versionId={}, scanner={}, retryCount={}, errorType={}",
+                payload.taskId(), payload.versionId(), payload.scannerType(), retryCount,
+                error.getClass().getSimpleName());
         if (isScannerUnavailable(error) && hasUnavailableRecoveryExpired(payload)) {
             return "Security scanner did not recover before the configured timeout. "
                     + "Retry after scanner availability is restored.";
@@ -144,8 +150,9 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
     protected void markDeferred(ScanTaskPayload payload, Exception error) {
         cleanupRetryTempPath(payload);
         log.warn("Scanner unavailable; keeping task pending for later recovery: taskId={}, versionId={}, "
-                        + "taskAge={}, maxUnavailableAge={}, reason={}",
-                payload.taskId(), payload.versionId(), taskAge(payload), maxUnavailableAge, error.getMessage());
+                        + "taskAge={}, maxUnavailableAge={}, errorType={}",
+                payload.taskId(), payload.versionId(), taskAge(payload), maxUnavailableAge,
+                error.getClass().getSimpleName());
     }
 
     @Override
@@ -276,18 +283,24 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
                 retryCount,
                 payload.sourceDescription());
         cleanupRetryTempPath(payload);
-        scanTaskProducer.publishScanTask(new ScanTask(
-                payload.taskId(),
-                payload.versionId(),
-                payload.skillPath(),
-                payload.bundleKey(),
-                null,
-                System.currentTimeMillis(),
-                Map.of(
-                        "retryCount", String.valueOf(retryCount),
-                        "scannerType", payload.scannerType().getValue()
-                )
-        ));
+        try {
+            scanTaskProducer.publishScanTask(new ScanTask(
+                    payload.taskId(),
+                    payload.versionId(),
+                    payload.skillPath(),
+                    payload.bundleKey(),
+                    null,
+                    System.currentTimeMillis(),
+                    Map.of(
+                            "retryCount", String.valueOf(retryCount),
+                            "scannerType", payload.scannerType().getValue()
+                    )
+            ));
+        } catch (RuntimeException exception) {
+            // The original stream entry remains pending for reclaim. Do not expose a
+            // Redis exception that may include serialized task fields to logs or traces.
+            throw new IllegalStateException("Security scan retry publication failed");
+        }
     }
 
     private String resolveWorkingSkillPath(ScanTaskPayload payload) {
@@ -310,10 +323,10 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
                     payload.taskId(), payload.versionId(), payload.bundleKey(), tempFile);
             return tempFile.toString();
         } catch (Exception e) {
-            log.error("Failed to stage security scan bundle: taskId={}, versionId={}, bundleKey={}",
-                    payload.taskId(), payload.versionId(), payload.bundleKey(), e);
+            log.error("Failed to stage security scan bundle: taskId={}, versionId={}, bundleKey={}, errorType={}",
+                    payload.taskId(), payload.versionId(), payload.bundleKey(), e.getClass().getSimpleName());
             cleanupTempPath(payload.workingSkillPath());
-            throw new IllegalStateException("Failed to stage scan bundle: " + payload.bundleKey(), e);
+            throw new IllegalStateException("Failed to stage scan bundle");
         }
     }
 
@@ -346,7 +359,8 @@ public class ScanTaskConsumer extends AbstractStreamConsumer<ScanTaskConsumer.Sc
                 Files.delete(path);
             }
         } catch (Exception e) {
-            log.warn("Failed to cleanup temp path: {}", skillPath, e);
+            log.warn("Failed to cleanup temp path: {}, errorType={}",
+                    skillPath, e.getClass().getSimpleName());
         }
     }
 

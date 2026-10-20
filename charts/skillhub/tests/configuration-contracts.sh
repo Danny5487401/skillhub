@@ -75,6 +75,23 @@ assert_rejected web-dns-empty-label --set-string web.clusterDomain=cluster..loca
 assert_rejected web-dns-invalid-label --set-string web.clusterDomain=-cluster.local
 
 render verify "$CHART_DIR" >"$TMP_DIR/default.yaml"
+if grep -Fq 'name: verify-skillhub-github-sync' "$TMP_DIR/default.yaml"; then
+  fail "GitHub sync deployment must stay disabled by default"
+fi
+grep -A1 -F 'name: SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES' "$TMP_DIR/default.yaml" \
+  | grep -Fq 'value: "0"' \
+  || fail "server must receive the default GitHub sync staging capacity budget"
+render github-sync "$CHART_DIR" \
+  --set githubSync.enabled=true \
+  --set githubSync.stagingCapacityLimitBytes=1073741824 \
+  --set-string secrets.githubSyncServiceToken=github-sync-service-token-at-least-32-characters \
+  >"$TMP_DIR/github-sync.yaml"
+grep -Fq 'name: github-sync-skillhub-github-sync' "$TMP_DIR/github-sync.yaml" \
+  || fail "enabled GitHub sync must render its deployment"
+grep -A1 -F 'name: SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES' "$TMP_DIR/github-sync.yaml" \
+  | grep -Fq 'value: "1073741824"' \
+  || fail "server must receive the configured GitHub sync staging capacity budget"
+assert_rejected github-sync-negative-capacity --set githubSync.stagingCapacityLimitBytes=-1
 grep -Fq 'name: POSTGRESQL_MAX_CONNECTIONS' "$TMP_DIR/default.yaml"
 grep -Fq 'value: "verify-postgresql"' "$TMP_DIR/default.yaml"
 grep -Fq 'value: "verify-redis-master"' "$TMP_DIR/default.yaml"

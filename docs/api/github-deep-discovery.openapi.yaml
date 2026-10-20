@@ -1,0 +1,1175 @@
+openapi: 3.0.3
+info:
+  title: SkillHub Official GitHub Deep Discovery Admin API
+  version: 0.1.0-draft
+  description: 配置及管理员读模型已实现；全新迁移、隔离HTTP、生成SDK、浏览器及1万合成仓库串行基线通过；公网召回和并发资源验收未完成。仅SUPER_ADMIN，固定公共@github范围。enabled保存管理员意图，不证明执行器正在运行；配套MD定义语义。
+x-implementation-status: implemented-controlled-runtime-verified
+servers:
+- url: /api/v1/admin/github-sync/deep-discovery
+security:
+- SessionCookie: []
+paths:
+  /configuration:
+    get:
+      operationId: getOfficialGithubDiscoveryConfiguration
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters: &id001 []
+      responses:
+        '200':
+          description: 配置已读取或持久保存；使用ApiResponse，不表示探索已执行。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: updateOfficialGithubDiscoveryConfiguration
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      responses:
+        '200':
+          description: 配置已读取或持久保存；使用ApiResponse，不表示探索已执行。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: expectedVersion 与当前版本不符；读取最新配置后由管理员合并，禁止自动覆盖。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationUpdate'
+  /summary:
+    get:
+      operationId: getOfficialGithubDiscoverySummary
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+        description: UTC区间[from,until)，from<until，最长90天；这是查询上限，不是预算参数。
+      - name: until
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+        description: UTC区间[from,until)，from<until，最长90天；这是查询上限，不是预算参数。
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /progress:
+    get:
+      operationId: getOfficialGithubDiscoveryProgress
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters: *id001
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /repositories:
+    get:
+      operationId: listOfficialGithubDiscoveryRepositories
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - $ref: '#/components/parameters/AsOf'
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+        description: 服务端搜索owner/name，空白忽略，不支持正则或原始查询。
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/RepositoryStatus'
+      - name: channel
+        in: query
+        schema:
+          $ref: '#/components/schemas/Channel'
+      - name: paused
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoriesResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /repositories/{repositoryId}:
+    get:
+      operationId: getOfficialGithubDiscoveryRepository
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryDetailResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 仓库不在官方探索范围或不可见。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /repositories/{repositoryId}/provenance:
+    get:
+      operationId: listOfficialGithubDiscoveryProvenance
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - $ref: '#/components/parameters/RepositoryId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - $ref: '#/components/parameters/AsOf'
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 仓库不在官方探索范围或不可见。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /repositories/{repositoryId}/paths:
+    get:
+      operationId: listOfficialGithubDiscoveryPaths
+      x-implementation-status: implemented-controlled-runtime-verified
+      parameters:
+      - $ref: '#/components/parameters/RepositoryId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - $ref: '#/components/parameters/AsOf'
+      responses:
+        '200':
+          description: 成功响应使用 ApiResponse。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathsResponse'
+        '400':
+          description: 参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 无平台权限或CSRF无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 仓库不在官方探索范围或不可见。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: SESSION
+      description: 沿用项目会话认证，部署cookie名以运行配置为准。
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000
+        default: 0
+      description: 从0开始；page*size <= 100000，超过返回400，缩小筛选范围。
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    AsOf:
+      name: asOf
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: 首屏缺省为服务端当前时间；翻页复用响应值。未来时间或格式无效返回400。
+    RepositoryId:
+      name: repositoryId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    Csrf:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      schema:
+        type: string
+      description: 与现有会话及CSRF cookie匹配。
+  schemas:
+    Channel:
+      type: string
+      enum:
+      - REPOSITORY_METADATA
+      - README
+      - OWNER_EXPANSION
+    BudgetProfile:
+      type: string
+      enum:
+      - ECONOMY
+      - BALANCED
+      - ACCELERATED
+    Exclusion:
+      type: object
+      required:
+      - kind
+      - value
+      properties:
+        kind:
+          type: string
+          enum:
+          - OWNER
+          - REPOSITORY
+        value:
+          type: string
+          minLength: 1
+          maxLength: 140
+      additionalProperties: false
+      description: OWNER 为 login，REPOSITORY 为 owner/name；规范化小写并去重，拒绝通配符、URL 和原始查询语法。
+    ConfigurationUpdate:
+      type: object
+      required:
+      - expectedVersion
+      - enabled
+      - budgetProfile
+      - exclusions
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        enabled: &id002
+          type: boolean
+          default: false
+        budgetProfile: &id003
+          $ref: '#/components/schemas/BudgetProfile'
+        exclusions: &id004
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/Exclusion'
+      additionalProperties: false
+    Configuration:
+      type: object
+      required:
+      - version
+      - enabled
+      - budgetProfile
+      - exclusions
+      - strategyVersion
+      - updatedAt
+      - updatedBy
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        enabled: *id002
+        budgetProfile: *id003
+        exclusions: *id004
+        strategyVersion:
+          type: string
+          nullable: true
+          description: 尚未装载官方策略时为null；当前配置切片不伪造策略版本。
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+          nullable: true
+      description: 初始enabled=false、budgetProfile=BALANCED、exclusions=[]、version=1；strategyVersion尚未装载时null，updatedBy为用户字符串ID，初始为空。
+    Wait:
+      type: object
+      required:
+      - reason
+      - affectedWork
+      - continuingWork
+      - retryAt
+      - recoveryCondition
+      - action
+      properties:
+        reason:
+          type: string
+          enum:
+          - DISABLED
+          - EXCLUDED
+          - BUDGET
+          - PRIMARY_RATE_LIMIT
+          - SECONDARY_COOLDOWN
+          - QUOTA_COOLDOWN
+          - CREDENTIAL_UNAVAILABLE
+          - CANDIDATE_CAPACITY
+          - REVIEW_BACKPRESSURE
+          - WORKER_UNAVAILABLE
+          - CAPABILITY_UNAVAILABLE
+          - COVERAGE_GAP
+        affectedWork:
+          type: array
+          maxItems: 4
+          items:
+            type: string
+            enum:
+            - NEW_DISCOVERY
+            - CANDIDATE_VALIDATION
+            - PACKAGE_ACQUISITION
+            - SOURCE_UPDATE
+        continuingWork:
+          type: array
+          maxItems: 4
+          items:
+            type: string
+            enum:
+            - NEW_DISCOVERY
+            - CANDIDATE_VALIDATION
+            - PACKAGE_ACQUISITION
+            - SOURCE_UPDATE
+        retryAt:
+          type: string
+          format: date-time
+          nullable: true
+        recoveryCondition:
+          type: string
+          maxLength: 500
+        action:
+          type: string
+          enum:
+          - EDIT_CONFIGURATION
+          - MANAGE_CREDENTIALS
+          - MANAGE_ADMISSION
+          - OPEN_REVIEW
+          - CHECK_WORKER
+          nullable: true
+      description: retryAt 仅表示预计可再次领取，不承诺执行或恢复；没有可靠时间返回 null。
+    WorkerAvailability:
+      type: object
+      required:
+      - state
+      - lastSeenAt
+      - compatibleInstanceCount
+      - observedAt
+      properties:
+        state:
+          type: string
+          enum:
+          - AVAILABLE
+          - UNREACHABLE
+          - NEVER_SEEN
+          - INCOMPATIBLE
+        lastSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+        compatibleInstanceCount:
+          type: integer
+          format: int64
+          minimum: 0
+        observedAt:
+          type: string
+          format: date-time
+      description: 按官方探索所需能力汇总实例；心跳说明联系，不证明处理健康。老式无实例心跳不能证明官方能力在线。
+    RecentMetrics:
+      type: object
+      required:
+      - from
+      - until
+      - newCandidateRepositories
+      - firstValidRepositories
+      - newSkills
+      - updatedVersions
+      - complete
+      - availableSince
+      properties:
+        from:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        newCandidateRepositories:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        firstValidRepositories:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        newSkills:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        updatedVersions:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        complete:
+          type: boolean
+        availableSince:
+          type: string
+          format: date-time
+          nullable: true
+      description: '[from,until)内的持久事件及事件发生时归因。已有候选后补官方出处不计新增；newSkills仅真正新建Skill，updatedVersions仅已有Skill新版本。历史缺事件返回null及complete=false。'
+    CurrentMetrics:
+      type: object
+      required:
+      - pendingRepositoryChecks
+      - pendingReviewVersions
+      - observedAt
+      properties:
+        pendingRepositoryChecks:
+          type: integer
+          format: int64
+          minimum: 0
+        pendingReviewVersions:
+          type: integer
+          format: int64
+          minimum: 0
+        observedAt:
+          type: string
+          format: date-time
+      description: 当前积压，与近期时间筛选无关；待审按版本去重。范围为曾由官方探索命中的 @github 仓库，并非独占贡献。
+    Summary:
+      type: object
+      required:
+      - configurationVersion
+      - strategyVersion
+      - state
+      - observedAt
+      - worker
+      - recent
+      - current
+      - waits
+      - recentRunIds
+      properties:
+        configurationVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        strategyVersion:
+          type: string
+          nullable: true
+        state:
+          type: string
+          enum:
+          - DISABLED
+          - RUNNING
+          - WAITING
+          - IDLE
+        observedAt:
+          type: string
+          format: date-time
+        worker:
+          $ref: '#/components/schemas/WorkerAvailability'
+        recent:
+          $ref: '#/components/schemas/RecentMetrics'
+        current:
+          $ref: '#/components/schemas/CurrentMetrics'
+        waits:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/Wait'
+        recentRunIds:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            format: uuid
+      description: 独立聚合，不随列表翻页重算。RUNNING 需有效租约和近期进度证据；enabled 与 worker 分开显示。
+    QuotaObservation:
+      type: object
+      required:
+      - resource
+      - subjectKey
+      - state
+      - remaining
+      - observedAt
+      - validUntil
+      - retryAt
+      properties:
+        resource:
+          type: string
+          enum:
+          - CORE
+          - SEARCH
+          - GRAPHQL
+          - OTHER
+        subjectKey:
+          type: string
+          maxLength: 128
+          nullable: true
+        state:
+          type: string
+          enum:
+          - OBSERVED
+          - UNKNOWN
+          - EXHAUSTED
+          - COOLING_DOWN
+          - AUTH_INVALID
+        remaining:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        observedAt:
+          type: string
+          format: date-time
+          nullable: true
+        validUntil:
+          type: string
+          format: date-time
+          nullable: true
+        retryAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: subjectKey 为服务端不透明额度主体标识，不含 token/身份明文；同主体不累加。缺失或过期 remaining=null，不视为零。
+    ChannelProgress:
+      type: object
+      required:
+      - channel
+      - state
+      - completedShards
+      - pendingShards
+      - gapShards
+      - lastProgressAt
+      - waits
+      properties:
+        channel:
+          $ref: '#/components/schemas/Channel'
+        state:
+          type: string
+          enum:
+          - RUNNING
+          - WAITING
+          - IDLE
+          - DISABLED
+        completedShards:
+          type: integer
+          format: int64
+          minimum: 0
+        pendingShards:
+          type: integer
+          format: int64
+          minimum: 0
+        gapShards:
+          type: integer
+          format: int64
+          minimum: 0
+        lastProgressAt:
+          type: string
+          format: date-time
+          nullable: true
+        waits:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/Wait'
+      description: 当前活动策略及未结束退休查询的工作单元；搜索按叶子分片，作者按一层查询。新待调度查询计待处理单元。根替换后数字可下降，不是累计历史或GitHub总量；不提供覆盖百分比。
+    Progress:
+      type: object
+      required:
+      - strategyVersion
+      - observedAt
+      - channels
+      - quotas
+      - quotaObservationsTruncated
+      properties:
+        strategyVersion:
+          type: string
+          nullable: true
+        observedAt:
+          type: string
+          format: date-time
+        channels:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ChannelProgress'
+        quotas:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/QuotaObservation'
+        quotaObservationsTruncated:
+          type: boolean
+    RepositoryStatus:
+      type: string
+      enum:
+      - PENDING
+      - VALIDATING
+      - VALID
+      - NO_VALID_SKILL
+      - VALIDATION_FAILED
+      - UNREACHABLE
+    RepositorySummary:
+      type: object
+      required:
+      - repositoryId
+      - owner
+      - name
+      - firstDiscoveredAt
+      - lastDiscoveredAt
+      - status
+      - channels
+      - sourceId
+      - paused
+      - waitReason
+      - candidateId
+      properties:
+        repositoryId:
+          type: integer
+          format: int64
+          minimum: 1
+        owner:
+          type: string
+        name:
+          type: string
+        firstDiscoveredAt:
+          type: string
+          format: date-time
+          description: 候选全局first_seen_at，后补官方出处不重写。按firstDiscoveredAt DESC,candidateId
+            DESC排序。
+        lastDiscoveredAt:
+          type: string
+          format: date-time
+          description: 最近官方出处命中时间，不使用仓库验证更新时间。
+        status:
+          $ref: '#/components/schemas/RepositoryStatus'
+        channels:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Channel'
+        sourceId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        paused:
+          type: boolean
+        waitReason:
+          type: string
+          maxLength: 64
+          nullable: true
+        candidateId:
+          type: integer
+          format: int64
+          minimum: 1
+      description: status 为本提案的展示投影，不直接扩展现有候选数据库枚举。
+    RepositoryDetail:
+      type: object
+      required:
+      - repository
+      - lastCheckedAt
+      - nextEligibleAt
+      - notImportedReason
+      - waits
+      - latestRunId
+      - historyAvailableSince
+      properties:
+        repository:
+          $ref: '#/components/schemas/RepositorySummary'
+        lastCheckedAt:
+          type: string
+          format: date-time
+          description: 保留记录中最近仓库任务结算时间，包含失败尝试；不是最近完整成功扫描。
+          nullable: true
+        nextEligibleAt:
+          type: string
+          format: date-time
+          nullable: true
+        notImportedReason:
+          type: string
+          enum:
+          - NOT_CHECKED
+          - NO_VALID_SKILL
+          - VALIDATION_FAILED
+          - WAITING_CAPACITY
+          - EXCLUDED
+          - DISABLED
+          - SOURCE_UNREADABLE
+          - REVIEW_PENDING
+          - CONFLICT
+          - UNKNOWN
+          nullable: true
+        waits:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/Wait'
+        latestRunId:
+          type: string
+          format: uuid
+          nullable: true
+        historyAvailableSince:
+          type: string
+          format: date-time
+          nullable: true
+      description: 按需返回摘要；出处、路径与审核记录分别分页，不内嵌完整历史。sourceId/runId 导航复用现有管理接口，缺失或已清理详情按404处理。
+    Provenance:
+      type: object
+      required:
+      - id
+      - channel
+      - strategyVersion
+      - queryId
+      - queryVersion
+      - shardId
+      - runId
+      - firstSeenAt
+      - lastSeenAt
+      - seedRepositoryId
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          $ref: '#/components/schemas/Channel'
+        strategyVersion:
+          type: string
+          nullable: true
+        queryId:
+          type: string
+          format: uuid
+          description: 持久查询身份，长期出处按candidate+queryId唯一；不依赖task保留。
+        queryVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        shardId:
+          type: string
+          format: uuid
+          nullable: true
+        runId:
+          type: string
+          format: uuid
+          nullable: true
+        firstSeenAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        seedRepositoryId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+      description: 长期出处按候选+持久queryId合并first/lastSeen，不按shard/seed无限增行。shardId/seedRepositoryId/runId仅最近有界摘要，过期可空；OWNER_EXPANSION执行时必须有有效种子。
+    PathResult:
+      type: object
+      required:
+      - skillPath
+      - outcome
+      - reasonCode
+      - skillId
+      - versionId
+      - reviewId
+      - runId
+      - observedAt
+      properties:
+        skillPath:
+          type: string
+          maxLength: 1024
+        outcome:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - UNCHANGED
+          - IGNORED
+          - RETRYABLE_FAILURE
+          - TERMINAL_FAILURE
+        reasonCode:
+          type: string
+          maxLength: 100
+          nullable: true
+        skillId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        versionId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        reviewId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        runId:
+          type: string
+          format: uuid
+          nullable: true
+        observedAt:
+          type: string
+          format: date-time
+      description: 每条为该仓库路径的最近结果；审核导航仅在存在记录且有权限时返回。无正文、归档、原始错误或完整差异。
+    Envelope:
+      type: object
+      required:
+      - code
+      - msg
+      - timestamp
+      - requestId
+      properties:
+        code:
+          type: integer
+        msg:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          nullable: true
+      description: 沿用 ApiResponse；成功 code=0。
+    Error:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            type: object
+            required: []
+            properties: {}
+            nullable: true
+      description: 沿用ApiResponse数值业务码（当前配置接口对应HTTP状态码）；HTTP400参数错误，401未登录，403权限或CSRF，409配置版本冲突。msg按locale翻译，客户端不得匹配文本。
+    ConfigurationResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/Configuration'
+    SummaryResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/Summary'
+    ProgressResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/Progress'
+    RepositoryDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/RepositoryDetail'
+    RepositoriesPage:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/RepositorySummary'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+        asOf:
+          type: string
+          format: date-time
+      description: 扩展既有 PageResponse 的 items/total/page/size；asOf 固定列表插入截止时间，非数据库历史快照。
+    RepositoriesResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/RepositoriesPage'
+    ProvenancePage:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Provenance'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+        asOf:
+          type: string
+          format: date-time
+      description: 扩展既有 PageResponse 的 items/total/page/size；asOf 固定列表插入截止时间，非数据库历史快照。
+    ProvenanceResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/ProvenancePage'
+    PathsPage:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - size
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PathResult'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          format: int64
+          minimum: 0
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+        asOf:
+          type: string
+          format: date-time
+      description: 扩展既有 PageResponse 的 items/total/page/size；asOf 固定列表插入截止时间，非数据库历史快照。
+    PathsResponse:
+      allOf:
+      - $ref: '#/components/schemas/Envelope'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/PathsPage'

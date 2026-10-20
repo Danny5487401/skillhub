@@ -16,7 +16,7 @@
 | id | bigint | 主键 |
 | slug | varchar(64) | URL 友好标识 |
 | display_name | varchar(128) | 展示名 |
-| type | enum | `GLOBAL` / `TEAM` |
+| type | enum | `GLOBAL` / `CATALOG` / `TEAM` |
 | description | text | 描述 |
 | avatar_url | varchar(512) | 头像 |
 | status | enum | `ACTIVE` / `FROZEN` / `ARCHIVED` |
@@ -25,11 +25,13 @@
 | updated_at | datetime | |
 
 - `GLOBAL` 类型全局唯一（只有一个 `@global`），由平台管理员管理
+- `CATALOG` 为系统管理的来源目录；首个 `@github` 通过迁移创建，普通用户不能修改或删除
+- `@github` 迁移同时创建不可登录的系统 actor `github-sync-publisher`；若 namespace slug 或 actor ID 已被占用，迁移明确失败而不接管已有记录
 - `TEAM` 类型对应部门/团队，可创建多个
 - 技能完整寻址：`@{namespace_slug}/{skill_slug}`
 - slug 唯一约束：`slug`
 - slug 格式校验：`[a-z0-9]([a-z0-9-]*[a-z0-9])?`，长度 2-64，且不得包含连续两个以上的连字符 `--`（为兼容层坐标映射保留）
-- slug 保留词列表（用户创建 namespace 时不可使用）：`admin`, `api`, `dashboard`, `search`, `auth`, `me`, `global`, `system`, `static`, `assets`, `health`
+- slug 保留词列表（用户创建 namespace 时不可使用）：`admin`, `api`, `dashboard`, `search`, `auth`, `me`, `global`, `github`, `system`, `static`, `assets`, `health`；`github` 仅在 namespace 创建入口保留，不禁止同名 Skill
 - 系统内置 namespace（`@global`）在数据库初始化时由 Flyway 脚本预置，绕过 slug 校验规则。保留词校验仅作用于用户创建 namespace 的接口
 - 状态语义：
   - `ACTIVE`：正常使用

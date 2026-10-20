@@ -1,5 +1,9 @@
 package com.iflytek.skillhub.task;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
+import ch.qos.logback.core.read.ListAppender;
 import com.iflytek.skillhub.domain.security.ScanTask;
 import com.iflytek.skillhub.domain.security.ScanTaskOutbox;
 import com.iflytek.skillhub.domain.security.ScanTaskOutboxRepository;
@@ -13,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -20,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +42,41 @@ class ScanTaskOutboxDispatcherTest {
     @Mock ScanTaskOutboxRepository repository;
     @Mock ScanTaskProducer producer;
     @Mock SkillVersionRepository versionRepository;
+
+    @Test
+    void publisherFailureDoesNotPersistOrLogExceptionContent() {
+        String marker = "SKILL_BODY_AND_TOKEN_SENTINEL";
+        ScanTaskOutbox outbox = outbox("task-private-error", 7L);
+        SkillVersion version = new SkillVersion(9L, "1.0.0", "user");
+        version.setStatus(SkillVersionStatus.SCANNING);
+        given(repository.findDispatchable(any(), any(Integer.class))).willReturn(List.of(outbox));
+        given(versionRepository.findById(7L)).willReturn(Optional.of(version));
+        doThrow(new IllegalStateException(marker)).when(producer).publishScanTask(any());
+        Logger logger = (Logger) LoggerFactory.getLogger(ScanTaskOutboxDispatcher.class);
+        ListAppender<ILoggingEvent> logs = new ListAppender<>();
+        logs.start();
+        logger.addAppender(logs);
+        try {
+            dispatcher(2).dispatch();
+            assertThat(outbox.getStatus()).isEqualTo(ScanTaskOutboxStatus.PENDING);
+            assertThat(ReflectionTestUtils.getField(outbox, "lastError"))
+                    .isEqualTo("SCAN_TASK_PUBLISH_FAILED:IllegalStateException");
+
+            dispatcher(2).dispatch();
+            assertThat(outbox.getStatus()).isEqualTo(ScanTaskOutboxStatus.FAILED);
+            assertThat(version.getStatus()).isEqualTo(SkillVersionStatus.SCAN_FAILED);
+            assertThat(ReflectionTestUtils.getField(outbox, "lastError"))
+                    .isEqualTo("SCAN_TASK_PUBLISH_FAILED:IllegalStateException");
+            String logText = logs.list.stream().map(event -> event.getFormattedMessage()
+                    + (event.getThrowableProxy() == null ? ""
+                    : ThrowableProxyUtil.asString(event.getThrowableProxy())))
+                    .collect(Collectors.joining("\n"));
+            assertThat(logText).doesNotContain(marker);
+        } finally {
+            logger.detachAppender(logs);
+            logs.stop();
+        }
+    }
 
     @Test
     void failedRedisPublishLeavesTaskPendingForRetry() {

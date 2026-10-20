@@ -80,6 +80,15 @@ class NamespaceServiceTest {
     }
 
     @Test
+    void createNamespace_rejectsReservedGithubSlugBeforeLookingUpExistingNamespaces() {
+        DomainBadRequestException error = assertThrows(DomainBadRequestException.class, () ->
+                namespaceService.createNamespace("github", "Other", "Desc", "user-1"));
+
+        assertEquals("error.slug.reserved", error.messageCode());
+        verifyNoInteractions(namespaceRepository, namespaceMemberRepository);
+    }
+
+    @Test
     void createNamespace_shouldThrowExceptionForInvalidSlug() {
         assertThrows(DomainBadRequestException.class, () ->
                 namespaceService.createNamespace("INVALID", "Name", "Desc", "user-1"));

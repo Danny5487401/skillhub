@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { buildApiUrl, WEB_API_PREFIX } from '@/api/client'
 import type { ReviewSkillDetail } from '@/api/types'
 import { FileTree } from '@/features/skill/file-tree'
 import { FilePreviewDialog } from '@/features/skill/file-preview-dialog'
+import { canPreviewFile } from '@/features/skill/file-type-utils'
 import type { FileTreeNode } from '@/features/skill/file-tree-builder'
 import { MarkdownRenderer } from '@/features/skill/markdown-renderer'
 import { ComplianceSnapshotPanel } from '@/features/skill/compliance-snapshot-panel'
 import { ReviewComplianceDiffPanel, pickBaseVersion } from './review-compliance-diff-panel'
-import { Button, buttonVariants } from '@/shared/ui/button'
+import { buttonVariants } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { getReviewDownloadHref, getReviewSkillDocumentation, isActiveReviewVersion } from './review-skill-detail'
 import { useReviewFile } from './use-review-file'
 
@@ -19,31 +18,30 @@ interface ReviewSkillDetailSectionProps {
   detail?: ReviewSkillDetail
   isLoading?: boolean
   hasError?: boolean
-  /** Review task ID, required for file preview API calls */
   reviewId?: number
+  documentationTooLarge?: boolean
+  documentationLoading?: boolean
+  documentationError?: boolean
 }
 
-export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId }: ReviewSkillDetailSectionProps) {
+export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId, documentationTooLarge = false,
+  documentationLoading = false, documentationError = false }: ReviewSkillDetailSectionProps) {
   const { t } = useTranslation()
-  const [isExpanded, setIsExpanded] = useState(false)
-  // File preview state
   const [previewNode, setPreviewNode] = useState<FileTreeNode | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
-
-  // Fetch file content when preview dialog is opened
   const { data: previewContent, isLoading: isLoadingPreview, error: previewError } = useReviewFile(
     reviewId,
     previewNode?.path || null,
-    previewDialogOpen && !!previewNode
+    previewDialogOpen && !!previewNode && (previewNode.file?.fileSize ?? 0) <= 256 * 1024
+      && canPreviewFile(previewNode.name, previewNode.file?.fileSize ?? 0).canPreview,
   )
 
-  // File tree click handler: opens preview dialog for the selected file
-  const handleFileClick = (node: FileTreeNode) => {
-    setPreviewNode(node)
-    setPreviewDialogOpen(true)
-  }
+  if (isLoading) return <Card className="h-56 animate-shimmer" />
+  if (hasError) return <Card className="p-6 text-sm text-destructive">{t('review.skillDetailError')}</Card>
+  if (!detail) return null
 
-  // Download a single file from the review-bound version
+  const documentation = getReviewSkillDocumentation(detail)
+  const downloadHref = getReviewDownloadHref(detail)
   const handleDownloadFile = () => {
     if (!previewNode || !reviewId) return
     const url = buildApiUrl(`${WEB_API_PREFIX}/reviews/${reviewId}/file?path=${encodeURIComponent(previewNode.path)}`)
@@ -55,186 +53,101 @@ export function ReviewSkillDetailSection({ detail, isLoading, hasError, reviewId
     link.remove()
   }
 
-  if (isLoading) {
-    return (
-      <Card className="p-8 space-y-4">
-        <div className="h-8 w-56 animate-shimmer rounded-lg" />
-        <div className="h-48 animate-shimmer rounded-xl" />
-      </Card>
-    )
-  }
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{t('review.skillDetailDescription', { skill: `${detail.skill.namespace}/${detail.skill.slug}` })}</p>
+        {downloadHref && <a className={buttonVariants({ variant: 'outline', size: 'sm', className: 'px-2.5' })} href={buildApiUrl(downloadHref)}>
+          {t('review.downloadSkillZip')}
+        </a>}
+      </div>
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)]">
+        <Card className="min-w-0 p-3">
+          <h3 className="mb-2 text-sm font-semibold">{t('fileTree.title')} <span className="font-normal text-muted-foreground">{detail.files.length}</span></h3>
+          {detail.files.length > 0 ? (
+            <div className="max-h-[620px] overflow-auto">
+              <FileTree files={detail.files} onFileClick={(node) => { setPreviewNode(node); setPreviewDialogOpen(true) }} bare compact />
+            </div>
+          ) : <p className="text-sm text-muted-foreground">{t('skillDetail.noFiles')}</p>}
+        </Card>
+        <Card className="min-w-0 p-4">
+          <h3 className="mb-3 text-sm font-semibold">{t('review.documentationTitle')}</h3>
+          {documentationLoading ? (
+            <div className="h-24 animate-shimmer rounded-lg" />
+          ) : documentationError ? (
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="text-destructive">{t('review.documentationLoadFailed')}</p>
+              {detail.documentationPath && reviewId && (
+                <a className="text-primary underline" href={buildApiUrl(`${WEB_API_PREFIX}/reviews/${reviewId}/file?path=${encodeURIComponent(detail.documentationPath)}`)} download>
+                  {t('filePreview.downloadFile')}
+                </a>
+              )}
+            </div>
+          ) : documentation ? (
+            <div className="min-w-0">
+              <p className="mb-3 break-all font-mono text-xs text-muted-foreground">{documentation.path}</p>
+              <MarkdownRenderer content={documentation.content} />
+            </div>
+          ) : documentationTooLarge && detail.documentationPath && reviewId ? (
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>{t('review.documentationTooLarge')}</p>
+              <a className="text-primary underline" href={buildApiUrl(`${WEB_API_PREFIX}/reviews/${reviewId}/file?path=${encodeURIComponent(detail.documentationPath)}`)} download>
+                {t('filePreview.downloadFile')}
+              </a>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">{t('review.noDocumentation')}</p>}
+        </Card>
+      </div>
+      <FilePreviewDialog
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        node={previewNode}
+        content={previewContent || null}
+        isLoading={isLoadingPreview}
+        error={previewError}
+        onDownload={handleDownloadFile}
+        maxPreviewBytes={256 * 1024}
+      />
+    </div>
+  )
+}
 
-  if (hasError) {
-    return (
-      <Card className="p-8 space-y-2">
-        <h2 className="text-xl font-bold font-heading">{t('review.skillDetailTitle')}</h2>
-        <p className="text-sm text-muted-foreground">{t('review.skillDetailError')}</p>
-      </Card>
-    )
-  }
+export function ReviewSkillChangesSection({ detail, isLoading, hasError, concealTechnicalVersions = false }: Omit<ReviewSkillDetailSectionProps, 'reviewId'> & { concealTechnicalVersions?: boolean }) {
+  const { t } = useTranslation()
+  if (isLoading) return <Card className="h-40 animate-shimmer" />
+  if (hasError) return <Card className="p-6 text-sm text-destructive">{t('review.skillDetailError')}</Card>
+  if (!detail) return null
 
-  if (!detail) {
-    return null
-  }
-
-  const documentation = getReviewSkillDocumentation(detail)
   const pendingVersion = detail.versions.find((version) => version.version === detail.activeVersion) ?? null
   const baseVersion = pickBaseVersion(detail.versions, detail.activeVersion ?? '')
+  const versionHistory = (
+    <Card className="space-y-3 p-4">
+      <h3 className="text-base font-semibold">{t('skillDetail.tabVersions')}</h3>
+      {detail.versions.length > 0 ? detail.versions.map((version) => (
+        <div key={version.id} className="rounded-md border border-border p-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="break-all font-mono font-semibold">{version.version}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{version.status}</span>
+            {isActiveReviewVersion(version, detail) && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t('review.activeReviewVersion')}</span>}
+            <span className="ml-auto text-muted-foreground">{t('skillDetail.fileCount', { count: version.fileCount })}</span>
+          </div>
+          {version.changelog && <p className="mt-2 text-sm text-muted-foreground">{version.changelog}</p>}
+          <ComplianceSnapshotPanel snapshot={version.complianceSnapshot} />
+        </div>
+      )) : <p className="text-sm text-muted-foreground">{t('skillDetail.noVersions')}</p>}
+    </Card>
+  )
 
   return (
-    <Card className="p-6 space-y-4">
-      <button
-        type="button"
-        className="flex w-full items-start justify-between gap-4 text-left"
-        aria-expanded={isExpanded}
-        onClick={() => setIsExpanded((current) => !current)}
-      >
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-bold font-heading">{t('review.skillDetailTitle')}</h2>
-            <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-              {t('review.activeReviewVersion')}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium font-mono text-foreground">
-              {detail.activeVersion ?? '—'}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t('review.skillDetailDescription', {
-              skill: `${detail.skill.namespace}/${detail.skill.slug}`,
-            })}
-          </p>
-        </div>
-        <span className="mt-1 shrink-0 rounded-full border border-border/70 p-2 text-muted-foreground">
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </span>
-      </button>
-
-      {isExpanded ? (
-        <div data-review-skill-detail-panel className="space-y-6 border-t border-border/60 pt-4">
-          {detail.downloadUrl && <div className="flex justify-start">
-            <a className={buttonVariants()} href={buildApiUrl(getReviewDownloadHref(detail)!)}>
-              {t('review.downloadSkillZip')}
-            </a>
-          </div>}
-
-          <ReviewComplianceDiffPanel
-            baseVersion={baseVersion}
-            pendingVersion={pendingVersion}
-            className="shadow-sm"
-          />
-
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="overview">{t('skillDetail.tabOverview')}</TabsTrigger>
-              <TabsTrigger value="files">{t('skillDetail.tabFiles')}</TabsTrigger>
-              <TabsTrigger value="versions">{t('skillDetail.tabVersions')}</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-4">
-              {documentation ? (
-                <div className="space-y-3">
-                  <p className="text-sm font-mono text-muted-foreground">{documentation.path}</p>
-                  <div className="rounded-2xl border border-border/60 bg-card/60 p-6">
-                    <MarkdownRenderer content={documentation.content} />
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-sm text-muted-foreground">
-                  {t('review.noDocumentation')}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="files">
-              {detail.files.length > 0 ? (
-                <FileTree files={detail.files} onFileClick={handleFileClick} />
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-sm text-muted-foreground">
-                  {t('skillDetail.noFiles')}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="versions">
-              {detail.versions.length > 0 ? (
-                <div className="space-y-3">
-                  {detail.versions.map((version) => (
-                    <div
-                      key={version.id}
-                      className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/70 p-4 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold font-mono">{version.version}</span>
-                          <span className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-foreground">
-                            {version.status}
-                          </span>
-                          {isActiveReviewVersion(version, detail) ? (
-                            <span className="inline-flex items-center rounded-full bg-[#202020] px-2.5 py-0.5 text-xs font-medium text-white">
-                              {t('review.activeReviewVersion')}
-                            </span>
-                          ) : null}
-                        </div>
-                        {version.changelog ? (
-                          <p className="text-sm text-muted-foreground">{version.changelog}</p>
-                        ) : null}
-                        <ComplianceSnapshotPanel snapshot={version.complianceSnapshot} />
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {t('skillDetail.fileCount', { count: version.fileCount })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-sm text-muted-foreground">
-                  {t('skillDetail.noVersions')}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {/* File preview dialog */}
-          <FilePreviewDialog
-            open={previewDialogOpen}
-            onOpenChange={setPreviewDialogOpen}
-            node={previewNode}
-            content={previewContent || null}
-            isLoading={isLoadingPreview}
-            error={previewError}
-            onDownload={handleDownloadFile}
-          />
-
-          <div className="flex justify-start">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2 rounded-full border-border/70 bg-background/90 px-5 shadow-sm backdrop-blur-sm"
-              aria-expanded={isExpanded}
-              onClick={() => setIsExpanded(false)}
-            >
-              <ChevronUp className="h-4 w-4" />
-              {t('skillDetail.collapseOverview')}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex justify-start">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2 rounded-full border-border/70 bg-background/90 px-5 shadow-sm backdrop-blur-sm"
-            aria-expanded={isExpanded}
-            onClick={() => setIsExpanded(true)}
-          >
-            <ChevronDown className="h-4 w-4" />
-            {t('skillDetail.expandOverview')}
-          </Button>
-        </div>
-      )}
-    </Card>
+    <div className="space-y-4">
+      <ReviewComplianceDiffPanel baseVersion={baseVersion} pendingVersion={pendingVersion}
+        concealVersionIdentifiers={concealTechnicalVersions} />
+      {concealTechnicalVersions ? (
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-medium">{t('review.technicalDetails')}</summary>
+          <div className="mt-4">{versionHistory}</div>
+        </details>
+      ) : versionHistory}
+    </div>
   )
 }

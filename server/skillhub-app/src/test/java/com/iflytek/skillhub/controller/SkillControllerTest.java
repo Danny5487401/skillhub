@@ -9,6 +9,8 @@ import com.iflytek.skillhub.domain.skill.SkillVersion;
 import com.iflytek.skillhub.domain.skill.service.SkillDownloadService;
 import com.iflytek.skillhub.domain.skill.service.SkillQueryService;
 import com.iflytek.skillhub.dto.SkillSuiteReferenceResponse;
+import com.iflytek.skillhub.dto.GithubSkillSourceResponse;
+import com.iflytek.skillhub.repository.GithubSkillSourceQueryRepository;
 import com.iflytek.skillhub.service.SkillLabelAppService;
 import com.iflytek.skillhub.service.SkillSuiteAppService;
 import org.junit.jupiter.api.Test;
@@ -26,11 +28,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +64,56 @@ class SkillControllerTest {
 
     @MockBean
     private SkillSuiteAppService skillSuiteAppService;
+
+    @MockBean
+    private GithubSkillSourceQueryRepository githubSkillSourceQueryRepository;
+
+    @Test
+    void getSkillDetailShouldExposeOnlyPublishedGithubSource() throws Exception {
+        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of())))
+                .thenReturn(publishedGithubSkill());
+        when(skillSuiteAppService.findVisibleMemberships(
+                eq(1L), eq((String) null), eq(Map.of()), anySet(), eq(0), eq(20)))
+                .thenReturn(new com.iflytek.skillhub.dto.PageResponse<>(List.of(), 0, 0, 20));
+        when(githubSkillSourceQueryRepository.findPublishedVersion(10L))
+                .thenReturn(Optional.of(new GithubSkillSourceResponse(
+                        "upstream", "skills", "agents/demo", "a".repeat(40),
+                        2, "PRESENT_UNCLASSIFIED", List.of(new GithubSkillSourceResponse.LicenseDocument(
+                        "REPOSITORY_ROOT", "LICENSE", true)))));
+
+        mockMvc.perform(get("/api/web/skills/team/demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.githubSource.ownerLogin").value("upstream"))
+                .andExpect(jsonPath("$.data.githubSource.skillPath").value("agents/demo"))
+                .andExpect(jsonPath("$.data.githubSource.commitSha").value("a".repeat(40)))
+                .andExpect(jsonPath("$.data.githubSource.licenseDocuments[0].path").value("LICENSE"))
+                .andExpect(jsonPath("$.data.githubSource.ingestionStatus").doesNotExist());
+    }
+
+    @Test
+    void getSkillDetailShouldNotReadGithubSourceWhenTeamSkillIsForbidden() throws Exception {
+        when(skillQueryService.getSkillDetail(eq("team"), eq("demo"), eq((String) null), eq(Map.of())))
+                .thenThrow(new DomainForbiddenException("error.skill.access.denied", "demo"));
+
+        mockMvc.perform(get("/api/web/skills/team/demo"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.data.githubSource").doesNotExist());
+        verifyNoInteractions(githubSkillSourceQueryRepository);
+    }
+
+    private SkillQueryService.SkillDetailDTO publishedGithubSkill() {
+        return new SkillQueryService.SkillDetailDTO(
+                1L, "demo", "Demo", "owner-1", "Alice", "Synced skill",
+                "PRIVATE", "ACTIVE", 0L, 0, 0, null, 0, false, 1L,
+                Instant.parse("2026-03-15T10:00:00Z"),
+                Instant.parse("2026-03-15T10:00:00Z"),
+                false, false, true, true,
+                new com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService.VersionProjection(
+                        10L, "1.0.0", "PUBLISHED"),
+                new com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService.VersionProjection(
+                        10L, "1.0.0", "PUBLISHED"),
+                null, null, "PUBLISHED", null, null);
+    }
 
     @Test
     void generatedOpenApiDescribesNativeRegistryFileAndDownloadContracts() throws Exception {

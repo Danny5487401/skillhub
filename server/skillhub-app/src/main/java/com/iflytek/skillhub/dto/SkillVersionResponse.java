@@ -6,6 +6,7 @@ import java.time.Instant;
 public record SkillVersionResponse(
         Long id,
         String version,
+        Integer syncRevision,
         String status,
         @Schema(nullable = true) String changelog,
         int fileCount,

@@ -100,7 +100,7 @@ public class PersonalNamespaceProvisioningService {
                 .filter(member -> member.getRole() == NamespaceRole.OWNER)
                 .map(member -> namespaceRepository.findById(member.getNamespaceId()))
                 .flatMap(Optional::stream)
-                .anyMatch(namespace -> namespace.getType() != NamespaceType.GLOBAL);
+                .anyMatch(namespace -> namespace.getType() == NamespaceType.TEAM);
     }
 
     /**

@@ -31,6 +31,9 @@ public class Skill {
     @Column(name = "source_skill_id")
     private Long sourceSkillId;
 
+    @Column(name = "github_sync_managed", nullable = false)
+    private boolean githubSyncManaged;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private SkillVisibility visibility;
@@ -139,6 +142,19 @@ public class Skill {
         return sourceSkillId;
     }
 
+    public boolean isGithubSyncManaged() {
+        return githubSyncManaged;
+    }
+
+    /** Converts an administrator-confirmed existing Skill to namespace-owned GitHub sync custody. */
+    public void assignGithubSyncOwnership(String systemActorId) {
+        if (!"github-sync-publisher".equals(systemActorId)) {
+            throw new IllegalArgumentException("GitHub sync ownership requires the reserved system actor");
+        }
+        ownerId = systemActorId;
+        githubSyncManaged = true;
+    }
+
     public SkillVisibility getVisibility() {
         return visibility;
     }
@@ -216,6 +232,10 @@ public class Skill {
 
     public void setSourceSkillId(Long sourceSkillId) {
         this.sourceSkillId = sourceSkillId;
+    }
+
+    public void setGithubSyncManaged(boolean githubSyncManaged) {
+        this.githubSyncManaged = githubSyncManaged;
     }
 
     public void setVisibility(SkillVisibility visibility) {

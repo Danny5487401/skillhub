@@ -24,6 +24,10 @@
             <artifactId>skillhub-notification</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.iflytek.skillhub</groupId>
+            <artifactId>skillhub-github-sync</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>

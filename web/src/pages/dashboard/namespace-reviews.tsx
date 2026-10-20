@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { buildNamespaceReviewDetailPath } from '@/features/review/review-paths'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
@@ -7,6 +7,8 @@ import { Card } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { useNamespaceDetail } from '@/shared/hooks/use-namespace-queries'
 import { useReviewList } from '@/features/review/use-review-list'
+import { GithubSyncReviewQueue } from '@/features/review/github-sync-review-queue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { NamespaceManagementBack, NamespaceManagementNav } from '@/features/namespace/namespace-management-nav'
 import { Pagination } from '@/shared/components/pagination'
 import { NamespaceHeader } from '@/features/namespace/namespace-header'
@@ -142,6 +144,9 @@ function ReviewListSection({ namespaceId, slug }: { namespaceId?: number; slug: 
 
 export function NamespaceReviewsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const search = useSearch({ from: '/dashboard/namespaces/$slug/reviews' })
+  const queueType = search.queue ?? 'user'
   const { slug } = useParams({ from: '/dashboard/namespaces/$slug/reviews' })
   const { data: namespace } = useNamespaceDetail(slug)
   const readOnlyMessage = namespace?.type === 'GLOBAL'
@@ -162,7 +167,22 @@ export function NamespaceReviewsPage() {
         </Card>
       ) : null}
       <NamespaceManagementNav slug={slug} active="reviews" />
-      <ReviewListSection namespaceId={namespace?.id} slug={slug} />
+      <Tabs value={queueType} onValueChange={(value) => void navigate({
+        to: '/dashboard/namespaces/$slug/reviews', params: { slug },
+        search: { queue: value === 'sync' ? 'sync' : undefined }, replace: true,
+      })}>
+        <TabsList>
+          <TabsTrigger value="user">{t('reviews.typeSkill')}</TabsTrigger>
+          <TabsTrigger value="sync">{t('reviews.typeSync')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="user" className="mt-5">
+          <ReviewListSection namespaceId={namespace?.id} slug={slug} />
+        </TabsContent>
+        <TabsContent value="sync" className="mt-5">
+          <GithubSyncReviewQueue namespaceId={namespace?.id} namespaceSlug={slug}
+            enabled={queueType === 'sync' && !!namespace?.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

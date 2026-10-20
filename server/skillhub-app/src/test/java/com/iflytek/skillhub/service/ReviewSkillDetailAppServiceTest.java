@@ -74,6 +74,7 @@ class ReviewSkillDetailAppServiceTest {
         Namespace namespace = createNamespace(20L, "team-a");
         Skill skill = createSkill(101L, 20L, "skill-a");
         SkillVersion pending = createVersion(101L, 101L, "1.2.0", SkillVersionStatus.PENDING_REVIEW);
+        setField(pending, "githubSyncRevision", 3);
         pending.setParsedMetadataJson("""
                 {"name":"skill-a","description":"待审摘要","displayNameOverride":"网页新标题","complianceSnapshot":{"schemaVersion":"1.0","items":[{"standard":"mitre-attack","version":"v19.1","controlId":"T1059","evidence":[]}],"digest":"sha256:demo"}}
                 """);
@@ -103,6 +104,9 @@ class ReviewSkillDetailAppServiceTest {
         assertThat(response.skill().displayName()).isEqualTo("网页新标题");
         assertThat(response.skill().summary()).isEqualTo("待审摘要");
         assertThat(response.skill().ownerPreviewVersion().displayName()).isEqualTo("网页新标题");
+        assertThat(response.versions().get(0).syncRevision()).isEqualTo(3);
+        assertThat(response.versions().get(1).syncRevision()).isNull();
+
         assertThat(response.downloadUrl()).isEqualTo("/api/v1/reviews/42/download");
         assertThat(response.documentationPath()).isEqualTo("README.md");
         assertThat(response.documentationContent()).isEqualTo("# demo");
@@ -150,6 +154,7 @@ class ReviewSkillDetailAppServiceTest {
         Namespace namespace = createNamespace(20L, "team-a");
         Skill skill = createSkill(101L, 20L, "skill-a");
         SkillVersion pending = createVersion(101L, 101L, "1.2.0", SkillVersionStatus.PENDING_REVIEW);
+        setField(pending, "githubSyncRevision", 3);
         SkillDownloadService.DownloadResult result = new SkillDownloadService.DownloadResult(
                 () -> new ByteArrayInputStream("zip".getBytes()),
                 "skill-a-1.2.0.zip",
@@ -163,7 +168,7 @@ class ReviewSkillDetailAppServiceTest {
         given(namespaceRepository.findById(20L)).willReturn(Optional.of(namespace));
         given(rbacService.getUserRoleCodes("admin")).willReturn(Set.of("SKILL_ADMIN"));
         given(reviewService.canViewReview(task, "admin", namespace.getType(), Map.of(), Set.of("SKILL_ADMIN"))).willReturn(true);
-        given(skillQueryService.getReviewSkillSnapshot(101L)).willReturn(
+        given(skillQueryService.getReviewSkillSnapshot(101L, false)).willReturn(
                 new SkillQueryService.ReviewSkillSnapshotDTO(
                         skill,
                         "Owner",
@@ -202,8 +207,10 @@ class ReviewSkillDetailAppServiceTest {
         given(namespaceRepository.findById(20L)).willReturn(Optional.of(namespace));
         given(rbacService.getUserRoleCodes("admin")).willReturn(Set.of("SKILL_ADMIN"));
         given(reviewService.canViewReview(task, "admin", namespace.getType(), Map.of(), Set.of("SKILL_ADMIN"))).willReturn(true);
-        given(skillQueryService.getReviewSkillSnapshot(100L)).willReturn(new SkillQueryService.ReviewSkillSnapshotDTO(
-                skill, "Owner", published, published, List.of(published), List.of(createFile(5L, 100L, "SKILL.md")), "SKILL.md", "private package"));
+        var snapshot = new SkillQueryService.ReviewSkillSnapshotDTO(
+                skill, "Owner", published, published, List.of(published), List.of(createFile(5L, 100L, "SKILL.md")), "SKILL.md", "private package");
+        given(skillQueryService.getReviewSkillSnapshot(100L)).willReturn(snapshot);
+        given(skillQueryService.getReviewSkillSnapshot(100L, false)).willReturn(snapshot);
         given(skillQueryService.getFileContentByVersionId(100L, "SKILL.md"))
                 .willReturn(new ByteArrayInputStream("private package".getBytes()));
         var download = new SkillDownloadService.DownloadResult(() -> new ByteArrayInputStream(new byte[]{1}), "review.zip", 1, "application/zip", null, true);
@@ -214,6 +221,7 @@ class ReviewSkillDetailAppServiceTest {
         assertThat(detail.visibilityChange().scanStatus()).isEqualTo("PASSED");
         assertThat(service.getReviewFileContent(42L, "SKILL.md", "admin", Map.of()).readAllBytes()).isEqualTo("private package".getBytes());
         assertThat(service.downloadReviewPackage(42L, "admin", Map.of()).filename()).isEqualTo("review.zip");
+        assertThat(service.getReviewSkillDetail(42L, "admin", Map.of(), false).visibilityChange().requestedVisibility()).isEqualTo("PUBLIC");
     }
 
     @Test

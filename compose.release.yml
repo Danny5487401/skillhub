@@ -46,6 +46,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # A named volume masks the app-owned directory created in server/Dockerfile.
+  storage-permissions:
+    image: ${SKILLHUB_SERVER_IMAGE:-ghcr.io/iflytek/skillhub-server}:${SKILLHUB_VERSION:-latest}
+    user: "0:0"
+    entrypoint: ["chown", "100:101", "/var/lib/skillhub/storage"]
+    restart: "no"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    volumes:
+      - skillhub_storage:/var/lib/skillhub/storage
+
   server:
     image: ${SKILLHUB_SERVER_IMAGE:-ghcr.io/iflytek/skillhub-server}:${SKILLHUB_VERSION:-latest}
     restart: unless-stopped
@@ -91,6 +104,10 @@ services:
       SKILLHUB_STORAGE_S3_DISABLE_CHUNKED_ENCODING: ${SKILLHUB_STORAGE_S3_DISABLE_CHUNKED_ENCODING:-false}
       SKILLHUB_STORAGE_S3_AUTO_CREATE_BUCKET: ${SKILLHUB_STORAGE_S3_AUTO_CREATE_BUCKET:-false}
       SKILLHUB_STORAGE_S3_PRESIGN_EXPIRY: ${SKILLHUB_STORAGE_S3_PRESIGN_EXPIRY:-PT10M}
+      SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS: ${SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS:-}
+      SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS: ${SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS:-}
+      SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION: ${SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION:-}
+      SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES: ${SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES:-0}
       SKILLHUB_SECURITY_SCANNER_ENABLED: ${SKILLHUB_SECURITY_SCANNER_ENABLED:-true}
       SKILLHUB_SECURITY_SCANNER_URL: http://skill-scanner:8000
       SKILLHUB_SECURITY_SCANNER_MODE: upload
@@ -149,6 +166,8 @@ services:
     volumes:
       - skillhub_storage:/var/lib/skillhub/storage
     depends_on:
+      storage-permissions:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -185,6 +204,36 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+  github-sync:
+    profiles: [github-sync]
+    image: ${SKILLHUB_GITHUB_SYNC_IMAGE:-ghcr.io/iflytek/skillhub-github-sync}:${SKILLHUB_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SKILLHUB_GITHUB_SYNC_JAVA_URL: http://server:8080/internal/github-sync/v1
+      SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN: ${SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN:-}
+      SKILLHUB_GITHUB_SYNC_DISCOVERY_WORKERS: ${SKILLHUB_GITHUB_SYNC_DISCOVERY_WORKERS:-1}
+      SKILLHUB_GITHUB_SYNC_REPOSITORY_WORKERS: ${SKILLHUB_GITHUB_SYNC_REPOSITORY_WORKERS:-1}
+      SKILLHUB_GITHUB_SYNC_POLL_INTERVAL: ${SKILLHUB_GITHUB_SYNC_POLL_INTERVAL:-5s}
+      SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES: ${SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES:-536870912}
+      SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES: ${SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES:-536870912}
+      SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES: ${SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES:-134217728}
+      SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS: ${SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS:-}
+      HTTP_PROXY: ${SKILLHUB_GITHUB_SYNC_HTTP_PROXY:-}
+      HTTPS_PROXY: ${SKILLHUB_GITHUB_SYNC_HTTPS_PROXY:-}
+      NO_PROXY: ${SKILLHUB_GITHUB_SYNC_NO_PROXY:-}
+    tmpfs:
+      - /var/lib/skillhub-github-sync:size=${SKILLHUB_GITHUB_SYNC_TMPFS_BYTES:-805306368},mode=1777
+    mem_limit: ${SKILLHUB_GITHUB_SYNC_MEMORY_LIMIT_BYTES:-1610612736}
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-Y", "off", "-qO-", "http://127.0.0.1:8090/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   postgres_data:

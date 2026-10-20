@@ -2,6 +2,7 @@ package com.iflytek.skillhub.domain.review;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "review_task")
@@ -23,6 +24,13 @@ public class ReviewTask {
     @Enumerated(EnumType.STRING)
     @Column(name = "subject_type", nullable = false, length = 32)
     private ReviewSubjectType subjectType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin_type", nullable = false, length = 24)
+    private ReviewOriginType originType = ReviewOriginType.USER;
+
+    @Column(name = "github_sync_ingestion_id")
+    private UUID githubSyncIngestionId;
 
     @Column(name = "subject_id", nullable = false)
     private Long subjectId;
@@ -161,6 +169,18 @@ public class ReviewTask {
     }
     public boolean isAvatarRemoval() { return avatarRemoval; }
     public void setAvatarRemoval(boolean removal) { this.avatarRemoval = removal; }
+    public static ReviewTask forGithubSyncSkillVersion(Long skillVersionId, Long skillId,
+                                                       Long namespaceId, String skillVersion,
+                                                       String systemActorId, UUID ingestionId) {
+        if (ingestionId == null) {
+            throw new IllegalArgumentException("GitHub sync ingestion ID is required");
+        }
+        ReviewTask task = new ReviewTask(skillVersionId, skillId, namespaceId, skillVersion, systemActorId);
+        task.originType = ReviewOriginType.GITHUB_SYNC;
+        task.githubSyncIngestionId = ingestionId;
+        return task;
+    }
+
 
     public Long getId() { return id; }
 
@@ -171,6 +191,10 @@ public class ReviewTask {
     public String getSkillVersion() { return skillVersion; }
 
     public ReviewSubjectType getSubjectType() { return subjectType; }
+
+    public ReviewOriginType getOriginType() { return originType; }
+
+    public UUID getGithubSyncIngestionId() { return githubSyncIngestionId; }
 
     public Long getSubjectId() { return subjectId; }
 

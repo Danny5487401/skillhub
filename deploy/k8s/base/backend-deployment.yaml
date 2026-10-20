@@ -14,6 +14,9 @@ spec:
       labels:
         app.kubernetes.io/name: skillhub-server
     spec:
+      securityContext:
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
           image: ghcr.io/iflytek/skillhub-server:edge
@@ -24,6 +27,29 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: docker
+            - name: SKILLHUB_GITHUB_SYNC_SERVICE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: skillhub-secret
+                  key: github-sync-service-token
+                  optional: true
+            - name: SKILLHUB_GITHUB_SYNC_CREDENTIAL_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: skillhub-secret
+                  key: github-sync-credential-keys
+                  optional: true
+            - name: SKILLHUB_GITHUB_SYNC_ACTIVE_CREDENTIAL_KEY_VERSION
+              valueFrom:
+                secretKeyRef:
+                  name: skillhub-secret
+                  key: github-sync-active-credential-key-version
+                  optional: true
+            - name: SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES
+              valueFrom:
+                configMapKeyRef:
+                  name: skillhub-config
+                  key: github-sync-staging-capacity-limit-bytes
 
             # Database
             - name: SPRING_DATASOURCE_URL

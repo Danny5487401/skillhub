@@ -1,0 +1,94 @@
+# 可选部署：先在 skillhub-secret 配置 github-sync-service-token，再单独 apply 此文件。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillhub-github-sync
+  labels:
+    app.kubernetes.io/name: skillhub-github-sync
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: skillhub-github-sync
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: skillhub-github-sync
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: github-sync
+          image: ghcr.io/iflytek/skillhub-github-sync:edge
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8090
+          env:
+            - name: SKILLHUB_GITHUB_SYNC_JAVA_URL
+              value: http://skillhub-server:8080/internal/github-sync/v1
+            - name: SKILLHUB_GITHUB_SYNC_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: skillhub-secret
+                  key: github-sync-service-token
+            - name: SKILLHUB_GITHUB_SYNC_TEMP_ROOT
+              value: /var/lib/skillhub-github-sync
+            - name: SKILLHUB_GITHUB_SYNC_DISCOVERY_WORKERS
+              value: "1"
+            - name: SKILLHUB_GITHUB_SYNC_REPOSITORY_WORKERS
+              value: "1"
+            - name: SKILLHUB_GITHUB_SYNC_POLL_INTERVAL
+              value: 5s
+            - name: SKILLHUB_GITHUB_SYNC_MAX_WORKSPACE_BYTES
+              value: "536870912"
+            - name: SKILLHUB_GITHUB_SYNC_TOTAL_WORKSPACE_BYTES
+              value: "536870912"
+            - name: SKILLHUB_GITHUB_SYNC_MIN_FREE_BYTES
+              value: "134217728"
+            # S3/MinIO 模式必须填入内部上传主机及端口，例如 minio:9000。
+            - name: SKILLHUB_GITHUB_SYNC_ALLOWED_S3_HOSTS
+              value: ""
+            # 按部署网络填写 GitHub 出站代理；Java 和对象存储由 Go 客户端直连。
+            - name: HTTP_PROXY
+              value: ""
+            - name: HTTPS_PROXY
+              value: ""
+            - name: NO_PROXY
+              value: ""
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/skillhub-github-sync
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1536Mi
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 15
+      volumes:
+        - name: workspace
+          emptyDir:
+            medium: Memory
+            sizeLimit: 768Mi

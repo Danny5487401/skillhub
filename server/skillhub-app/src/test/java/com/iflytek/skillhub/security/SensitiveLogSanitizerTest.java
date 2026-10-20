@@ -3,18 +3,17 @@ package com.iflytek.skillhub.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 class SensitiveLogSanitizerTest {
 
     private final SensitiveLogSanitizer sanitizer = new SensitiveLogSanitizer();
 
     @Test
-    void shouldRedactSensitiveQueryParameters() {
-        String sanitized = sanitizer.sanitizeQuery("returnTo=%2Fdashboard&token=abc123&password=secret&code=xyz");
+    void shouldOmitAllQueryParametersFromLoggedRequestTarget() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/skills");
+        request.setQueryString("returnTo=%2Fdashboard&token=abc123&custom=skill-content-marker");
 
-        assertThat(sanitized).contains("returnTo=%2Fdashboard");
-        assertThat(sanitized).contains("token=[REDACTED]");
-        assertThat(sanitized).contains("password=[REDACTED]");
-        assertThat(sanitized).contains("code=[REDACTED]");
+        assertThat(sanitizer.sanitizeRequestTarget(request)).isEqualTo("/api/v1/skills");
     }
 }
