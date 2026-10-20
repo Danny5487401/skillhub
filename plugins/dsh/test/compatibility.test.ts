@@ -30,3 +30,8 @@ for (const release of supportedDshVersions) {
     }
   });
 }
+
+test('new RC cannot use the retained Cordis core even outside the complete runtime check', () => {
+  expect(() => assertHostDependencies(name => ({ name, version: name === '@deepseek-ai/cordis' ? '4.0.4' : '0.2.1-rc.2' })))
+    .toThrow('does not match');
+});

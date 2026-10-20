@@ -26,7 +26,7 @@ async function run(ctx,root,signal){
  const options={scope:resolved.agent,cwd:project,signal};
  const initial=await ctx.skills.snapshot(options);assert(initial.complete);assert(!initial.skills.some(s=>s.name==='document-helper'));
  const found=await ctx.tools.execute({callId:randomUUID(),name:'astron_skillhub_search',arguments:{q:'document'},agent:resolved.agent,signal});assert.equal(found.isError,false);
- const invoke=(method,args)=>ctx.typertGateway.invoke({namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
+ const invoke=(method,args)=>ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator,namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
  const detail=await invoke('openConversationDetail',{selectionRef:found.value.items[0].selectionRef});
  const targets=await invoke('listInstallTargets',{detailToken:detail.detailToken});
  const target=targets.targets.find(t=>t.scope==='project');assert(target);

@@ -28,6 +28,7 @@ export const cordisFamilies = [
 const require = createRequire(import.meta.url);
 export function assertHostDependencies(readManifest: (name: string) => unknown = name => require(`${name}/package.json`)): SupportedDshVersion {
   let release: unknown;
+  let cordis: unknown;
   for (const name of Object.keys(hostDependencyBaseline)) {
     let manifest: unknown;
     try { manifest = readManifest(name); }
@@ -38,7 +39,11 @@ export function assertHostDependencies(readManifest: (name: string) => unknown =
         : !supportedDshVersions.some(candidate => candidate === manifest.version) || (release !== undefined && manifest.version !== release))) {
       throw new Error('Host dependency baseline does not match; local writes are disabled.');
     }
-    if (name !== '@deepseek-ai/cordis') release = manifest.version;
+    if (name === '@deepseek-ai/cordis') cordis = manifest.version;
+    else release = manifest.version;
+  }
+  if (release === '0.2.1-rc.2' && cordis !== '4.0.5') {
+    throw new Error('Host dependency baseline does not match; local writes are disabled.');
   }
   return release as SupportedDshVersion;
 }

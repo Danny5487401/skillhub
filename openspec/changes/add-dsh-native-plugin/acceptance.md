@@ -123,3 +123,16 @@ flowchart LR
 | Host重启 | 使用有效入口重新进入；旧页面异常时强制刷新，不以空白页推断数据丢失 |
 
 本轮未发布、创建tag或执行生产部署。已获人工确认的产品功能与发布门禁分别跟踪，未验证项不改写为通过。
+
+
+## Issue #981 candidate acceptance
+
+- [x] Explicit peer allowlist for `0.2.0-rc.2` and `0.2.1-rc.2`; unknown versions remain unsupported.
+- [x] Targeted tests accept each coherent Host/Client graph and reject per-package cross-RC mixing, stale/malformed manifests and mismatched Host anchors.
+- [x] Build, typecheck, lint and full plugin suite against the updated lockfile (365 tests); common RPC ABI and historical receipt codec regression covered.
+- [ ] Strict native installation without overrides for both official RCs; retained Cordis regression on the old RC.
+- [ ] Isolated official Host runtime-baseline and plugin-lifecycle for both RCs.
+- [ ] Browser sidebar, settings, search, install, exact-version upgrade and uninstall against the local mock Registry on both RCs.
+- [ ] New-RC native macOS/Windows coverage; CI execution remains distinct from local Linux evidence.
+
+No new npm release, tag, production mutation or model invocation is part of this compatibility change.

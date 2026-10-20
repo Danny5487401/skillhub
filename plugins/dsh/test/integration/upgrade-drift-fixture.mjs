@@ -38,7 +38,7 @@ async function run(ctx,root,signal) {
  assert.equal(operation?.phase,'completed');
 
  const source=ctx.skillhub.getContext();
- const invoke=(method,args)=>ctx.typertGateway.invoke({namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
+ const invoke=(method,args)=>ctx.typertGateway.invoke({ peer: ctx.get('connection')?.browserPeer ?? ctx.get('connection')?.operator,namespace:'skillhub',method,args:{agentId:created.sessionId,...args},signal});
  const installed=await invoke('listInstalled',{sourceRevision:source.sourceRevision});
  const item=installed.items.find(item=>item.namespace===toolArguments.namespace && item.scope==='project');
  assert(item);

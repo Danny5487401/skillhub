@@ -110,3 +110,40 @@ jobs:
           path: plugins/dsh/artifacts/*.tgz
           if-no-files-found: error
           retention-days: 7
+
+  host-release:
+    name: Official Host DSH ${{ matrix.dsh }}, Node ${{ matrix.node }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ['0.2.1-rc.2']
+        node: ['24.2.0', '24']
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.13'
+      - name: Install local Registry fixture dependencies
+        working-directory: cli
+        run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: skillhub-dsh-development-package-ubuntu-latest-node-${{ matrix.node }}
+          path: plugins/dsh/artifacts
+      - name: Verify latest supported official Host without dependency overrides
+        working-directory: plugins/dsh
+        run: node scripts/smoke-native-host.mjs --artifact artifacts --report host-release-summary.json --dsh-version '${{ matrix.dsh }}'
+      - name: Upload sanitized release Host smoke summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skillhub-dsh-host-release-${{ matrix.dsh }}-node-${{ matrix.node }}
+          path: plugins/dsh/host-release-summary.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -175,3 +175,10 @@ for (const release of ['0.2.0-rc.2', '0.2.1-rc.2'] as const) {
     }
   });
 }
+
+test('new RC rejects a complete retained Cordis family below its official minimum', () => {
+  const { packages, clients, check } = fixture();
+  for (const value of packages.values()) if (value.name.startsWith('@deepseek-ai/dsh')) value.version = '0.2.1-rc.2';
+  for (const name of clients.keys()) clients.set(name, { name, version: '0.2.1-rc.2' });
+  expect(check).toThrow('local writes are disabled');
+});
