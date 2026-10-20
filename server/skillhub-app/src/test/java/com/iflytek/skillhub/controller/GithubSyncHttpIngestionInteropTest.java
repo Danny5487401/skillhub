@@ -103,6 +103,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -3022,15 +3023,20 @@ class GithubSyncHttpIngestionInteropTest {
         Path variant = Files.createTempFile("skillhub-github-revision-", ".zip");
         boolean changed = false;
         boolean licenseChanged = false;
-        try (InputStream input = Files.newInputStream(
-                Path.of(System.getenv("SKILLHUB_GITHUB_SYNC_ARCHIVE_FIXTURE")));
-             ZipInputStream zipInput = new ZipInputStream(input);
+        // Go can emit valid STORED entries with data descriptors, which Java's streaming
+        // reader rejects. Use the central directory, as the production archive validator does.
+        try (ZipFile source = new ZipFile(
+                Path.of(System.getenv("SKILLHUB_GITHUB_SYNC_ARCHIVE_FIXTURE")).toFile());
              OutputStream output = Files.newOutputStream(variant);
              ZipOutputStream zipOutput = new ZipOutputStream(output)) {
-            ZipEntry entry;
-            while ((entry = zipInput.getNextEntry()) != null) {
+            var entries = source.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
                 zipOutput.putNextEntry(new ZipEntry(entry.getName()));
-                byte[] contents = zipInput.readAllBytes();
+                byte[] contents;
+                try (InputStream input = source.getInputStream(entry)) {
+                    contents = input.readAllBytes();
+                }
                 zipOutput.write(contents);
                 if (entry.getName().equals("SKILL.md") || entry.getName().endsWith("/SKILL.md")) {
                     zipOutput.write(("\n<!-- revision " + marker + " -->\n")
@@ -3044,7 +3050,6 @@ class GithubSyncHttpIngestionInteropTest {
                     licenseChanged = true;
                 }
                 zipOutput.closeEntry();
-                zipInput.closeEntry();
             }
         }
         if (!changed || (licenseMarker != null && !licenseChanged)) {
