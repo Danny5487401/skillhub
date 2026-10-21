@@ -468,4 +468,19 @@ assert_rejected public-base-url-query --set-string publicBaseUrl=https://skills.
 assert_rejected public-base-url-fragment --set-string publicBaseUrl=https://skills.example.com#frag
 assert_rejected public-base-url-no-host --set-string publicBaseUrl=https://
 
+# Example values must reuse the external application Secret and existing S3 config keys.
+helm template storage-contract "$CHART_DIR" -f "$TEST_VALUES" \
+  -f "$CHART_DIR/../../deploy/storage/helm-values.example.yaml" \
+  >"$TMP_DIR/storage-example.yaml"
+grep -Fq 'skillhub-storage-provider: "s3"' "$TMP_DIR/storage-example.yaml" \
+  || fail "Storage example must select the existing S3 provider"
+grep -Fq 's3-force-path-style: "true"' "$TMP_DIR/storage-example.yaml" \
+  || fail "Storage example must use path style"
+grep -Fq 'name: skillhub-app-secrets' "$TMP_DIR/storage-example.yaml" \
+  || fail "Storage example must reference the external application Secret"
+grep -Fq 'key: skillhub-storage-s3-access-key' "$TMP_DIR/storage-example.yaml" \
+  || fail "Storage access key Secret mapping changed"
+grep -Fq 'key: skillhub-storage-s3-secret-key' "$TMP_DIR/storage-example.yaml" \
+  || fail "Storage secret key Secret mapping changed"
+
 echo "Helm configuration contract tests passed"

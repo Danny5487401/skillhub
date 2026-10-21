@@ -1,5 +1,7 @@
 # Kubernetes 部署指南
 
+对象存储可选部署、凭证和迁移说明见[对象存储手册（GitHub）](https://github.com/iflytek/skillhub/blob/main/docs/object-storage.md)。
+
 本文档说明如何在 Kubernetes 集群中部署 SkillHub。
 
 ## 前置条件

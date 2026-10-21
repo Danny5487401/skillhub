@@ -1,0 +1,49 @@
+# Optional single-node storage. Select exactly one overlay with scripts/storage-compose.sh.
+services:
+  object-storage-permissions:
+    image: ${RUSTFS_IMAGE:-docker.io/rustfs/rustfs:1.0.3@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b}
+    user: "0:0"
+    entrypoint: ["chown", "10001:10001", "/data"]
+    restart: "no"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    volumes:
+      - rustfs_data:/data
+
+  object-storage:
+    image: ${RUSTFS_IMAGE:-docker.io/rustfs/rustfs:1.0.3@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b}
+    restart: unless-stopped
+    depends_on:
+      object-storage-permissions:
+        condition: service_completed_successfully
+    environment:
+      RUSTFS_ACCESS_KEY: ${SKILLHUB_OBJECT_STORAGE_ROOT_USER:?Set storage administrator user}
+      RUSTFS_SECRET_KEY: ${SKILLHUB_OBJECT_STORAGE_ROOT_PASSWORD:?Set storage administrator password}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+    ports:
+      - "${OBJECT_STORAGE_BIND_ADDRESS:-127.0.0.1}:${OBJECT_STORAGE_API_PORT:-9000}:9000"
+      - "${OBJECT_STORAGE_BIND_ADDRESS:-127.0.0.1}:${OBJECT_STORAGE_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - rustfs_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "3", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  server:
+    environment:
+      SKILLHUB_STORAGE_PROVIDER: s3
+      SKILLHUB_STORAGE_S3_ENDPOINT: http://object-storage:9000
+      SKILLHUB_STORAGE_S3_FORCE_PATH_STYLE: "true"
+      SKILLHUB_STORAGE_S3_AUTO_CREATE_BUCKET: "false"
+    depends_on:
+      object-storage:
+        condition: service_healthy
+
+volumes:
+  rustfs_data:

@@ -9,6 +9,9 @@ on:
       - '.env.release.example'
       - '.env.release.draft'
       - 'compose.release.yml'
+      - 'compose.storage.*.yml'
+      - 'deploy/storage/**'
+      - 'deploy/runtime-mirror-images.txt'
       - 'deploy/k8s/base/configmap.yaml'
       - 'deploy/k8s/base/scanner-deployment.yaml'
       - 'charts/skillhub/values.yaml'
@@ -51,6 +54,10 @@ jobs:
       - run: bash scripts/tests/publish-cli-test.sh
       - run: bash scripts/tests/runtime-secret-test.sh
       - run: bash scripts/tests/validate-release-config-test.sh
+      - run: bash scripts/tests/storage-compose-test.sh
+      - run: bash scripts/tests/storage-compose-render-test.sh
+      - run: bash scripts/tests/storage-diagnostics-test.sh
+      - run: bash scripts/tests/mirror-storage-images-test.sh
       - run: bash scripts/tests/nginx-forwarded-proto-test.sh
       - run: bash scripts/tests/smoke-test-admin-mode-test.sh
       - run: bash scripts/tests/web-base-path-routing-test.sh

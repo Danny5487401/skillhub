@@ -1,0 +1,33 @@
+# Optional single-node storage. Select exactly one overlay with scripts/storage-compose.sh.
+services:
+  object-storage:
+    image: ${SILO_IMAGE:-docker.io/pgsty/silo:RELEASE.2026-10-18T00-00-00Z@sha256:2636fc4155d9a7e41ff58cdb65ddd13ba9304e67184e13c25bc5cb34016269d7}
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${SKILLHUB_OBJECT_STORAGE_ROOT_USER:?Set storage administrator user}
+      MINIO_ROOT_PASSWORD: ${SKILLHUB_OBJECT_STORAGE_ROOT_PASSWORD:?Set storage administrator password}
+    ports:
+      - "${OBJECT_STORAGE_BIND_ADDRESS:-127.0.0.1}:${OBJECT_STORAGE_API_PORT:-9000}:9000"
+      - "${OBJECT_STORAGE_BIND_ADDRESS:-127.0.0.1}:${OBJECT_STORAGE_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - silo_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "3", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  server:
+    environment:
+      SKILLHUB_STORAGE_PROVIDER: s3
+      SKILLHUB_STORAGE_S3_ENDPOINT: http://object-storage:9000
+      SKILLHUB_STORAGE_S3_FORCE_PATH_STYLE: "true"
+      SKILLHUB_STORAGE_S3_AUTO_CREATE_BUCKET: "false"
+    depends_on:
+      object-storage:
+        condition: service_healthy
+
+volumes:
+  silo_data:

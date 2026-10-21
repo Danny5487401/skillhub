@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - charts/skillhub/**
+      - deploy/storage/helm-values.example.yaml
       - .github/workflows/pr-helm-chart.yml
       - .github/workflows/publish-chart.yml
     types:

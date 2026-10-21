@@ -1,23 +1,28 @@
 package com.iflytek.skillhub.storage;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.CreateBucketResponse;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Error;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
@@ -28,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -302,6 +308,79 @@ class S3StorageServiceTest {
         AwsCredentialsProvider provider = service.buildCredentialsProvider();
 
         assertThat(provider).isInstanceOf(DefaultCredentialsProvider.class);
+    }
+
+    @Test
+    void putObjectShouldReplayFileStreamsForSigningAndRetry(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory)
+            throws Exception {
+        S3Client client = mock(S3Client.class);
+        byte[] content = new byte[256 * 1024 + 1];
+        new java.util.Random(937).nextBytes(content);
+        var path = java.nio.file.Files.write(directory.resolve("package.zip"), content);
+        when(client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenAnswer(invocation -> {
+            RequestBody body = invocation.getArgument(1);
+            for (int read = 0; read < 2; read++) {
+                try (InputStream input = body.contentStreamProvider().newStream()) {
+                    assertThat(input.readAllBytes()).isEqualTo(content);
+                }
+            }
+            return PutObjectResponse.builder().build();
+        });
+        var service = new TestableS3StorageService(properties(false), client, mock(S3Presigner.class));
+        service.init();
+
+        try (InputStream input = java.nio.file.Files.newInputStream(path)) {
+            assertThat(input.markSupported()).isFalse();
+            service.putObject("packages/demo.zip", input, content.length, "application/zip");
+        }
+    }
+
+    @Test
+    void putObjectShouldRejectSizeMismatchBeforeCallingS3() {
+        S3Client client = mock(S3Client.class);
+        var service = new TestableS3StorageService(properties(false), client, mock(S3Presigner.class));
+        service.init();
+
+        assertThatThrownBy(() -> service.putObject("packages/demo.zip", new ByteArrayInputStream(new byte[]{42}),
+                2, "application/zip"))
+                .isInstanceOf(StorageAccessException.class).extracting("operation").isEqualTo("putObject");
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void deleteObjectsShouldRejectPartialFailureEvenWhenRequestSucceeded() {
+        S3Client client = mock(S3Client.class);
+        when(client.deleteObjects(any(DeleteObjectsRequest.class)))
+                .thenReturn(DeleteObjectsResponse.builder()
+                        .errors(S3Error.builder()
+                                .key("private/denied.zip").code("AccessDenied").build())
+                        .build());
+        var service = new TestableS3StorageService(properties(false), client, mock(S3Presigner.class));
+        service.init();
+
+        assertThatThrownBy(() -> service.deleteObjects(List.of("private/denied.zip")))
+                .isInstanceOf(StorageAccessException.class)
+                .extracting("operation").isEqualTo("deleteObjects");
+    }
+
+    @Test
+    void deleteObjectsShouldPartitionRequestsAtS3Limit() {
+        S3Client client = mock(S3Client.class);
+        when(client.deleteObjects(any(DeleteObjectsRequest.class)))
+                .thenReturn(DeleteObjectsResponse.builder().build());
+        var service = new TestableS3StorageService(properties(false), client, mock(S3Presigner.class));
+        service.init();
+        var keys = IntStream.range(0, 1001).mapToObj(i -> "packages/" + i).toList();
+
+        service.deleteObjects(keys);
+
+        var requests = ArgumentCaptor.forClass(
+                DeleteObjectsRequest.class);
+        verify(client, times(2)).deleteObjects(requests.capture());
+        assertThat(requests.getAllValues().get(0).delete().objects()).hasSize(1000);
+        assertThat(requests.getAllValues().get(1).delete().objects()).hasSize(1);
+        assertThat(requests.getAllValues().stream().flatMap(r -> r.delete().objects().stream())
+                .map(ObjectIdentifier::key).toList()).isEqualTo(keys);
     }
 
     private S3StorageProperties properties(boolean autoCreateBucket) {
