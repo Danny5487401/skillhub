@@ -1,0 +1,17 @@
+# Merge into an existing valid SkillHub values file; this is not a full installation.
+# Storage is installed independently. The pre-created Secret must also contain
+# all existing application-required keys, not only these two S3 keys:
+# skillhub-storage-s3-access-key / skillhub-storage-s3-secret-key.
+existingSecret: skillhub-app-secrets
+s3:
+  enabled: true
+  endpoint: http://object-storage.storage.svc.cluster.local:9000
+  publicEndpoint: https://storage.example.com
+  bucket: skillhub
+  region: us-east-1
+  forcePathStyle: true
+  disableChunkedEncoding: true
+  autoCreateBucket: false
+  presignExpiry: PT10M
+  accessKey: ""
+  secretKey: ""

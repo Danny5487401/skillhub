@@ -1,5 +1,7 @@
 # GitHub 公开 Skill 同步：管理员运行手册
 
+对象存储可选部署、凭证和迁移说明见[对象存储手册](object-storage.md)。
+
 本功能只采集 GitHub 公开仓库。SkillHub Java 保存配置、来源、任务、审核和发布状态；独立 Go 服务轮询 Java 的内部接口执行发现与采集。Go 停止后，Java 中已保存的任务和检查点仍在；重新启动 Go 后由租约机制继续处理。功能仍在实施验收阶段，生产启用前须完成 [OpenSpec 验收任务](../openspec/changes/add-github-skill-sync/tasks.md) 中未勾选的部署检查。
 
 ## 启用前配置

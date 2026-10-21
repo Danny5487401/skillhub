@@ -363,4 +363,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done <"$REPO_ROOT/.env.release.draft" >"$draft_env"
 expect_fail "$draft_env" "POSTGRES_PASSWORD"
 
+invalid_chunked_env="$tmp/invalid-chunked.env"
+write_env "$invalid_chunked_env" "release-download-secret-32-bytes-minimum"
+printf '%s\n' 'SKILLHUB_STORAGE_S3_DISABLE_CHUNKED_ENCODING=perhaps' >>"$invalid_chunked_env"
+expect_fail "$invalid_chunked_env" "SKILLHUB_STORAGE_S3_DISABLE_CHUNKED_ENCODING"
+
 echo "validate-release-config-test passed"
