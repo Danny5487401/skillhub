@@ -8,7 +8,7 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 
 `0.2.1` 缺省连接 `https://skill.xfyun.cn`；显式空串或仅空白仍表示断开，已有自定义地址保留。插件不继承 CLI 的默认地址或凭证。
 
-本版使用独立发布标签 `dsh-v0.2.1`，保留 `0.1.1` 的 DSH 依赖兼容性与历史安装回执修复。npm 发布及公开包验收完成前，使用本版本构建的 tarball 验证。
+`0.3.1` 为 DSH 双 RC 兼容修复版本，使用独立发布标签 `dsh-v0.3.1`，保留 `0.3.0` 的市场交互与版本管理能力。npm 发布及公开包验收完成前，使用本版本构建的 tarball 验证。
 
 ## 环境与验证范围
 
@@ -19,12 +19,12 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 | Host Node | `>=24.2.0 <25`；不能使用 Node 24.0.0 |
 | 开发包管理器 | Bun `1.3.13`，按锁文件安装 |
 | 当前 UI | 中文；支持 DSH 深浅主题和窄屏 |
-| 已验证环境 | Linux DSH Host 与浏览器集成；Windows 浏览器访问真实 Host 的界面和交互 |
-| 待验证范围 | 新 RC 的完整原生 Host/浏览器验收与跨平台运行；macOS 真实客户端；SaaS 技能的真实模型执行 |
+| 已验证环境 | Linux 两版 DSH Host 严格安装、原生探针及浏览器用户/项目安装、升级、卸载与取消；Windows 浏览器访问真实 Host 的界面和交互 |
+| 待验证范围 | 新 RC 的 Windows/macOS 原生文件操作；真实桌面客户端；本次兼容修复的真实模型调用 |
 
 Windows 浏览器验证不等于 Windows 原生 Host 的全部文件操作已经验证。CI 的平台矩阵也不替代真实桌面、模型及目标实例验收。完整支持边界见仓库内的 [兼容设计](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) 和 [验收标准](../../openspec/changes/add-dsh-native-plugin/acceptance.md)。
 
-本分支包含 Issue #981 的候选兼容修复，尚未发布；已发布的插件 `0.3.0` 不包含此修复。其他 RC、未来发行版、混装模块和 Host/Client 版本不一致均拒绝新写入。可选 `userQuestions` 按宿主服务是否可用启用，缺失时仍回退插件确认框；其版本不属于必需写入门禁。两个已列 RC 的问答 API 一致，peer 声明允许二者，不据此承诺其他版本兼容。
+`0.3.1` 包含已合并的 [Issue #981 兼容修复](https://github.com/iflytek/skillhub/pull/988)；已发布的 `0.3.0` 不包含此修复。其他 RC、未来发行版、混装模块和 Host/Client 版本不一致均拒绝新写入。可选 `userQuestions` 按宿主服务是否可用启用，缺失时仍回退插件确认框；其版本不属于必需写入门禁。两个已列 RC 的问答 API 一致，peer 声明允许二者，不据此承诺其他版本兼容。
 
 ## 构建与打包
 
@@ -62,10 +62,10 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
 
 ## 从 npm 安装
 
-`0.2.1` 在 npm 发布完成后，使用以下命令安装。先确认 DSH、Node 和上表完整 Cordis 组合满足要求，停止目标 Web Profile 的 Host，然后安装精确版本。发布完成前使用下一节的本地候选包：
+`0.3.1` 在 npm 发布完成后，使用以下命令安装。先确认 DSH、Node 和上表完整 Cordis 组合满足要求，停止目标 Web Profile 的 Host，然后安装精确版本。发布完成前使用下一节的本地候选包：
 
 ```sh
-dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.2.1 --ignore-scripts
+dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.3.1 --ignore-scripts
 dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 ```
 
