@@ -28,12 +28,30 @@ done
 case "$storage" in rustfs|silo|external) ;; *) fail "Select rustfs, silo or external" ;; esac
 (($#)) || fail "Missing Compose command"
 # Do not allow additional global files to silently merge incompatible storage services.
+compose_command=""
+global_value_pending=false
 for arg in "$@"; do
-  # In logs, -f means follow rather than a global Compose file option.
-  [[ "$arg" != -f || "${1:-}" != logs ]] || continue
+  # Only standalone -f after the actual logs subcommand means follow. Global
+  # option values (for example --profile logs) must not be mistaken for it.
   case "$arg" in
-    -f|--file|-f?*|--file=*|--env-file|--env-file=*|--project-directory|--project-directory=*)
+    -f)
+      [[ "$compose_command" == logs && "$global_value_pending" == false ]] ||
+        fail "Compose file and env selection must use this script's options"
+      continue ;;
+    --file|-f?*|--file=*|--env-file|--env-file=*|--project-directory|--project-directory=*)
       fail "Compose file and env selection must use this script's options" ;;
+  esac
+  [[ -z "$compose_command" ]] || continue
+  if [[ "$global_value_pending" == true ]]; then
+    global_value_pending=false
+    continue
+  fi
+  # These Compose global options consume the next argument; their =value forms
+  # are already single tokens. Leave command-specific options to Compose.
+  case "$arg" in
+    --ansi|--parallel|--profile|--progress|-p|--project-name) global_value_pending=true ;;
+    -*) ;;
+    *) compose_command="$arg" ;;
   esac
 done
 cd "$REPO_ROOT"

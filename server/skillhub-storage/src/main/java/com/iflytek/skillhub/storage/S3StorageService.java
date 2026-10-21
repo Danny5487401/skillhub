@@ -28,7 +28,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -176,10 +175,19 @@ public class S3StorageService implements ObjectStorageService {
     private Path stagePutObjectBody(InputStream data) throws IOException {
         Path stagedBody = Files.createTempFile("skillhub-s3-upload-", ".tmp");
         try {
-            Files.copy(data, stagedBody, StandardCopyOption.REPLACE_EXISTING);
+            // Write into the existing private file; replacing it can widen its permissions.
+            try (var output = Files.newOutputStream(stagedBody)) {
+                data.transferTo(output);
+            }
             return stagedBody;
-        } catch (IOException e) {
-            Files.deleteIfExists(stagedBody);
+        } catch (IOException | RuntimeException | Error e) {
+            try {
+                Files.deleteIfExists(stagedBody);
+            } catch (IOException | RuntimeException | Error cleanupFailure) {
+                if (cleanupFailure != e) {
+                    e.addSuppressed(cleanupFailure);
+                }
+            }
             throw e;
         }
     }

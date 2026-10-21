@@ -103,7 +103,7 @@ sequenceDiagram
 scripts/storage-compose.sh --storage rustfs --env-file .env.release --project-name skillhub -- up -d
 ```
 
-Silo 将最后一个文件改为 `compose.storage.silo.yml`；外部 S3 只使用基础 Compose。status、升级和 down 必须沿用相同 project、env 和文件组合，不删除数据卷作为更新步骤。
+Silo 将参数 `--storage rustfs` 改为 `--storage silo`；外部 S3 使用 `--storage external`，仅加载基础 Compose。status、升级和 down 必须沿用相同 project、env 和文件组合，不删除数据卷作为更新步骤。
 
 启动顺序：存储健康 → 操作者或显式一次性初始化准备桶/业务账号 → 业务凭证诊断通过 → 启动应用 → 业务冒烟。基础 Compose 的本地存储卷和权限初始化暂不清理，避免扩大改动。
 
@@ -115,7 +115,7 @@ Helm 将存储作为独立服务管理。Chart 的安装、升级和卸载不承
 
 实际发布通过 `Files.newInputStream` 提供不可 reset 的流。AWS SDK 2.20.26 的签名/重试会重读请求体，直接 `RequestBody.fromInputStream` 在此路径下会消耗流并使后续发送不完整；真实应用和文件流契约已复现超时，内存流测试不能覆盖此缺陷。
 
-复用适配层已有暂存 helper，将每次 PUT 的请求体暂存到私有临时文件，用 `RequestBody.fromFile` 提供可重放的源；不在内存缓存整个包。上传前校验实际字节数与声明大小，成功失败均释放暂存文件。接口与调用方保持不变，代价为每次 S3 PUT 增加一次临时磁盘写入，部署需计入并发上传的临时空间预算。
+复用适配层已有暂存 helper，将每次 PUT 的请求体暂存到私有临时文件，用 `RequestBody.fromFile` 提供可重放的源；不在内存缓存整个包。上传前校验实际字节数与声明大小，成功失败均释放暂存文件。暂存写入必须保留创建时的私有权限，不能通过替换文件重建为默认权限；POSIX 环境仅授予运行身份读写权限（0600）。读取发生 IOException 或运行时异常时，helper 必须清理尚未返回给调用方的文件；清理失败不得掩盖原始异常。接口与调用方保持不变，代价为每次 S3 PUT 增加一次临时磁盘写入，部署需计入并发上传的临时空间预算。
 
 ### D6. 镜像、诊断与兼容性证据
 
