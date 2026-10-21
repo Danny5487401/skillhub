@@ -8,7 +8,7 @@ Version `0.2.0` adds source-aware installation status to catalog cards and conve
 
 Version `0.2.1` defaults to `https://skill.xfyun.cn` when `registryUrl` is omitted. An explicit empty or whitespace-only value still disconnects; existing custom addresses are preserved. CLI defaults and credentials are not inherited.
 
-This version uses the independent `dsh-v0.2.1` release tag and retains the DSH dependency compatibility and historical receipt fixes from `0.1.1`. Until npm publication and public-package verification finish, validate this version using its built tarball.
+Version `0.3.1` fixes compatibility with both enumerated DSH RCs, uses the independent `dsh-v0.3.1` release tag and retains the marketplace interactions and version management from `0.3.0`. Until npm publication and public-package verification finish, validate this version using its built tarball.
 
 ## Requirements and validation scope
 
@@ -19,12 +19,12 @@ This version uses the independent `dsh-v0.2.1` release tag and retains the DSH d
 | Host Node | `>=24.2.0 <25`; Node 24.0.0 is unsuitable |
 | Build package manager | Bun `1.3.13`, using frozen lockfiles |
 | UI | Chinese, DSH light/dark themes and narrow layouts |
-| Verified environments | Linux DSH Host/browser integration; Windows browser UI and interactions against a real Host |
-| Pending validation | New-RC native Host/browser and cross-platform acceptance; real macOS client; real model execution of SaaS skills |
+| Verified environments | Both Linux DSH Hosts: strict installation, native probes and browser user/project install, upgrade, removal and cancellation; Windows browser UI and interactions against a real Host |
+| Pending validation | New-RC native Windows/macOS filesystem operations; real desktop clients; real model calls with this compatibility fix |
 
 Windows browser acceptance does not establish complete native Windows Host filesystem support. CI results do not replace desktop, model, or target-instance acceptance. See the repository's [compatibility design](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) and [acceptance criteria](../../openspec/changes/add-dsh-native-plugin/acceptance.md).
 
-This branch contains the unreleased compatibility fix for Issue #981. Published plugin `0.3.0` does not include it. Unknown releases and mixed Host/Client graphs reject new writes. Optional `userQuestions` is enabled by Host service availability; it is not part of the mandatory write-version gate. Its API is identical in the two enumerated RCs, both of which the peer declaration permits. An absent service falls back to the plugin confirmation dialog. New-RC native Host/browser and cross-platform acceptance remain pending until recorded.
+Version `0.3.1` includes the merged [Issue #981 compatibility fix](https://github.com/iflytek/skillhub/pull/988). Published plugin `0.3.0` does not include it. Unknown releases and mixed Host/Client graphs reject new writes. Optional `userQuestions` is enabled by Host service availability; it is not part of the mandatory write-version gate. Its API is identical in the two enumerated RCs, both of which the peer declaration permits. An absent service falls back to the plugin confirmation dialog.
 
 ## Build and package
 
@@ -62,10 +62,10 @@ Published `0.1.0` still requires the original Cordis `4.0.4` baseline and does n
 
 ## Install from npm
 
-After `0.2.1` is published on npm, use these commands to install it. Check DSH, Node and a complete Cordis combination listed above, stop the target Web Profile Host, then install the exact version. Before publication, use the local candidate instructions below:
+After `0.3.1` is published on npm, use these commands to install it. Check DSH, Node and a complete Cordis combination listed above, stop the target Web Profile Host, then install the exact version. Before publication, use the local candidate instructions below:
 
 ```sh
-dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.2.1 --ignore-scripts
+dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.3.1 --ignore-scripts
 dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 ```
 

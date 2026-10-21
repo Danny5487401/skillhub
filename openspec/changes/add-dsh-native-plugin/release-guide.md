@@ -61,7 +61,7 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
 
 候选输出目录须事先创建并位于仓库外，每轮使用独立目录。`check` 包含 build、typecheck、lint、test；仅 CLI 检查通过不能替代插件检查。记录实际 tarball 校验值、源码版本和验收环境，不能用文件名或相同开发版本号判断两个包相同。
 
-`check-dsh-plugin.yml` 使用 Linux、macOS、Windows 三平台矩阵，Node 24.2.0 与当前 Node 24 双版本、Bun 1.3.13，分别运行共享 CLI 检查、插件 `bun run check` 和隔离 Web Profile 的 Host 安装冒烟，并保存带平台名的 tarball 与脱敏摘要。步骤显式使用 Bash，避免 Windows 默认 shell 对脚本的不同解释；平台失败不取消其他平台任务。矩阵通过只证明该次构建与自动化测试结果，真实 DSH Profile 安装、页面和对话验收仍须单独完成。平台测试中的跳过项必须记录，不能算作通过。
+`check-dsh-plugin.yml` 使用 Linux、macOS、Windows 三平台矩阵，Node 24.2.0 与当前 Node 24 双版本、Bun 1.3.13，分别运行共享 CLI 检查、插件 `bun run check` 和隔离 Web Profile 的 Host 安装冒烟，并保存带平台名的 tarball 与脱敏摘要。新 RC `0.2.1-rc.2` 另有 Linux 双 Node 原生 Host 检查，复用对应 Node 档的原矩阵产物；不将此结果扩大为新 RC 的 Windows/macOS 原生文件操作验收。步骤显式使用 Bash，避免 Windows 默认 shell 对脚本的不同解释；平台失败不取消其他平台任务。矩阵通过只证明该次构建与自动化测试结果，真实 DSH Profile 安装、页面和对话验收仍须单独完成。平台测试中的跳过项必须记录，不能算作通过。
 
 ### 2.2 插件包检查
 
@@ -73,7 +73,7 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
 
 ### 2.3 隔离环境验证
 
-本次 `0.2.1` 交付固定 DSH `0.2.0-rc.2`、Node `>=24.2.0 <25`。Cordis、Loader、Include、Timer 须为已验证的完整组合：`4.0.4 / 1.0.5 / 1.0.9 / 1.1.6` 或 `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7`，不得交叉混装；以实际 Host 解析结果为准。已发布 `0.1.0` 尚不包含后一组合支持及历史回执修复，`0.1.1` 起包含这些修复，`0.2.0` 延续此兼容基线；发布前使用本次 tarball 验证。在独立测试账户或容器中准备 Web Profile、工作区和测试技能，连接测试 Registry。仅隔离 Profile/DSH home 不足以隔离共享 inventory。
+本次 `0.3.1` 候选分别验证 DSH `0.2.0-rc.2` 与 `0.2.1-rc.2`，Node `>=24.2.0 <25`。Host、app-boot、核心模块及注入 Client 模块须为同一精确发行版。新 RC 仅使用 `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7`；旧 RC 的 Cordis、Loader、Include、Timer 须为已验证的完整组合：`4.0.4 / 1.0.5 / 1.0.9 / 1.1.6` 或 `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7`，不得交叉混装；以实际 Host 解析结果为准。已发布 `0.1.0` 尚不包含后一组合支持及历史回执修复，`0.1.1` 起包含这些修复，`0.2.0` 延续此兼容基线；发布前使用本次 tarball 验证。在独立测试账户或容器中准备 Web Profile、工作区和测试技能，连接测试 Registry。仅隔离 Profile/DSH home 不足以隔离共享 inventory。
 
 首次创建测试 Web Profile，然后安装本地候选包：
 
@@ -158,9 +158,9 @@ SaaS 使用其现有流水线部署；公共接口契约、测试数据规则与
 
 ### 4.1 独立发布流程
 
-插件使用独立版本，tag 前缀固定为 `dsh-v`（本次为 `dsh-v0.2.1`），不复用 CLI 的 `cli-v*` 发布流程。专用工作流为 `.github/workflows/release-dsh-plugin.yml`；发布前仍须确认 npm 包名、兼容基线及候选包验收，本次交付为 `0.2.1`，manifest 已显式设为 `private: false`；缺省 Registry 为 `https://skill.xfyun.cn`，显式空串/空白仍断开，已有自定义来源保留。发布前分别验证缺省、断开和自定义配置，以及正式域名的固定版本安装、状态识别和本地管理。正式发布仍以最终提交、候选验收和审批结果为准。
+插件使用独立版本，tag 前缀固定为 `dsh-v`（本次为 `dsh-v0.3.1`），不复用 CLI 的 `cli-v*` 发布流程。专用工作流为 `.github/workflows/release-dsh-plugin.yml`；发布前仍须确认 npm 包名、兼容基线及候选包验收，本次候选为 `0.3.1`，manifest 已显式设为 `private: false`；缺省 Registry 为 `https://skill.xfyun.cn`，显式空串/空白仍断开，已有自定义来源保留。发布前分别验证缺省、断开和自定义配置，以及正式域名的固定版本安装、状态识别和本地管理。正式发布仍以最终提交、候选验收和审批结果为准。
 
-发布流程依次完成：校验版本 → 测试与构建 → 生成并检查 tarball → 隔离 DSH 候选验收 → 发布审批 → 发布 npm → 校验已发布包。当前工作流自动执行版本校验、测试与构建、包检查、上传及完整性校验；隔离 DSH 的 UI、真实模型和平台验收需在发布审批前另行完成，CI 矩阵成功不等同于这些验收通过。工作流使用仓库的 `NPM_TOKEN` 发布凭证，源码及 npm 包不包含凭证；配置了环境保护规则时还须完成对应审批。
+发布流程依次完成：校验版本 → 测试与构建 → 生成并检查 tarball → 隔离 DSH 候选验收 → 发布审批 → 发布 npm → 校验已发布包。当前工作流自动执行版本校验、测试与构建、包检查、上传及完整性校验；隔离 DSH 的 UI、真实模型和平台验收按本次确认范围另行执行，未验项目须单独注明；CI 矩阵成功不等同于这些验收通过。工作流使用仓库的 `NPM_TOKEN` 发布凭证，源码及 npm 包不包含凭证；配置了环境保护规则时还须完成对应审批。
 
 `publish-images.yml` 的 publish job 在 Release tag 以 `dsh-v` 开头时跳过，其依赖的运行时镜像同步 job 随之跳过；手动执行和其他 Release 行为保留。`publish-chart.yml` 的发布 job 限定为手动触发或 `v`、`chart-v`、`helm-v` 前缀。`release-cli.yml` 自动触发仅匹配 `cli-v*`，并支持手动执行。插件 Release 必须使用 `dsh-v` 前缀，不能使用平台或 CLI 前缀。以上隔离不等于插件已获发布授权，发布前仍需完成专用发布工作流和候选验收。
 
@@ -181,7 +181,7 @@ SaaS 使用其现有流水线部署；公共接口契约、测试数据规则与
 
 ### 4.3 发布说明
 
-`0.2.1` 的变更说明见 [release-notes.md](release-notes.md)。正式版本发布前按最终候选及验收结果更新，不沿用开发版本的支持声明。
+`0.3.1` 的变更说明见 [release-notes.md](release-notes.md)。正式版本发布前按最终候选及验收结果更新，不沿用开发版本的支持声明。
 
 每个版本包含：
 
@@ -224,4 +224,4 @@ dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 发布前应具备插件 README、兼容矩阵、Registry 契约、测试报告、包清单、配置说明、变更说明和回退步骤。操作人按已批准的环境与版本执行发布；验证、包上传、服务部署和发布后检查分别记录结果。
 
 
-首版单一版本基线、依赖锁定、能力检测及平台验收遵循 [DSH 兼容性设计](compatibility-design.md)。
+精确发行版支持范围、依赖锁定、能力检测及平台验收遵循 [DSH 兼容性设计](compatibility-design.md)。
