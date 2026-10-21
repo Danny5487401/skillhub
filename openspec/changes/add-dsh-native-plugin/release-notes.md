@@ -2,9 +2,16 @@
 
 ## 版本与交付状态
 
-本次交付版本为 `@astron-team/skillhub-dsh@0.3.0`，对应独立标签 `dsh-v0.3.0`。[功能 PR #986](https://github.com/iflytek/skillhub/pull/986) 已合并；发布流水线、公开包完整性和发布后验收分别记录于 [验证摘要](verification.md)。已发布版本保持不变。
+本次发布候选为 `@astron-team/skillhub-dsh@0.3.1`，计划使用独立标签 `dsh-v0.3.1`。[兼容修复 PR #988](https://github.com/iflytek/skillhub/pull/988) 已合并；npm 上传、公开包完整性及发布后安装检查尚待完成，分别记录于 [验证摘要](verification.md)。历史已发布版本保持不变。
 
-DSH 基线为 `0.2.0-rc.2`，Node 为 `>=24.2.0 <25`，沿用既有两组完整 Cordis 组合。浏览器与真实模型验收使用 Linux 官方 Host；三平台原生 Host 由 CI 验证，不扩大为个人电脑桌面客户端或其他 DSH 发行版验收。
+## 0.3.1 DSH 双 RC 兼容
+
+- **精确发行版**：支持一致的 DSH `0.2.0-rc.2` 或 `0.2.1-rc.2` 依赖图；Host、app-boot、核心模块及注入 Client 模块必须同版，未知或混装继续拒绝新写入。
+- **依赖与协议**：旧 RC 保留既有两组完整 Cordis 组合，新 RC 仅使用 `4.0.5 / 1.0.6 / 1.0.10 / 1.1.7`。构建生成器输出双方可读取的共同契约，运行时协议仍由目标 Host 提供，不使用 peer 豁免绕过兼容检查。
+- **保留行为**：默认来源保持 `https://skill.xfyun.cn`，保留自定义来源、用户/项目范围、原安装记录和历史回执；不新增服务端接口、模型配置或登录功能。
+- **验证范围**：功能候选完成 365 项测试、两版 Linux Host 严格安装、原生探针及浏览器用户/项目安装→升级→卸载和取消验证。CI 覆盖旧 RC 三平台双 Node、新 RC Linux 双 Node。新 RC 的 Windows/macOS 原生文件操作、真实桌面客户端及本次真实模型调用未验收；这些结果不代替 `0.3.1` 最终候选与公开包验证。
+
+Node 保持 `>=24.2.0 <25`。精确兼容与验证边界见 [兼容设计](compatibility-design.md) 及 [验收标准](acceptance.md)。
 
 ## 0.3.0 市场交互与版本管理
 
@@ -69,7 +76,7 @@ DSH 基线为 `0.2.0-rc.2`，Node 为 `>=24.2.0 <25`，沿用既有两组完整 
 
 ## 安装、更新与维护
 
-可通过 `dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.2.0 --ignore-scripts` 安装到已有 Web Profile。发布前从源码执行 `bun run check` 后生成 `.tgz`，使用固定版本 DSH 的 `plugin ... add` 安装。具体准备、命令、配置和测试流程见 [中文指南](../../../plugins/dsh/README.md)、[英文指南](../../../plugins/dsh/README.en.md) 及 [发布指南](release-guide.md)。
+可通过 `dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.3.1 --ignore-scripts` 安装到已有 Web Profile。发布前从源码执行 `bun run check` 后生成 `.tgz`，使用固定版本 DSH 的 `plugin ... add` 安装。具体准备、命令、配置和测试流程见 [中文指南](../../../plugins/dsh/README.md)、[英文指南](../../../plugins/dsh/README.en.md) 及 [发布指南](release-guide.md)。
 
 更新或回退前保留原包和校验值、停止新操作并处理待恢复事务，然后停止 Host、安装兼容包并重新启动。浏览器旧资源可强制刷新；这不能代替 Host 依赖重载。禁用或移除包不会卸载技能，不应删除技能目录、inventory 或操作日志。
 
@@ -91,7 +98,7 @@ DSH 基线为 `0.2.0-rc.2`，Node 为 `>=24.2.0 <25`，沿用既有两组完整 
 
 - 确定正式版本、最终候选校验值和支持平台；未验证的平台、DSH 或 SaaS 组合不得声明支持。
 - 验证候选包在干净目标 Profile 中安装、读取来源、安装测试技能及保留原数据的维护流程。
-- 确认可发布 manifest、`dsh-v<version>` tag、npm 身份和发布凭证权限；配置了环境保护规则时完成相应审批；`0.2.0` manifest 显式允许公开发布，仍需完成最终候选验收及本次发布授权。
+- 确认可发布 manifest、`dsh-v<version>` tag、npm 身份和发布凭证权限；配置了环境保护规则时完成相应审批；当前 manifest 显式允许公开发布，仍需完成最终候选验收及本次发布授权。
 - 获批发布后，从 npm 下载实际包，对比完整性并执行发布后安装检查。
 
 插件、开源服务和 SaaS 独立发布；npm 插件发布不部署服务端。
