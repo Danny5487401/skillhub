@@ -7,14 +7,14 @@
 - 保持 `local` / `s3` 配置契约，通过同一 S3 接口接入 RustFS、PGSTY Silo 或外部 S3 服务。
 - 为正式 Compose 栈增加可选 RustFS / Silo 叠加文件，使用独立数据卷，不静默替换现有部署。
 - 明确内外网端点、预签名、业务凭证、桶初始化、GitHub 同步 Worker 网络和 Helm 外部存储配置。
-- 增加共享真实契约验收、迁移停写和回退指南，以及镜像供应链说明。
+- 增加共享真实契约验收、迁移风险及停写和回退参考，以及镜像供应链说明；新部署接入验证不构成生产迁移支持。
 
 ## Capabilities
 
 ### New Capabilities
 
 - `s3-compatible-storage`: 不同 S3 实现下的对象读写、签名、权限和错误行为契约。
-- `object-storage-deployment`: 可选部署、配置诊断、兼容性声明与安全迁移交付契约。
+- `object-storage-deployment`: 可选部署、配置诊断、兼容性声明与迁移参考的安全边界。
 
 ### Modified Capabilities
 
