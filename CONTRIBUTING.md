@@ -24,7 +24,7 @@ Prerequisites:
 
 - Docker and Docker Compose
 - Java 21
-- Node.js and `pnpm`
+- Node.js 20 or 22 (see `.nvmrc`; Node 25+ currently breaks jsdom-based web tests — #991) and `pnpm`
 
 Start the local stack:
 
