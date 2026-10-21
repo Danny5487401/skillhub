@@ -43,7 +43,7 @@ flowchart TB
 
 ### D2. 技术配置：复用已有键，部署时确定后端
 
-下表全部是已有配置键。此处是新本地存储示例的目标取值，不覆盖全局默认值。RustFS 与 Silo 并列可选；RustFS 不是全局默认或最优推荐。`.env.release.example` 保持 local，开发 Compose 保持原有 Silo，基础发布 Compose 的 provider 缺省为 s3 且不捆绑存储服务。本次没有长期稳定性、大规模负载或 HA 对比证据。
+下表全部是已有配置键。此处是新本地存储示例的目标取值，不覆盖全局默认值。自建 S3 操作示例优先展示 Silo，RustFS 保留可选；这是基于本项目当前接入验收及既有部署方式的示例顺序，不是通用可靠性排名，不代表已验证 Silo 的长期生产可靠性。`.env.release.example` 保持 local，开发 Compose 保持原有 Silo，基础发布 Compose 的 provider 缺省为 s3 且不捆绑存储服务。本次没有长期稳定性、大规模负载或 HA 对比证据。
 
 | 环境变量 | 示例或要求 |
 |---|---|
@@ -100,10 +100,10 @@ sequenceDiagram
 # 先准备私有桶和业务身份，再使用一个选定的叠加文件
 # 仓库根目录；操作会启动并修改相应项目的容器/卷
 # .env.release 由部署者准备，存储初始化步骤另见手册
-scripts/storage-compose.sh --storage rustfs --env-file .env.release --project-name skillhub -- up -d
+scripts/storage-compose.sh --storage silo --env-file .env.release --project-name skillhub -- up -d
 ```
 
-Silo 将参数 `--storage rustfs` 改为 `--storage silo`；外部 S3 使用 `--storage external`，仅加载基础 Compose。status、升级和 down 必须沿用相同 project、env 和文件组合，不删除数据卷作为更新步骤。
+RustFS 使用对应 env 示例并将参数 `--storage silo` 改为 `--storage rustfs`；外部 S3 使用 `--storage external`，仅加载基础 Compose。status、升级和 down 必须沿用相同 project、env 和文件组合，不删除数据卷作为更新步骤。
 
 启动顺序：存储健康 → 操作者或显式一次性初始化准备桶/业务账号 → 业务凭证诊断通过 → 启动应用 → 业务冒烟。基础 Compose 的本地存储卷和权限初始化暂不清理，避免扩大改动。
 

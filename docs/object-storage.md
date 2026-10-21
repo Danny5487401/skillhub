@@ -6,18 +6,18 @@ SkillHub 通过同一个 S3 接口连接 RustFS、PGSTY Silo 或外部 S3 服务
 
 | 方式 | 使用配置 | 数据归属 |
 |---|---|---|
-| RustFS | `compose.release.yml` + `compose.storage.rustfs.yml` | 独立 `rustfs_data` 卷 |
 | Silo | `compose.release.yml` + `compose.storage.silo.yml` | 独立 `silo_data` 卷 |
+| RustFS | `compose.release.yml` + `compose.storage.rustfs.yml` | 独立 `rustfs_data` 卷 |
 | 外部 S3 | 仅 `compose.release.yml` | 外部服务的桶 |
 | local | 仅 `compose.release.yml`，显式 `SKILLHUB_STORAGE_PROVIDER=local` | 现有应用存储卷 |
 
 一次只选择一个本地存储。使用 `scripts/storage-compose.sh`，它会拒绝重复选择和额外 `-f` 文件；不要自行同时合并两个存储文件。所有命令在仓库根目录执行，要求 Bash、Docker Compose v2；诊断另外要求 JDK 21+、Maven Wrapper 和 GNU timeout。
 
-RustFS 与 Silo 是并列可选项，RustFS 不是全局默认值，也不代表最优推荐；下文先用它举例不代表优先选用。`.env.release.example` 仍显式选择 `local`，开发 Compose 的 `minio` 服务仍使用原有 Silo 镜像；仅使用基础 `compose.release.yml` 时，provider 的缺省值为 `s3`，但不会自动部署任一存储产品。已有实例不会自动切换。本次没有长期稳定性、大规模负载或高可用对比证据，部署方应按自身运维条件选择并验收。
+本文优先以 Silo 展示自建 S3 的操作步骤，RustFS 保留可选。这一顺序基于本项目当前接入验收及既有部署方式，不是通用可靠性排名，也不代表已验证 Silo 的长期生产可靠性。`.env.release.example` 仍显式选择 `local`，开发 Compose 的 `minio` 服务仍使用原有 Silo 镜像；仅使用基础 `compose.release.yml` 时，provider 的缺省值为 `s3`，但不会自动部署任一存储产品。已有实例不会自动切换。本次没有长期稳定性、大规模负载或高可用对比证据，部署方应按自身运维条件选择并验收。
 
 ## 2. 准备受保护配置
 
-从 `.env.release.example` 准备 `.env.release`，再把 `deploy/storage/rustfs.env.example` 或 `deploy/storage/silo.env.example` 中的存储配置合入该文件，并替换所有占位值。不要直接用示例部署，也不要把实际配置加入 Git。
+从 `.env.release.example` 准备 `.env.release`，再把 `deploy/storage/silo.env.example`（RustFS 使用 `deploy/storage/rustfs.env.example`）中的存储配置合入该文件，并替换所有占位值。不要直接用示例部署，也不要把实际配置加入 Git。
 
 ```sh
 # 已有 .env.release 时不要重复复制覆盖
@@ -39,12 +39,12 @@ chmod 600 .env.release
 
 ## 3. 分步初始化，避免应用先于桶启动
 
-下面用 RustFS，Silo 把每条命令的 `--storage rustfs` 改为 `--storage silo`。固定 `--project-name`，后续更新、状态和停机也使用相同参数。
+下面用 Silo；选择 RustFS 时，改用其 env 示例，并把下文每条命令的 `--storage silo` 改为 `--storage rustfs`。固定 `--project-name`，后续更新、状态和停机也使用相同参数。
 
 ```sh
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- up -d object-storage
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- ps object-storage
 ```
 
@@ -114,7 +114,7 @@ S3 PUT 会在应用私有临时文件中暂存请求体，以支持文件流签�
 
 ```sh
 make validate-release-config
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- up -d
 ```
 
@@ -132,7 +132,7 @@ SKILLHUB_GITHUB_SYNC_STAGING_CAPACITY_LIMIT_BYTES=1073741824
 允许列表按完整主机及端口匹配，不能只填 `object-storage`。容量按部署预算调整为正数。Worker 必须可达内部 endpoint，不能把宿主机 `localhost` 作为容器上传地址。
 
 ```sh
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- --profile github-sync up -d
 ```
 
@@ -154,10 +154,10 @@ scripts/storage-compose.sh --storage rustfs --env-file .env.release \
 先备份并确认目标版本的迁移要求，再更新固定镜像。通过 `RUSTFS_IMAGE` / `SILO_IMAGE` 覆盖时仍应指定经验证的不可变摘要；覆盖制品需要重新验收。
 
 ```sh
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- ps
 # 停止并移除本项目容器，保留命名数据卷；不要增加 -v
-scripts/storage-compose.sh --storage rustfs --env-file .env.release \
+scripts/storage-compose.sh --storage silo --env-file .env.release \
   --project-name skillhub -- down
 ```
 
