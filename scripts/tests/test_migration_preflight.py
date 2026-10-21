@@ -57,7 +57,7 @@ class PreflightTest(unittest.TestCase):
                 self.calls = []
             def get(self, path):
                 self.calls.append(path)
-                return [dict()] * (100 if "page=1" in path else 1)
+                return [dict()] * (100 if path.endswith("&page=1") else 1)
         api = API()
         self.assertEqual(len(api.pages("/pulls?state=open")), 101)
         self.assertEqual(api.calls[1], "/pulls?state=open&per_page=100&page=2")
