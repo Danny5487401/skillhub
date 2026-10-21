@@ -79,7 +79,9 @@ def scan(api):
         try:
             files = api.pages(f"/pulls/{number}/files", limit=3000)
             current = api.get(f"/pulls/{number}")
-            if current["head"]["sha"] != pr["head"]["sha"] or current["state"] != "open":
+            if (current["head"]["sha"] != pr["head"]["sha"]
+                    or current["base"]["sha"] != pr["base"]["sha"]
+                    or current["state"] != "open"):
                 raise ScanError("PR changed during scan; rerun required")
             if len(files) != current["changed_files"]:
                 raise ScanError("PR file list incomplete; rerun required")
@@ -99,8 +101,8 @@ def safe(value):
 
 def summary(collisions, errors, count):
     lines = ["## Flyway migration preflight", "",
-             "Advisory only: no SQL is downloaded or executed; no PR is changed.", "",
-             f"Open PRs inspected: {count}.", ""]
+             "Advisory only: no SQL files are fetched or executed; no PR is changed.", "",
+             f"Open PRs discovered: {count}.", ""]
     if errors:
         lines += ["**Warning: scan incomplete. Absence of a reported collision is not clearance.**", "", "<pre>",
                   *(safe(error) for error in errors), "</pre>", ""]
@@ -123,8 +125,10 @@ def main():
     try:
         api = GitHub(os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_TOKEN", ""))
         collisions, errors, count = scan(api)
-    except (ScanError, KeyError, TypeError) as error:
-        collisions, errors, count = {}, [f"Scan unavailable ({type(error).__name__}); no clearance issued."], 0
+    except ScanError as error:
+        collisions, errors, count = {}, [str(error)], 0
+    except (KeyError, TypeError):
+        collisions, errors, count = {}, ["Malformed GitHub API response; no clearance issued."], 0
     report = summary(collisions, errors, count)
     destination = os.environ.get("GITHUB_STEP_SUMMARY")
     if destination:
@@ -132,7 +136,7 @@ def main():
             output.write(report)
     else:
         print(report)
-    return 0  # Deliberately advisory; incomplete scans remain visible in the summary.
+    return 1 if errors else 0  # Workflow treats errors as advisory, never as scan clearance.
 
 
 if __name__ == "__main__":
