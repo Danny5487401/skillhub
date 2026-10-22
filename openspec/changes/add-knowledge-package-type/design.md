@@ -59,7 +59,7 @@ Knowledge 仍是 Skill：Skill/Suite 同 slug 的入口与命令不变；Suite �
 
 | 入口 | 推荐扩展 |
 | --- | --- |
-| `GET /api/v1/resources`、`GET /api/web/resources` | 可选 `packageType=skill|knowledge` 过滤；`include=packageType` 才扩展响应。 |
+| `GET /api/v1/resources`、`GET /api/web/resources` | 可选 `packageType=skill` / `packageType=knowledge` 过滤；`include=packageType` 才扩展响应。 |
 | SkillController 的详情、版本列表/详情、resolve（`/api/v1/skills` 与 `/api/web/skills`） | 仅以 `include=packageType` 扩展相应 Skill/版本对象；不增加类型过滤或重解析。 |
 | 旧 Skill 搜索、CLI / ClawHub 兼容端点、下载及其他入口 | 保留原响应形状与行为；本片不扩展它们。 |
 
