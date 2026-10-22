@@ -647,6 +647,7 @@ describe('sync command', () => {
     await mkdir(join(skillDir, '.skillhub'), { recursive: true })
     await writeFile(join(skillDir, 'SKILL.md'), '---\nname: demo\ndescription: Demo\nversion: 1.0.0\n---\n')
     await writeFile(join(skillDir, '.skillhub', 'metadata.json'), '{"must":"not be uploaded"}')
+    await writeFile(join(skillDir, '.skillhub', 'examples.json'), '{invalid authored content}')
     const registry = await startFakeRegistry({ token: 'token', publishStatus: 'UPLOADED' })
 
     try {
@@ -663,6 +664,8 @@ describe('sync command', () => {
       })
       expect(registry.received.publish?.visibility).toBe('NAMESPACE_ONLY')
       expect(registry.received.publish?.rejectExistingVersion).toBe(true)
+      expect(registry.received.publish?.archiveEntries).toContain('.skillhub/examples.json')
+      expect(registry.received.publish?.archiveEntries).not.toContain('.skillhub/metadata.json')
       expect(registry.received.review).toMatchObject({
         namespace: 'team-a', slug: 'demo', version: '1.0.0', targetVisibility: 'NAMESPACE_ONLY'
       })
@@ -804,4 +807,43 @@ describe('sync command', () => {
       registry.stop()
     }
   })
+})
+
+
+test.each([true, false])('sync push keeps malformed examples and reports nonblocking warnings (dryRun=%s)', async dryRun => {
+  const env = await createTempHome()
+  const directory = await makeLocalSkill(env.cwd)
+  await mkdir(join(directory, '.skillhub'), { recursive: true })
+  await writeFile(join(directory, '.skillhub/examples.json'), '{invalid but publishable}')
+  const registry = await startFakeRegistry({ token: 'token' })
+  try {
+    for (const json of [true, false]) {
+      const result = await runCli(['sync', 'push', directory, '--namespace', 'team-a', '--registry', registry.url, '--token', 'token',
+        ...(dryRun ? ['--dry-run'] : []), ...(json ? ['--json'] : [])], { HOME: env.home }, { cwd: env.cwd })
+      expect(result.exitCode).toBe(0)
+      if (json) {
+        const item = JSON.parse(result.stdout).items[0]
+        expect(item.examplesStatus).toBe('invalid')
+        expect(item.warnings).toHaveLength(1)
+        expect(item.action).toBe(dryRun ? 'validated' : 'uploaded')
+      } else expect(result.stdout).toContain('remains ordinary package content')
+    }
+    if (!dryRun) expect(registry.received.publish!.archiveEntries).toContain('.skillhub/examples.json')
+  } finally { registry.stop() }
+})
+
+test.each(['ready', 'none'] as const)('sync push reports %s examples for raw ZIP in JSON and human output', async state => {
+  const env = await createTempHome()
+  const path = join(env.cwd, 'skill.zip')
+  const content = JSON.stringify({ schemaVersion: 1, defaultLocale: 'en', examples: { en: [{ id: 'one', title: 'One', prompt: 'Use {{skill}}' }] } })
+  await writeFile(path, zipSync({ 'SKILL.md': strToU8('# Demo'), ...(state === 'ready' ? { '.skillhub/examples.json': strToU8(content) } : {}) }))
+  const registry = await startFakeRegistry({ token: 'token' })
+  try {
+    for (const json of [true, false]) {
+      const result = await runCli(['sync', 'push', path, '--namespace', 'team-a', '--registry', registry.url, '--token', 'token', ...(json ? ['--json'] : [])], { HOME: env.home }, { cwd: env.cwd })
+      expect(result.exitCode).toBe(0)
+      if (json) expect(JSON.parse(result.stdout).items[0]).toMatchObject({ examplesStatus: state, examplesCount: state === 'ready' ? 1 : 0, warnings: [] })
+      else expect(result.stdout).toContain(state === 'ready' ? 'Task examples: 1' : 'Task examples: none')
+    }
+  } finally { registry.stop() }
 })

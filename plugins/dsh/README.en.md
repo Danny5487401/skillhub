@@ -10,6 +10,13 @@ Version `0.2.1` defaults to `https://skill.xfyun.cn` when `registryUrl` is omitt
 
 Version `0.3.1` fixes compatibility with both enumerated DSH RCs, uses the independent `dsh-v0.3.1` release tag and retains the marketplace interactions and version management from `0.3.0`. Until npm publication and public-package verification finish, validate this version using its built tarball.
 
+## Use an installed skill (in development)
+
+Choose “使用此技能” on an installed card, matching installed-version detail or completed installation result. Catalog entries open a new conversation in the same workspace; conversation entries keep their current session. After installation verification, examples appear above the native composer. Confirm an example or choose a custom task to insert an editable invocation. The original conversation is preserved, and in-conversation use retains its existing text, references and attachments. Complete the task and send it yourself; this action does not submit messages, call a model or install files.
+
+An active session is required. Shadowed skills, modified files, disabled user invocation or changed context are reported without modifying the draft. Historical receipts are not proof of current installation. This feature is under development and is not part of published `0.3.1`.
+
+
 ## Requirements and validation scope
 
 | Component | Requirement or scope |

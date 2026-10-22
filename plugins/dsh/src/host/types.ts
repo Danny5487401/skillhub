@@ -86,6 +86,15 @@ export interface InstallationTargetList {
   unavailable: ('user' | 'project')[];
 }
 
+/** Controlled, path-free reasons for refusing a native composer handoff. */
+export type SkillUseBlockReason = 'installation-unverified' | 'operation-pending' | 'shared-installation'
+  | 'files-changed' | 'skill-unavailable' | 'skill-shadowed' | 'user-invocation-disabled'
+  | 'unsupported-name' | 'host-unavailable';
+
+export type { SkillExamples, SkillExample } from './generated/native-contract.js';
+export type SkillUsePreparation = { status: 'ready'; name: string; version: string; scope: 'user' | 'project'; examples: import('./generated/native-contract.js').SkillExamples }
+  | { status: 'blocked'; reason: SkillUseBlockReason };
+
 export interface InstalledSkillList {
   items: { itemKey: string; namespace: string; slug: string; version: string; scope: 'user' | 'project';
     state: 'present' | 'missing' | 'metadata-invalid' | 'mismatch' | 'unreadable' }[];

@@ -1,3 +1,4 @@
+import { exactInstalledSkill, UseSkillButton } from './use-skill.js';
 import { useSyncExternalStore } from 'react';
 import type { NativeOperation } from '../host/types.js';
 import type { InstallationAttempt } from './installation-requests.js';
@@ -43,7 +44,7 @@ export function InstallationProgressSummary({ attempt, operation, readFailed, on
   </div>;
 }
 
-export function InstallationProgressPanel({ job, services }: { job: InstallationProgressJob; services: InstallationServices }) {
+export function InstallationProgressPanel({ job, services, onUsed }: { job: InstallationProgressJob; services: InstallationServices; onUsed?(): void }) {
   const attempt = useSyncExternalStore(services.requests.subscribe, () => services.requests.get(job.key), () => undefined);
   const operation = useInstallationOperation(services, job.hostInstanceId, attempt?.operationId ?? attempt?.operation?.operationId);
   async function check() {
@@ -55,9 +56,15 @@ export function InstallationProgressPanel({ job, services }: { job: Installation
     });
     else await operation.refetch();
   }
+  const completed = (operation.data ?? attempt?.operation)?.phase === 'completed' && !operation.isError;
   return <section className="astron-sh-install-progress-item" aria-label={`${job.title} 安装进度`}>
     <header><SkillAvatar name={job.title} namespace={job.namespace} slug={job.slug} /><div><strong>{job.title}</strong><p>v{job.version} · {job.scope === 'project' ? '仅此项目' : '所有项目'}</p></div>
     </header>
     <InstallationProgressSummary attempt={attempt} operation={operation.data ?? attempt?.operation} readFailed={operation.isError || operation.data === null} onCheck={() => { void check(); }} />
+    {completed && <UseSkillButton services={services.skillUse} revision={job.sourceRevision} resolve={async signal => {
+      const inventory = await services.installed(job.sourceRevision, signal);
+      if (!inventory.ok) throw new Error('无法核验当前安装，请在已安装中重试。');
+      return exactInstalledSkill(inventory.value, job)?.itemKey ?? '';
+    }} onHandoff={onUsed} onUsed={onUsed} />}
   </section>;
 }

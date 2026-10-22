@@ -13,8 +13,11 @@ async function fixture(downloadFailure = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'skillhub-native-upgrade-')))
   const versions = ['1.0.0', '2.0.0'].map((version, index) => {
     const content = `# Version ${version}`
-    const fingerprint = 'sha256:' + createHash('sha256').update('SKILL.md:' + createHash('sha256').update(content).digest('hex') + '\n').digest('hex')
-    return { version, versionId: index + 1, content, fingerprint }
+    const examples = JSON.stringify({ schemaVersion: 1, defaultLocale: 'en', examples: { en: [{ id: 'one', title: version, prompt: 'Use {{skill}} ' + version }] } })
+    const fingerprint = 'sha256:' + createHash('sha256')
+      .update('.skillhub/examples.json:' + createHash('sha256').update(examples).digest('hex') + '\n')
+      .update('SKILL.md:' + createHash('sha256').update(content).digest('hex') + '\n').digest('hex')
+    return { version, versionId: index + 1, content, examples, fingerprint }
   })
   let downloads = 0
   const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch(request) {
@@ -26,7 +29,7 @@ async function fixture(downloadFailure = false) {
     } })
     downloads++
     if (downloadFailure && version.version === '2.0.0') return new Response('missing', { status: 404 })
-    return new Response(new Uint8Array(zipSync({ 'SKILL.md': new TextEncoder().encode(version.content) })).buffer)
+    return new Response(new Uint8Array(zipSync({ 'SKILL.md': new TextEncoder().encode(version.content), '.skillhub/examples.json': new TextEncoder().encode(version.examples) })).buffer)
   } })
   const registry = server.url.origin
   const inventory = new InventoryStore(join(root, 'home'))
@@ -52,6 +55,7 @@ test('native upgrade replaces the entire confirmed target set and persists its o
   try {
     expect(await f.runtime.executeUpgrade(f.request)).toMatchObject({ outcome: 'committed' })
     for (const target of f.roots) expect(await readFile(join(target.root, 'writer/SKILL.md'), 'utf8')).toBe('# Version 2.0.0')
+    expect(await f.runtime.readSkillExamples(join(f.roots[0]!.root, 'writer'))).toMatchObject({ state: 'ready', items: { en: [{ title: '2.0.0' }] } })
     expect((await f.inventory.read()).items[0]!.version).toBe('2.0.0')
     expect((await f.runtime.getOperation(f.request.operationId, 'session'))?.files).toBe('upgraded')
     expect(await f.runtime.listPending()).toEqual([])

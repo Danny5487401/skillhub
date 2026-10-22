@@ -360,3 +360,27 @@ accepted 不表示安装完成。工具立即返回 accepted 及 operationId，�
 保留 `checkUpdate` 与 `prepareUpgrade` 的原签名及“检查最新版”行为，新增 Agent-scoped `checkVersionUpdate(sourceRevision,itemKey,version,signal)` 和 `prepareVersionUpgrade(sourceRevision,itemKey,version,signal)`。两组接口共享当前库存重读、完整目标基线、版本比较、文件修改保护与确认计划；定向接口必须按指定 version 解析，响应版本不一致即拒绝，不使用 latest 替换不可用版本。执行仍只提交原 executePlan，无新文件写入接口或 SaaS 安装接口。
 
 详情按 source/session/itemKey/所选 version 隔离只读检查缓存，切换仅触发读取。较新且可核验的版本显示升级到该版本，相同版本不重复显示升级，旧版本或不可排序版本明确阻断。确认使用捕获的库存项与精确目标，不因后台库存刷新重建另一升级意图；升级完成使库存失效，旧 itemKey 的检查结果不会绑定到新记录。
+
+
+### 使用此技能：只读当前会话核验
+
+`@RemoteScope('agent') prepareSkillUse(sourceRevision, itemKey, signal)` 接受当前来源 revision 和 opaque 安装记录键。返回 `SkillUsePreparation`：
+
+```ts
+type SkillUsePreparation =
+  | { status: 'ready'; name: string; version: string; scope: 'user' | 'project'; examples: SkillExamples }
+  | { status: 'blocked'; reason: SkillUseBlockReason };
+type SkillUseBlockReason =
+  | 'installation-unverified' | 'operation-pending' | 'shared-installation'
+  | 'files-changed' | 'skill-unavailable' | 'skill-shadowed'
+  | 'user-invocation-disabled' | 'unsupported-name' | 'host-unavailable';
+```
+
+`name` 来自已核验本地 SKILL.md 与当前 DSH 胜出技能，禁止使用市场 slug 或远程说明猜测。来源/会话/范围或记录变化沿用 context-stale；中止、服务失效不降级为未经核验的调用。只读检查不创建安装/升级/卸载计划或操作，不写文件，不下载，不注册模型工具。没有实际调用权时 Client 显示明确原因并保留草稿。技能中心新对话的 itemKey 必须由该新会话的 listInstalled 重新取得并匹配原来源、坐标、版本和范围；对话入口沿用原会话核验。案例选择不增加新 Host Remote，使用官方 conversation.input.dock 贡献，详见使用设计。
+
+Client 使用原生 `InputActions.captureInsertion()` 和 `insertText(text, span)` 的 revision 比较；保留选中文本时在捕获位置末端插入，不用 clipboard 字符长度计算编辑坐标。普通任务文字在前，实际 `/name` 以空白分隔嵌入，避免自动创建 slash command claim。既有 claimed/submitting 等草稿不改写。完整交互与时序见 [使用设计](use-skill-design.md)。
+
+
+## 固定技能案例协议
+
+案例直接随技能包分发，已安装使用读取 `.skillhub/examples.json`；不新增案例查询端点或数据库权威内容。现有精确版本 file 接口可返回原始文件流，不能按 ApiResponse.data 解析。prepareSkillUse 的 ready 返回值扩展有界案例投影，发布预检扩展可选识别摘要；精确定义和状态规则统一见 [案例实现设计](skill-examples-design.md#3-本地读取与原生草稿衔接)。既有 Remote 参数及不自动发送边界保持。扩展已在开源代码实现，旧 API 响应允许缺少预检字段并按未知处理；SaaS 需后续同步。

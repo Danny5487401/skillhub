@@ -145,7 +145,7 @@ export async function installSkill(options: InstallOptions): Promise<InstallResu
       await mkdir(tempDir, { mode: 0o700 })
       try {
         await options.authorizeTargetMutation?.([tempDir], 'staging')
-        await extractZip(buffer, tempDir)
+        await extractZip(buffer, tempDir, { rejectInternalMetadata: true })
 
         const installedAt = new Date().toISOString()
         const snapshot = await snapshotSkillDirectory(tempDir)

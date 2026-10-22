@@ -1,7 +1,8 @@
 import { lstat, readdir, realpath } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { OperationRecord } from './operation-store'
 import type { InstallMove } from '../services/install-transaction'
+import { readInstalledSkillMetadata } from '../services/installed-skill-metadata'
 
 export async function verifiedBackupPath(record: OperationRecord, move: InstallMove): Promise<string> {
   const root = dirname(move.canonicalSkillDir)
@@ -17,18 +18,29 @@ export async function verifiedBackupPath(record: OperationRecord, move: InstallM
 }
 
 export async function assertOwnedRegularTree(path: string): Promise<void> {
-  await inspectTree(path, path)
+  const authoredMetadataPaths: string[] = []
+  await inspectTree(path, path, authoredMetadataPaths)
+  if (!authoredMetadataPaths.length) return
+  const metadata = await readInstalledSkillMetadata(path)
+  const files = metadata.status === 'valid' ? metadata.metadata.files : undefined
+  if (authoredMetadataPaths.some(entry => !files || !(entry in files))) {
+    throw new Error('Untracked recovery metadata content')
+  }
 }
 
-async function inspectTree(path: string, root: string): Promise<void> {
+async function inspectTree(path: string, root: string, authoredMetadataPaths: string[]): Promise<void> {
   const info = await lstat(path)
   if (info.isSymbolicLink() || (!info.isDirectory() && !info.isFile())
     || (process.getuid && info.uid !== process.getuid())) throw new Error('Unsafe recovery path')
-  if (!info.isDirectory()) return
+  const local = relative(root, path).split('\\').join('/')
+  if (!info.isDirectory()) {
+    // Authored files are permitted only when the installed baseline records them.
+    if (local.split('/').includes('.skillhub') && local !== '.skillhub/metadata.json') authoredMetadataPaths.push(local)
+    return
+  }
   const names = await readdir(path)
-  // The fingerprint deliberately excludes .skillhub; do not silently delete untracked content there.
-  if (basename(path) === '.skillhub' && (path !== join(root, '.skillhub') || names.length !== 1 || names[0] !== 'metadata.json')) {
+  if (!names.length && local.split('/').includes('.skillhub') && local !== '.skillhub') {
     throw new Error('Untracked recovery metadata content')
   }
-  for (const name of names) await inspectTree(join(path, name), root)
+  for (const name of names) await inspectTree(join(path, name), root, authoredMetadataPaths)
 }

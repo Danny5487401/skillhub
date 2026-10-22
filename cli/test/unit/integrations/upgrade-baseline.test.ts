@@ -15,6 +15,7 @@ test('upgrade baseline includes both approved targets and blocks drift, sharing,
     for (const target of item.targets) {
       await mkdir(join(target.installDir, '.skillhub'), { recursive: true })
       await writeFile(join(target.installDir, 'SKILL.md'), 'original')
+      await writeFile(join(target.installDir, '.skillhub/examples.json'), '{invalid but fingerprinted}')
       const snapshot = await snapshotSkillDirectory(target.installDir)
       item.fingerprint = snapshot.fingerprint
       await writeFile(join(target.installDir, '.skillhub/metadata.json'), JSON.stringify({ ...item, ...snapshot,
@@ -28,6 +29,13 @@ test('upgrade baseline includes both approved targets and blocks drift, sharing,
     if (ready.status !== 'ready') throw new Error('expected ready')
     expect(ready.targets.map(target => target.scope)).toEqual(['user', 'project'])
     expect(ready.inventoryItem.targets).toHaveLength(2)
+
+    await writeFile(join(item.targets[0]!.installDir, '.skillhub/examples.json'), '{edited}')
+    expect(await check()).toEqual({ status: 'blocked', reason: 'local-changes' })
+    await rm(join(item.targets[0]!.installDir, '.skillhub/examples.json'))
+    expect(await check()).toEqual({ status: 'blocked', reason: 'local-changes' })
+    await writeFile(join(item.targets[0]!.installDir, '.skillhub/examples.json'), '{invalid but fingerprinted}')
+    expect((await check()).status).toBe('ready')
 
     inventory.items[0]!.targets[1]!.agent = 'other-agent'
     expect(await check()).toEqual({ status: 'blocked', reason: 'target-outside-context' })
@@ -50,7 +58,8 @@ test('upgrade baseline includes both approved targets and blocks drift, sharing,
     const snapshot = await snapshotSkillDirectory(item.targets[0]!.installDir)
     const metadata = { ...item, ...snapshot, agent: 'dsh', installedAt: item.targets[0]!.installedAt }
     await writeFile(metadataPath, JSON.stringify({ ...metadata, files: undefined }))
-    expect(await check()).toEqual({ status: 'blocked', reason: 'metadata-invalid' })
+    // Authored metadata files cannot be considered owned without a recorded file baseline.
+    expect(await check()).toEqual({ status: 'blocked', reason: 'target-unavailable' })
     await writeFile(metadataPath, JSON.stringify(metadata))
     let reads = 0
     expect(await inspectUpgradeBaseline({ read: async () => {

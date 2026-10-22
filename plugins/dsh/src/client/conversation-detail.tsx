@@ -40,10 +40,10 @@ export function ConversationDetail({ reference, callId, originalSource, services
     style={{ margin: '0 0 0 auto', height: '100dvh', maxHeight: '100dvh', width: 'min(720px, 100vw)', maxWidth: '100vw', boxSizing: 'border-box', border: '1px solid #8885', padding: 24, overflowY: 'auto', font: 'inherit', lineHeight: 1.6, overflowWrap: 'anywhere' }}>
     <NativeControlStyles />
     <button autoFocus onClick={close} style={{ float: 'right', minHeight: 40 }} aria-label="关闭技能详情">关闭</button>
-    <QueryClientProvider client={services.client}><Content reference={reference} callId={callId} originalSource={originalSource} services={services} browseVersions={browseVersions} allowHistoricalReopen={allowHistoricalReopen} /></QueryClientProvider>
+    <QueryClientProvider client={services.client}><Content reference={reference} callId={callId} originalSource={originalSource} services={services} close={close} browseVersions={browseVersions} allowHistoricalReopen={allowHistoricalReopen} /></QueryClientProvider>
   </dialog>;
 }
-function Content({ reference, callId, originalSource, services, browseVersions, allowHistoricalReopen }: { reference: string; callId: string; originalSource: string; services: SearchViewServices; browseVersions?: () => void; allowHistoricalReopen: boolean }) {
+function Content({ reference, callId, originalSource, services, close, browseVersions, allowHistoricalReopen }: { reference: string; callId: string; originalSource: string; services: SearchViewServices; close(): void; browseVersions?: () => void; allowHistoricalReopen: boolean }) {
   const [reopening, setReopening] = useState(false);
   const query = useQuery({ queryKey: ['skillhub-conversation-detail', services.installation.sessionId, callId, reference, reopening], retry: false, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: async ({ signal }) => {
@@ -64,7 +64,7 @@ function Content({ reference, callId, originalSource, services, browseVersions, 
     {reopening && <p role="status">已重新核验详情。安装需要另行确认。</p>}
     <div className="astron-sh-detail-heading"><SkillAvatar name={detail.title} slug={detail.slug} namespace={detail.namespace} /><div><h2>{detail.title}</h2><p>@{detail.namespace}/{detail.slug} · {detail.version}</p></div></div><p>{detail.summary}</p><SkillMetrics item={detail} />
     <Acknowledgment key={detail.detailToken} reference={detail.selectionRef} token={detail.detailToken} acknowledge={services.acknowledgeDetail} />
-    <InstallControl detail={detail} sourceRevision={context.sourceRevision} services={services.installation} initiatedFrom="conversation" onContextStale={() => { void query.refetch(); }} />
+    <InstallControl detail={detail} sourceRevision={context.sourceRevision} services={services.installation} initiatedFrom="conversation" onClose={close} onContextStale={() => { void query.refetch(); }} />
     <article className="astron-sh-documentation"><DetailContent detail={detail} modes={context.detailTabs} remote={services.remote} retry={() => { void query.refetch(); }} cacheIdentity={JSON.stringify([services.installation.sessionId, context.sourceRevision, detail.namespace, detail.slug, detail.version])} onContextStale={() => { void query.refetch(); }} onSelectVersion={browseVersions} versionActionLabel="前往广场选择版本" /></article>
     <details className="astron-sh-conversation-provenance"><summary>来源信息</summary><p>原搜索来源：{originalSource}</p><p>当前详情来源：{context.registryUrl}</p></details>
   </>;

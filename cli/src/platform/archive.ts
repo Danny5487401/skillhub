@@ -14,10 +14,10 @@ const ZIP64_MARKER_32 = 0xffffffff
  * Extract a zip archive buffer into the target directory.
  * Pure JS implementation using fflate — no system commands needed.
  */
-export async function extractZip(buffer: ArrayBuffer, targetDir: string): Promise<void> {
+export async function extractZip(buffer: ArrayBuffer, targetDir: string, options: { rejectInternalMetadata?: boolean } = {}): Promise<void> {
   await mkdir(targetDir, { recursive: true })
   const archive = new Uint8Array(buffer)
-  validateZipCentralDirectory(archive)
+  validateZipCentralDirectory(archive, options.rejectInternalMetadata ?? false)
   const files = unzipSync(archive)
   const entries = Object.entries(files).map(([name, data]) => ({
     name,
@@ -25,7 +25,7 @@ export async function extractZip(buffer: ArrayBuffer, targetDir: string): Promis
     filePath: safeJoin(targetDir, name),
   }))
   for (const { name, data, filePath } of entries) {
-    if (name.endsWith('/')) {
+    if (isZipDirectory(name)) {
       await mkdir(filePath, { recursive: true })
       continue
     }
@@ -34,7 +34,11 @@ export async function extractZip(buffer: ArrayBuffer, targetDir: string): Promis
   }
 }
 
-function validateZipCentralDirectory(archive: Uint8Array): void {
+function isZipDirectory(name: string): boolean {
+  return name.endsWith('/') || name.endsWith('\\')
+}
+
+function validateZipCentralDirectory(archive: Uint8Array, rejectInternalMetadata: boolean): void {
   const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength)
   const eocdOffset = findEndOfCentralDirectory(view)
   if (eocdOffset < 0) {
@@ -66,6 +70,7 @@ function validateZipCentralDirectory(archive: Uint8Array): void {
     throw new Error('invalid zip central directory')
   }
 
+  const destinations = new Map<string, boolean>()
   let offset = centralDirectoryOffset
   let totalUncompressedSize = 0
   const decoder = new TextDecoder()
@@ -85,6 +90,23 @@ function validateZipCentralDirectory(archive: Uint8Array): void {
     }
 
     const entryName = decoder.decode(archive.subarray(nameStart, nameEnd))
+    const normalized = entryName.replaceAll('\\', '/').split('/').filter(part => part !== '' && part !== '.')
+    if (normalized.some(part => part === '..' || (part.includes(':') || [...part].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) || /[ .]$/.test(part))) {
+      throw new Error('unsafe zip entry path')
+    }
+    const destination = normalized.join('/').toLowerCase()
+    const directory = isZipDirectory(entryName)
+    if (rejectInternalMetadata && destination === '.skillhub/examples.json' && normalized.join('/') !== destination) {
+      throw new Error('Ambiguous skill examples path casing')
+    }
+    if (rejectInternalMetadata && ((!directory && destination === '.skillhub') || destination === '.skillhub/metadata.json' || destination.startsWith('.skillhub/metadata.json/'))) {
+      throw new Error('Installer metadata cannot be supplied by a skill package')
+    }
+    if (destinations.has(destination) || [...destinations].some(([path, isDirectory]) =>
+      (!isDirectory && destination.startsWith(path + '/')) || (!directory && path.startsWith(destination + '/')))) {
+      throw new Error('conflicting zip entry destinations')
+    }
+    destinations.set(destination, directory)
     if (!entryName.endsWith('/') && uncompressedSize > MAX_SINGLE_FILE_BYTES) {
       throw new Error('zip entry size exceeds limit')
     }
@@ -160,7 +182,7 @@ function safeJoin(targetDir: string, entryName: string): string {
   }
 
   const root = resolve(targetDir)
-  const target = resolve(root, entryName)
+  const target = resolve(root, entryName.replaceAll('\\', '/'))
   const rel = relative(root, target)
   if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error(`unsafe zip entry path: ${entryName}`)

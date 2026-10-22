@@ -8,6 +8,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.Locale;
 
 /**
  * Shared package-policy rules for path normalization, extension allowlists, and lightweight file
@@ -18,6 +19,8 @@ public final class SkillPackagePolicy {
     public static final int MAX_FILE_COUNT = 500;
     public static final long MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     public static final long MAX_TOTAL_PACKAGE_SIZE = 100 * 1024 * 1024; // 100MB
+    public static final String INTERNAL_METADATA_PATH = ".skillhub/metadata.json";
+    public static final String EXAMPLES_PATH = ".skillhub/examples.json";
     public static final String SKILL_MD_PATH = "SKILL.md";
     public static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             // Documentation
@@ -65,6 +68,22 @@ public final class SkillPackagePolicy {
         }
 
         return canonicalizeSkillMdPath(canonical);
+    }
+
+    /** Reject Windows aliases before accepting a portable author file path. */
+    public static String portableEntryKey(String normalizedPath) {
+        for (String segment : normalizedPath.split("/")) {
+            if (segment.endsWith(".") || segment.endsWith(" ")
+                    || segment.chars().anyMatch(value -> value < 32 || value == 127)) {
+                throw new IllegalArgumentException("Package entry path has a non-portable alias: " + normalizedPath);
+            }
+        }
+        return normalizedPath.toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isInternalMetadataPath(String portableKey) {
+        return portableKey.equals(INTERNAL_METADATA_PATH)
+                || portableKey.startsWith(INTERNAL_METADATA_PATH + "/");
     }
 
     public static String canonicalizeSkillMdPath(String normalizedPath) {

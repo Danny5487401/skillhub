@@ -160,6 +160,10 @@ export async function collectFolderEntries(files: File[]): Promise<ZipEntry[]> {
   for (const file of files) {
     const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
     if (isIgnoredPath(path)) continue
+    // A folder picker includes one selected-root segment. Only its installer record
+    // is private; nested author resources named metadata.json remain publishable.
+    const relative = path.replace(/\\/g, '/').split('/').slice(path.includes('/') ? 1 : 0).join('/')
+    if (relative.toLowerCase() === '.skillhub/metadata.json') continue
     const data = new Uint8Array(await file.arrayBuffer())
     entries.push({ path, data })
   }

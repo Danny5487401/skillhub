@@ -71,3 +71,22 @@ describe('web display name publishing', () => {
     await waitFor(() => expect((screen.getByLabelText('publish.displayName') as HTMLInputElement).value).toBe('重试后的名称'))
   })
 })
+
+
+describe('examples preflight remains non-blocking', () => {
+  for (const status of ['ready', 'none', 'invalid'] as const) {
+    it(`shows ${status} recognition and still allows publishing`, async () => {
+      preview.mockResolvedValue({ ...metadata('案例技能'), examplesStatus: status, ...(status === 'invalid' ? {} : { examplesCount: status === 'ready' ? 2 : 0 }) })
+      mount(); select('examples.zip')
+      await screen.findByText(`publish.examples${status[0].toUpperCase()}${status.slice(1)}`)
+      expect(screen.getByRole('button', { name: 'publish.confirm' }).hasAttribute('disabled')).toBe(false)
+    })
+  }
+  it('tolerates old preview responses without examples fields', async () => {
+    preview.mockResolvedValue(metadata('旧技能'))
+    mount(); select('old.zip')
+    await waitFor(() => expect((screen.getByLabelText('publish.displayName') as HTMLInputElement).value).toBe('旧技能'))
+    expect(screen.queryByText(/publish.examples/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'publish.confirm' }).hasAttribute('disabled')).toBe(false)
+  })
+})

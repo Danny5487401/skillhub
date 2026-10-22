@@ -420,3 +420,135 @@ Selecting a version SHALL be read-only. For an installed skill, a newer verifiab
 - **WHEN** any required installed target cannot pass the existing baseline or ownership checks
 - **THEN** confirmation is blocked for the entire upgrade and no target is overwritten
 - **AND** current installed state remains independently queryable
+
+
+### Requirement: Verified native skill-use handoff
+The plugin SHALL offer a common “使用此技能” action on installed cards, installed or matching-version skill details, and completed installation surfaces. It SHALL revalidate the exact current-Registry installed record, selected scope, local file integrity and effective native DSH skill in the active session before inserting an editable invocation into the native composer. It SHALL preserve the existing draft, references and attachments and SHALL NOT submit messages, call a model, execute a skill, install files or change skill enablement. See use-skill-design.md for interaction and architecture.
+
+#### Scenario: Installed market coordinate differs from native skill name
+- **WHEN** the selected installed record is valid and its parsed native skill name differs from the market slug
+- **THEN** the plugin inserts the verified native user invocation rather than guessing from the market slug
+- **AND** focuses the target session composer, leaving sending to the user.
+
+#### Scenario: Installed skill cannot be safely invoked
+- **WHEN** files or inventory have changed, the native winner belongs to another location, the selected skill is not discovered, or user invocation is disabled
+- **THEN** the action gives a concise actionable reason and leaves the draft and attachments untouched.
+
+#### Scenario: Context or draft changes during verification
+- **WHEN** the active session, workspace, source revision, composer or component lifetime changes, or native insertion comparison fails
+- **THEN** the late result does not overwrite or submit any draft, including a newly selected session.
+
+#### Scenario: Completed receipt is historical
+- **WHEN** use is requested from an installation-success surface
+- **THEN** the plugin rereads current inventory and matches source, coordinate, scope and version before preparing use
+- **AND** a removed or upgraded historical target is not silently substituted with another installed version.
+
+
+### Requirement: Versioned skill examples at one fixed package path
+SkillHub SHALL recognize task examples only at `.skillhub/examples.json` relative to the skill root. Upload, download and installation SHALL preserve this single file and its bytes as versioned skill content. Examples SHALL follow the selected installed version. The feature SHALL NOT require editing SKILL.md, a separate Web configuration editor, an external examples cache or an independently refreshed copy. Detailed schema and cross-layer lifecycle rules SHALL be defined before implementation; see use-skill-design.md.
+
+#### Scenario: An author uploads valid multiple examples
+- **WHEN** a package contains protocol-valid `.skillhub/examples.json` with multiple task templates
+- **THEN** the templates are associated with that exact skill version and remain at the same relative path after installation
+- **AND** selecting use offers applicable templates and a custom-task entry without automatically sending a message.
+
+#### Scenario: Example protocol is invalid or the file is absent
+- **WHEN** the fixed file is absent or has invalid JSON or an invalid example structure
+- **THEN** the skill remains usable through custom task entry without fabricated examples
+- **AND** an existing invalid file is retained as ordinary versioned skill content with a non-blocking publication notice, subject to all normal package safety checks.
+
+#### Scenario: A similarly named file or unsafe package is uploaded
+- **WHEN** JSON is supplied at another path or package content violates general safety rules
+- **THEN** other-path JSON is not interpreted as task examples and unsafe content follows existing rejection rules
+- **AND** uploaded content never overrides or gains the authority of installer-internal `.skillhub/metadata.json`.
+
+#### Scenario: Skill content passes through publishing and local lifecycle operations
+- **WHEN** supported CLI, Web and DSH consumers publish, install, retry, sync, upgrade, remove or recover a skill containing the fixed file
+- **THEN** package manifests, fingerprints, backups and directory checks consistently account for that file, including protocol-invalid ordinary content
+- **AND** local modifications retain existing overwrite protection rather than being ignored as cache changes.
+
+#### Scenario: Version or installation scope differs
+- **WHEN** a user selects a different installed version, source or user/project installation
+- **THEN** templates come from that exact selected installation, never from another version or scope
+- **AND** existing native invocation, current-session and draft checks still apply.
+
+#### Scenario: Legacy skills and consumers are evaluated
+- **WHEN** an old skill has no examples file or an older CLI/plugin accesses a new-format installation
+- **THEN** the old skill remains usable and consumer compatibility is explicitly tested and documented
+- **AND** unsupported consumers are not claimed compatible merely because the current implementation is updated.
+
+
+### Requirement: Localized packaged skill examples
+The examples protocol SHALL support language-tagged arrays of objects with id, title and prompt, and an author-declared defaultLocale. Consumers SHALL select the host UI locale by exact tag, progressively less-specific parent tags, then the declared default. They SHALL NOT automatically translate, mix language collections or select an arbitrary first language. Canonically duplicate tags or a missing declared default collection SHALL be protocol-invalid, with ordinary-file fallback.
+
+#### Scenario: Multiple languages are supplied
+- **WHEN** a valid examples file provides Chinese, English or other supported language collections
+- **THEN** the matching host-language collection is displayed in author order
+- **AND** missing matches use the declared default while an explicitly empty matched collection remains empty.
+
+#### Scenario: Locale changes while selecting an example
+- **WHEN** the host language changes after a template selection is prepared
+- **THEN** the old selection is invalidated rather than inserting a different localized item under the stale selection.
+
+
+### Requirement: Structured examples and verified skill placeholder
+Each example SHALL contain a stable id, display title and editable prompt. IDs SHALL be unique within each language collection; translations of the same logical example SHALL use the same id without requiring equal collection sizes. String-only entries SHALL be protocol-invalid. The consumer SHALL replace only the exact `{{skill}}` placeholder in prompt with the verified native skill invocation and SHALL NOT evaluate template expressions or infer the invocation from the market slug.
+
+#### Scenario: A localized structured example is chosen
+- **WHEN** the user confirms an example selected by language and id
+- **THEN** the current file digest and installation are revalidated and the current matching prompt is used
+- **AND** all exact skill placeholders are replaced with the verified invocation while title remains presentation text.
+
+#### Scenario: Prompt has no supported skill placeholder
+- **WHEN** the chosen prompt has no exact skill placeholder
+- **THEN** the consumer supplies the verified invocation separately and preserves the chosen task text
+- **AND** other template-like text remains literal, with no code evaluation or automatic sending.
+
+
+### Requirement: Native conversation case selection by entry context
+Catalog skill-use entries SHALL create and activate a new conversation in the same workspace. Conversation and tool-receipt entries SHALL remain in their current conversation. After target-session verification, task examples SHALL appear inline above the native composer rather than in a modal. The plugin SHALL use supported official session and slot APIs and SHALL NOT send messages or call models.
+
+#### Scenario: Catalog use starts a separate task
+- **WHEN** the user selects use from a skill-center installed card, matching detail or installation-success surface
+- **THEN** exactly one new conversation is opened in the same workspace and task examples expand above its composer
+- **AND** the original conversation draft, references, attachments and messages remain unchanged
+- **AND** the selected source, installed version and scope are revalidated for the new conversation rather than replaced by latest or another installation.
+
+#### Scenario: Conversation use preserves context
+- **WHEN** use is selected from a conversation detail or tool installation receipt
+- **THEN** the existing conversation remains active and its composer displays the inline case options
+- **AND** case confirmation inserts editable text while preserving existing draft content and attachments.
+
+#### Scenario: Cancel, missing examples and stale navigation
+- **WHEN** the user cancels inline case selection
+- **THEN** no text is inserted and no conversation or message is deleted
+- **WHEN** no applicable case exists
+- **THEN** no empty case picker appears and the verified custom-use handoff remains available
+- **WHEN** session creation fails, or the source, workspace or active conversation changes before insertion
+- **THEN** late work cannot overwrite the old draft or redirect the user back to a stale session.
+
+
+#### Scenario: Native draft ownership survives the navigation
+- **WHEN** catalog use would release the original conversation's last native view reference while its input has draft text, references, attachments or an unfinished input state
+- **THEN** the plugin retains the original native session shell before navigation and preserves its full native input state
+- **AND** it releases this temporary protection when the original main view resumes, the draft is cleared/sent, the session is removed or invalidated, or the plugin is disposed
+- **AND** creation failure or cancellation before navigation releases the temporary reference without changing the draft
+- **WHEN** eight previous nonempty drafts are already protected
+- **THEN** another catalog-use action is refused before creating a conversation, with a concise instruction to revisit earlier drafts rather than evicting them
+- **AND** this runtime protection does not promise attachment persistence across browser reload, shutdown or plugin disposal.
+
+#### Scenario: 案例填入不产生额外首尾空行
+
+- **WHEN** 用户确认案例或自定义任务并填入空的原生输入框
+- **THEN** 插件不在正文前后额外添加换行，保留作者模板原有换行
+- **AND** 插入已有草稿时只为紧邻且缺少换行的正文增加必要分隔，不重复已有换行
+- **AND** 带引用、中文及 emoji 时仍使用原生捕获跨度和草稿版本，保留引用与附件，不自动发送
+
+#### Scenario: Conversation detail hands off without blocking case selection
+- **WHEN** the user selects use from an installed skill in a conversation search-detail modal and initial verification succeeds
+- **THEN** the resident controller takes ownership before closing the detail modal and revealing inline cases
+- **AND** unmounting the originating button does not cancel the handed-off choice, while session/source/CAS guards remain active
+- **WHEN** initial verification fails
+- **THEN** the detail remains open with an error
+- **WHEN** the user cancels case selection
+- **THEN** no draft is written and the detail is not reopened.

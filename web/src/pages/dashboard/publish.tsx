@@ -343,6 +343,9 @@ export function PublishPage() {
             <Button type="button" size="sm" variant="outline" onClick={() => packagePreview.refetch()}>{t('publish.retryPackagePreview')}</Button>
           </div>}
           {selectedFile && packagePreview.data && <p className="break-all text-xs text-muted-foreground">{t('publish.packageName')}: <code>{packagePreview.data.name}</code></p>}
+          {selectedFile && packagePreview.data?.examplesStatus === 'ready' && <p role="status" className="text-xs text-muted-foreground">{t('publish.examplesReady', { count: packagePreview.data.examplesCount })}</p>}
+          {selectedFile && packagePreview.data?.examplesStatus === 'none' && <p className="text-xs text-muted-foreground">{t('publish.examplesNone')}</p>}
+          {selectedFile && packagePreview.data?.examplesStatus === 'invalid' && <p role="status" className="text-xs text-muted-foreground">{t('publish.examplesInvalid')}</p>}
         </div>
 
         <SkillAvatarEditor key={`${namespaceSlug}/${updateSlug}`} name={search.updateName ?? updateSlug} currentUrl={avatarTarget.data?.avatarUrl} canRemove={!!updateSlug} disabled={ownerReadOnly || isBusy || avatarUnavailable} onChange={setAvatarEdit} />

@@ -26,7 +26,7 @@ test('layout loss removes only catalog entries and preserves conversation regist
   const flush = async () => { await new Promise(resolve => setTimeout(resolve, 25)); };
   try {
     await plugin; await flush();
-    const tools = ['tool.call.toolview/astron_skillhub_install', 'tool.call.toolview/astron_skillhub_search'];
+    const tools = ['conversation.input.dock/skillhub-case-choices', 'conversation.input.left/skillhub-use-focus', 'tool.call.toolview/astron_skillhub_install', 'tool.call.toolview/astron_skillhub_search'];
     expect([...entries.keys()].sort()).toEqual(tools);
     const original = tools.map(key => entries.get(key));
     for (let cycle = 0; cycle < 2; cycle++) {
@@ -40,6 +40,10 @@ test('layout loss removes only catalog entries and preserves conversation regist
     }
     await plugin.dispose();
     expect(entries.size).toBe(0);
+    const restored = ctx.plugin(clientPlugin);
+    await restored; await flush();
+    expect([...entries.keys()].sort()).toEqual(tools);
+    await restored.dispose(); expect(entries.size).toBe(0);
   } finally {
     await plugin.dispose(); await removeUiSession(); await removeSessions(); await removeSkillHub(); await removeRemote(); await slots.dispose();
   }

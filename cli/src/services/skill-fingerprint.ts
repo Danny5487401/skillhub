@@ -39,8 +39,8 @@ async function listSkillFiles(root: string): Promise<string[]> {
   async function walk(current: string): Promise<void> {
     const entries = await readdir(current, { withFileTypes: true })
     for (const entry of entries) {
-      if (entry.name === '.skillhub') continue
       const absolute = join(current, entry.name)
+      if (relative(root, absolute).split('\\').join('/') === '.skillhub/metadata.json') continue
       if (entry.isDirectory()) {
         await walk(absolute)
       } else if (entry.isFile()) {

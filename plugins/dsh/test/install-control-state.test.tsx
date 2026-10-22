@@ -24,7 +24,7 @@ function render(items: InstalledSkillList['items']) {
   client.setQueryData(['skillhub-installed', 'session', 'source'], inventory(items));
   client.setQueryData(['skillhub-compatibility'], { dependencyBaseline: 'matched', localWritesAllowed: true });
   const unexpected = async () => { throw new Error('SSR must not call transport'); };
-  const services: InstallationServices = { sessionId: 'session', requests, targets: unexpected, installed: unexpected, start: unexpected, operation: unexpected, compatibility: unexpected, manageInstalled: () => {} };
+  const services: InstallationServices = { sessionId: 'session', skillUse: { useSkill: unexpected }, requests, targets: unexpected, installed: unexpected, start: unexpected, operation: unexpected, compatibility: unexpected, manageInstalled: () => {} };
   try { return renderToStaticMarkup(<QueryClientProvider client={client}><InstallControl detail={detail} sourceRevision="source" services={services} initiatedFrom="plaza" /></QueryClientProvider>); }
   finally { client.clear(); requests.dispose(); }
 }
@@ -33,6 +33,7 @@ test('current inventory renders a removal action without a duplicate install act
   const html = render([record]);
   expect(html).toContain('已安装 v1.2.0'); expect(html).toContain('>卸载</button>');
   expect(html).not.toContain('>安装到此项目</button>'); expect(html).not.toContain('安装完成');
+  expect(html).toContain('>使用此技能</button>');
   expect(html).not.toContain('当前范围未安装'); expect(html).not.toContain('DSH Host 上该用户');
 });
 
@@ -41,4 +42,10 @@ test('empty verified inventory renders an explicit scoped install action', () =>
   expect(html).toContain('>安装到此项目</button>');
   expect(html).not.toContain('安装完成'); expect(html).not.toContain('重新安装到');
   expect(html).not.toContain('>卸载</button>');
+});
+
+test('use entry belongs to the installed version and never a different viewed version or invalid record', () => {
+  for (const item of [{ ...record, version: '1.1.0' }, { ...record, state: 'missing' as const }, { ...record, state: 'mismatch' as const }]) {
+    expect(render([item])).not.toContain('>使用此技能</button>');
+  }
 });

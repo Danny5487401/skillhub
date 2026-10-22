@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-sandbox-policy';
 import { SessionId } from '@deepseek-ai/dsh-session/types';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { Config } from './config.js';
 import { ConversationSelections } from './conversation-selections.js';
 import type { SelectionSnapshot } from './conversation-selections.js';
@@ -25,7 +26,7 @@ import { UpgradePlans, RemovalPlans } from './upgrade-plans.js';
 import type { UpgradePlanView, UninstallPlanView, HostExecutePlanRequest, HostRecoveryRequest } from './types.js';
 import type { ResolvedInstallationTarget } from './installation-targets.js';
 import { assertInstallationMutation, assertRemovalMutation, resolveInstallationPath, resolveInstalledPath } from './installation-paths.js';
-import { observeDshInstallation } from './skill-discovery.js';
+import { inspectDshSkill, observeDshInstallation, sameDshSkill } from './skill-discovery.js';
 import { validateDshSkill } from './skill-format.js';
 import { installRequest, operationQuery, executePlanRequest } from './install-request.js';
 import { conversationInstallKey, conversationInstallRequest } from './conversation-install-request.js';
@@ -35,7 +36,7 @@ import type { NativeOperation, HostInstallRequest } from './types.js';
 import type { NativeRecoveryResult } from './generated/native-contract.js';
 import type { InstallationTargetList } from './types.js';
 import type { LocalRuntimeStatus } from './local-runtime.js';
-import type { InstalledSkillList, InstalledSkillDetail, InstalledUpdateCheck } from './types.js';
+import type { InstalledSkillList, InstalledSkillDetail, InstalledUpdateCheck, SkillUsePreparation } from './types.js';
 import { installationFailureCode } from './installation-failure.js';
 import type { InstalledProjectionItem } from './generated/native-contract.js';
 
@@ -315,6 +316,82 @@ export class SkillHubService extends TypertRemoteService {
       return { itemKey, namespace: item.namespace, slug: item.slug, version: item.version, scope: item.scope, state: item.state };
     });
     return { items, complete: result.complete, issues: result.issues, unavailable };
+  }
+
+  /** Read-only handoff: installed snapshots and market names never authorize an invocation. */
+  @RemoteScope('agent')
+  async prepareSkillUse(sourceRevision: string, itemKey: string, signal: AbortSignal): Promise<SkillUsePreparation> {
+    const { item, valid, agent, runtime, fs } = await this.readInstalledItem(sourceRevision, itemKey, signal);
+    const combined = AbortSignal.any([signal, this.lifetime.signal]);
+    const skills = this.ctx.get('skills');
+    const cwd = agent!.session.header.cwd!;
+    const readyContext = () => {
+      valid(); combined.throwIfAborted();
+      if (serviceIdentity(this.ctx.get('skills')) !== serviceIdentity(skills)) {
+        throw new RemoteError('skillhub/context-stale', 'Skill discovery service changed.', { retryable: false });
+      }
+    };
+    readyContext();
+    if (!skills || runtime!.getStatus().state !== 'ready') return { status: 'blocked', reason: 'host-unavailable' };
+    if (runtime!.getStatus().pendingOperations > 0) return { status: 'blocked', reason: 'operation-pending' };
+    if (item.state !== 'present' || !item.fingerprint) return { status: 'blocked', reason: 'installation-unverified' };
+    try {
+      const target = await resolveInstalledPath({ scope: item.scope, cwd, fs: fs!, signal: combined });
+      readyContext();
+      if (join(target.root, item.slug) !== item.targetPath) {
+        throw new RemoteError('skillhub/context-stale', 'Installed target changed.', { retryable: false });
+      }
+      const identity = { registry: this.getContext().registryUrl, namespace: item.namespace, slug: item.slug, version: item.version };
+      const baseline = await runtime!.inspectRemoval(identity, target);
+      readyContext();
+      if (baseline.status === 'blocked') return { status: 'blocked', reason:
+        baseline.reason === 'shared-target' ? 'shared-installation' : 'files-changed' };
+      if (baseline.kind !== 'uninstall' || baseline.inventoryItem.fingerprint !== item.fingerprint
+        || baseline.target.path !== item.targetPath) return { status: 'blocked', reason: 'files-changed' };
+      const examples = await runtime!.readSkillExamples(item.targetPath);
+      readyContext();
+      if (examples.state === 'ready' && baseline.target.files['.skillhub/examples.json'] !== examples.digest) {
+        return { status: 'blocked', reason: 'files-changed' };
+      }
+      const observed = await inspectDshSkill(agent!.ctx, item.targetPath, combined,
+        name => skills.get(name, { scope: agent!, cwd, signal: combined }));
+      readyContext();
+      if (observed.status !== 'ready') return { status: 'blocked', reason:
+        observed.status === 'shadowed' ? 'skill-shadowed' : 'skill-unavailable' };
+      if (!observed.skill.invocation.userInvocable) return { status: 'blocked', reason: 'user-invocation-disabled' };
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(observed.skill.name)) {
+        return { status: 'blocked', reason: 'unsupported-name' };
+      }
+      // Re-read both the opaque record and every selected-target file after asynchronous discovery.
+      const latest = await this.readInstalledItem(sourceRevision, itemKey, combined);
+      readyContext();
+      const current = await resolveInstalledPath({ scope: item.scope, cwd, fs: fs!, signal: combined });
+      readyContext();
+      if (current.root !== target.root || current.dshHome !== target.dshHome) {
+        throw new RemoteError('skillhub/context-stale', 'Installed target changed.', { retryable: false });
+      }
+      const inspected = await runtime!.inspectRemoval(identity, current);
+      readyContext(); latest.valid();
+      if (!isDeepStrictEqual(inspected, baseline)) return { status: 'blocked', reason: 'files-changed' };
+      if (runtime!.getStatus().state !== 'ready' || runtime!.getStatus().pendingOperations > 0) {
+        return { status: 'blocked', reason: 'operation-pending' };
+      }
+      const winner = await skills.get(observed.skill.name, { scope: agent!, cwd, signal: combined });
+      readyContext();
+      if (!winner) return { status: 'blocked', reason: 'skill-unavailable' };
+      if (!sameDshSkill(winner, observed.skill, item.targetPath)) return { status: 'blocked', reason: 'skill-shadowed' };
+      const finalBaseline = await runtime!.inspectRemoval(identity, current);
+      readyContext(); latest.valid();
+      if (!isDeepStrictEqual(finalBaseline, baseline)) return { status: 'blocked', reason: 'files-changed' };
+      if (runtime!.getStatus().state !== 'ready' || runtime!.getStatus().pendingOperations > 0) {
+        return { status: 'blocked', reason: 'operation-pending' };
+      }
+      return { status: 'ready', name: observed.skill.name, version: item.version, scope: item.scope, examples };
+    } catch (error) {
+      readyContext();
+      if (error instanceof RemoteError) throw error;
+      return { status: 'blocked', reason: 'skill-unavailable' };
+    }
   }
 
   @RemoteScope('agent')

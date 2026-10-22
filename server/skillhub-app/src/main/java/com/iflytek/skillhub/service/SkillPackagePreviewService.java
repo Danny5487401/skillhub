@@ -4,6 +4,7 @@ import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.domain.skill.metadata.SkillMetadata;
 import com.iflytek.skillhub.domain.skill.metadata.SkillMetadataParser;
 import com.iflytek.skillhub.domain.skill.validation.PackageEntry;
+import com.iflytek.skillhub.domain.skill.validation.SkillExamplesSummary;
 import com.iflytek.skillhub.domain.skill.validation.SkillPackageValidator;
 import com.iflytek.skillhub.domain.skill.validation.ValidationResult;
 import com.iflytek.skillhub.dto.SkillPackagePreviewResponse;
@@ -29,6 +30,8 @@ public class SkillPackagePreviewService {
         PackageEntry skillMd = entries.stream().filter(entry -> "SKILL.md".equals(entry.path())).findFirst()
                 .orElseThrow(() -> new DomainBadRequestException("error.skill.publish.skillMd.notFound"));
         SkillMetadata metadata = parser.parse(new String(skillMd.content(), StandardCharsets.UTF_8));
-        return new SkillPackagePreviewResponse(metadata.name(), metadata.displayName(), metadata.description(), metadata.version());
+        SkillExamplesSummary examples = SkillExamplesSummary.recognize(entries);
+        return new SkillPackagePreviewResponse(metadata.name(), metadata.displayName(), metadata.description(), metadata.version(),
+                examples.status(), examples.count());
     }
 }

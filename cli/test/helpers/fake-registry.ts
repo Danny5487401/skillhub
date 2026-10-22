@@ -85,8 +85,8 @@ function resolveSkillFingerprint(skill: FakeSkill): string {
   const entries = unzipSync(skill.zipBytes ?? MINIMAL_ZIP)
   const aggregate = createHash('sha256')
   for (const path of Object.keys(entries)
-    .filter(path => !path.endsWith('/') && path !== '.skillhub' && !path.startsWith('.skillhub/'))
-    .sort((left, right) => left.localeCompare(right))) {
+    .filter(path => !path.endsWith('/') && path !== '.skillhub/metadata.json')
+    .sort()) {
     const fileHash = createHash('sha256').update(entries[path]!).digest('hex')
     aggregate.update(`${path}:${fileHash}\n`, 'utf8')
   }

@@ -1,3 +1,4 @@
+import { examplesPreflightLine } from '../services/skill-examples-preflight'
 import { join, resolve } from 'node:path'
 import { ConfigStore } from '../stores/config-store'
 import { CredentialsStore } from '../stores/credentials-store'
@@ -266,7 +267,10 @@ function renderPushResults(namespace: string, results: PushResultItem[], json: b
     const action = item.action === 'uploaded' || item.action === 'submitted-review' ? 'submitted' : item.action
     const status = item.status ? ` status=${item.status}` : ''
     const reviewStatus = item.reviewStatus ? ` reviewStatus=${item.reviewStatus}` : ''
-    return `${action.padEnd(16)} ${coordinate}${status}${reviewStatus}${detail}`
+    const summary = examplesPreflightLine({ ...item, warnings: item.warnings ?? [] })
+    return [`${action.padEnd(16)} ${coordinate}${status}${reviewStatus}${detail}`,
+      ...(summary ? [`  ${summary}`] : []),
+      ...(item.warnings ?? []).map(warning => `  Warning: ${warning}`)].join('\n')
   })
   if (!dryRun && results.some(item => item.action === 'uploaded' || item.action === 'submitted-review')) {
     lines.push('Check the Web page for final publish or review status.')

@@ -10,6 +10,7 @@ import { pathExists } from '../platform/paths'
 import { compareSkillVersions } from './skill-version-order'
 import { CliError } from '../shared/errors'
 import { EXIT } from '../shared/constants'
+import { inspectPackagedExamples, type ExamplesPreflight } from './skill-examples-preflight'
 
 export type SyncStatus = 'up-to-date' | 'update-available' | 'local-changed' | 'blocked' | 'orphaned' | 'not-installed'
 
@@ -42,7 +43,7 @@ export interface PullResult {
   warnings: Array<{ slug: string; message: string }>
 }
 
-export interface PushResultItem {
+export interface PushResultItem extends Omit<ExamplesPreflight, 'warnings'> {
   path: string
   slug?: string
   version?: string
@@ -288,6 +289,7 @@ export async function pushSkills(options: {
   for (const path of options.paths) {
     try {
       const archive = await prepareArchive(path)
+      const examples = await inspectPackagedExamples(archive.blob)
       const validation = await options.client.validatePublish(
         options.namespace, archive.blob, options.visibility, archive.fileName, true)
       if (!validation.valid) {
@@ -295,7 +297,8 @@ export async function pushSkills(options: {
           path,
           action: 'failed',
           errors: validation.errors,
-          warnings: validation.warnings
+          ...examples,
+          warnings: [...new Set([...validation.warnings, ...examples.warnings])]
         }
         if (validation.resolvedSlug) failed.slug = validation.resolvedSlug
         if (validation.resolvedVersion) failed.version = validation.resolvedVersion
@@ -306,7 +309,8 @@ export async function pushSkills(options: {
         const validated: PushResultItem = {
           path,
           action: 'validated',
-          warnings: validation.warnings
+          ...examples,
+          warnings: [...new Set([...validation.warnings, ...examples.warnings])]
         }
         if (validation.resolvedSlug) validated.slug = validation.resolvedSlug
         if (validation.resolvedVersion) validated.version = validation.resolvedVersion
@@ -340,7 +344,9 @@ export async function pushSkills(options: {
         version: published.version,
         status,
         action,
-        ...(reviewStatus ? { reviewStatus } : {})
+        ...(reviewStatus ? { reviewStatus } : {}),
+        ...examples,
+        warnings: [...new Set([...validation.warnings, ...examples.warnings])]
       })
     } catch (error) {
       results.push({ path, action: 'failed', errors: [error instanceof Error ? error.message : 'push failed'] })
@@ -365,7 +371,7 @@ async function prepareArchive(path: string): Promise<{ blob: Blob; fileName: str
   const pathStat = await stat(path)
   if (pathStat.isDirectory()) {
     return {
-      blob: await createZip(path, { exclude: relativePath => relativePath === '.skillhub' || relativePath.startsWith('.skillhub/') }),
+      blob: await createZip(path, { exclude: relativePath => relativePath.toLowerCase() === '.skillhub/metadata.json' }),
       fileName: `${basename(path)}.zip`
     }
   }

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
@@ -15,6 +15,59 @@ describe('archive helpers', () => {
     await extractZip(await archive.arrayBuffer(), target)
 
     expect(await readFile(join(target, 'SKILL.md'), 'utf-8')).toBe('# Demo')
+  })
+
+  test.each(['/', '\\'])('extracts explicit directories and files with %s separators', async separator => {
+    const root = await mkdtemp(join(tmpdir(), 'skillhub-archive-directories-'))
+    try {
+      const source = join(root, 'source')
+      const target = join(root, 'target')
+      const examples = new TextEncoder().encode('{"schemaVersion":1,"examples":{"zh-CN":[]}}\n')
+      const archive = zipSync({
+        'SKILL.md': new TextEncoder().encode('# Demo'),
+        [`.skillhub${separator}`]: new Uint8Array(0),
+        [`.skillhub${separator}examples.json`]: examples,
+        [`resources${separator}`]: new Uint8Array(0),
+        [`resources${separator}empty${separator}`]: new Uint8Array(0),
+        [`resources${separator}data.bin`]: new Uint8Array([0, 255, 42]),
+      })
+
+      await extractZip(archive.buffer as ArrayBuffer, source, { rejectInternalMetadata: true })
+      const repacked = await createZip(source)
+      await extractZip(await repacked.arrayBuffer(), target, { rejectInternalMetadata: true })
+
+      for (const directory of [source, target]) {
+        expect(await readFile(join(directory, 'SKILL.md'), 'utf-8')).toBe('# Demo')
+        expect(new Uint8Array(await readFile(join(directory, '.skillhub', 'examples.json')))).toEqual(examples)
+        expect(new Uint8Array(await readFile(join(directory, 'resources', 'data.bin')))).toEqual(new Uint8Array([0, 255, 42]))
+        expect((await stat(join(directory, '.skillhub'))).isDirectory()).toBe(true)
+        expect((await stat(join(directory, 'resources', 'empty'))).isDirectory()).toBe(true)
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test.each(['.skillhub/metadata.json', '.skillhub/./metadata.json', '.SKILLHUB/METADATA.JSON', '.skillhub\\metadata.json', '.skillhub/metadata.json/child'])('install rejects reserved metadata alias %s before writing', async path => {
+    const target = await mkdtemp(join(tmpdir(), 'skillhub-reserved-'))
+    const archive = zipSync({ 'SKILL.md': new TextEncoder().encode('safe'), [path]: new TextEncoder().encode('untrusted') })
+    await expect(extractZip(archive.buffer as ArrayBuffer, target, { rejectInternalMetadata: true })).rejects.toThrow('Installer metadata')
+    await expect(readFile(join(target, 'SKILL.md'))).rejects.toThrow()
+  })
+
+  test.each(['.SKILLHUB/examples.json', '.skillhub/Examples.JSON'])('install rejects ambiguous cross-platform examples path %s', async path => {
+    const target = await mkdtemp(join(tmpdir(), 'skillhub-case-alias-'))
+    const archive = zipSync({ 'SKILL.md': new TextEncoder().encode('safe'), [path]: new TextEncoder().encode('{}') })
+    await expect(extractZip(archive.buffer as ArrayBuffer, target, { rejectInternalMetadata: true })).rejects.toThrow('Ambiguous skill examples')
+    await expect(readFile(join(target, 'SKILL.md'))).rejects.toThrow()
+  })
+
+  test('rejects canonical duplicate and file/directory conflicts', async () => {
+    for (const entries of [{ 'a.json': 'one', './a.json': 'two' }, { a: 'file', 'a/b': 'child' }]) {
+      const target = await mkdtemp(join(tmpdir(), 'skillhub-duplicate-'))
+      const archive = zipSync(Object.fromEntries(Object.entries(entries).map(([path, content]) => [path, new TextEncoder().encode(content)])))
+      await expect(extractZip(archive.buffer as ArrayBuffer, target)).rejects.toThrow('conflicting zip')
+    }
   })
 
   test('detects zip files by magic bytes', async () => {

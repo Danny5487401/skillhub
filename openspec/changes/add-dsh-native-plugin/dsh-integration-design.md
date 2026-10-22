@@ -165,3 +165,19 @@ DSH 官方接口与机制参考：
 
 
 首版单一版本基线、依赖锁定、能力检测及平台验收遵循 [DSH 兼容性设计](compatibility-design.md)。
+
+
+## 原生技能草稿衔接
+
+“使用此技能”通过已声明的 `@deepseek-ai/dsh-client-ui-conversation` Client 模块，读取 session/session-maybe slot 标准 `inputActions`。两版支持基线均提供 `captureInsertion()`、带 revision 比较的 `insertText()` 及 `conversation.input.for(scope).focus()`；不使用新 RC 专有草稿持久化接口。该 Client 注入同步加入运行时兼容清单，沿用现有同版校验，不增加 Host runtime peer。
+
+技能中心与工具视图绑定原生输入动作；会话输入框贡献负责内联案例选择和确认后的聚焦，不增加任务发送按钮或替换宿主编辑器；技能中心入口通过官方 API 在同工作区新建对话，对话内入口不新建。会话、绑定、来源、工作区与组件生命周期在异步核验前后检查；不能将仍被历史视图持有的会话当成当前主会话。没有原生服务时显示不可用原因，不查找 DOM 或用模拟输入兜底。产品时序和验收见 [使用此技能](use-skill-design.md)。
+
+
+### 新对话与内联案例的官方接缝
+
+技能中心通过当前会话所属工作区创建全新会话，避免宿主可复用空会话中已有草稿被污染。使用 `sessions.create({workspaceId,cwd})` 创建、`sessions.retain(...).ready` 等待可用、`uiWorkspace.openSession` 导航；新会话临时 retain 在完成或失败时释放，主视图接管正常会话生命周期。原会话有草稿/附件时需独立保留完整原生 shell，按返回接管、清空、作用域失效和插件卸载释放，具体限额与失败行为见使用设计。原会话及工作区变化时停止，不能把 `startSession` 可能复用的空会话当成新建成功。
+
+案例区挂载于官方 `conversation.input.dock`，为原生输入框上方的全宽贡献。原 `conversation.input.left` 继续仅承担动作绑定与确认后聚焦。案例状态由常驻控制器管理，不能留在技能卡片或安装弹窗中，否则技能中心卸载会丢失待选项。`ui-workspace`、`api-workspace-controller` 只作为开发类型依赖，运行时由宿主提供，不复制宿主会话控制器。
+
+上述官方接口按两版支持 RC 的本地发行源码核对；实际加载与交互仍须由本轮双基线浏览器结果证明，不因类型检查通过而视为验收。

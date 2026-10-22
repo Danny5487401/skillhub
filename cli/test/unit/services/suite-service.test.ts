@@ -16,9 +16,11 @@ import {
 
 const registry = 'http://registry.test'
 
-function archive(content: string): { bytes: Uint8Array; fingerprint: string } {
-  const bytes = zipSync({ 'SKILL.md': new TextEncoder().encode(content) })
+function archive(content: string, includeExamples = true): { bytes: Uint8Array; fingerprint: string } {
+  const examples = '{invalid but versioned suite examples}'
+  const bytes = zipSync({ 'SKILL.md': new TextEncoder().encode(content), ...(includeExamples ? { '.skillhub/examples.json': new TextEncoder().encode(examples) } : {}) })
   const aggregate = createHash('sha256')
+  if (includeExamples) aggregate.update('.skillhub/examples.json:' + createHash('sha256').update(examples).digest('hex') + '\n')
   const fileHash = createHash('sha256').update(content).digest('hex')
   aggregate.update(`SKILL.md:${fileHash}\n`, 'utf8')
   return { bytes, fingerprint: `sha256:${aggregate.digest('hex')}` }
@@ -75,9 +77,9 @@ function clientWithPlanFailure(status: number, message: string): SkillHubClient 
   return new SkillHubClient(registry, undefined, fetchImpl)
 }
 
-function makePlan(): { plan: SuiteInstallPlan; downloads: Record<string, Uint8Array> } {
-  const alpha = archive('# Alpha')
-  const beta = archive('# Beta')
+function makePlan(includeExamples = true): { plan: SuiteInstallPlan; downloads: Record<string, Uint8Array> } {
+  const alpha = archive('# Alpha', includeExamples)
+  const beta = archive('# Beta', includeExamples)
   return {
     plan: {
       operationId: 'operation-1',
@@ -732,7 +734,7 @@ describe('Suite local lifecycle', () => {
   test('reuses a matching legacy direct install and preserves it when Suite is removed', async () => {
     const home = await mkdtemp(join(tmpdir(), 'skillhub-suite-home-'))
     const rootDir = await mkdtemp(join(tmpdir(), 'skillhub-suite-root-'))
-    const { plan, downloads } = makePlan()
+    const { plan, downloads } = makePlan(false)
     plan.members = [plan.members[0]!]
     const skillDir = join(rootDir, 'alpha')
     await mkdir(skillDir, { recursive: true })
@@ -801,7 +803,7 @@ describe('Suite local lifecycle', () => {
     const home = await mkdtemp(join(tmpdir(), 'skillhub-suite-home-'))
     const directRoot = await mkdtemp(join(tmpdir(), 'skillhub-suite-direct-root-'))
     const suiteOnlyRoot = await mkdtemp(join(tmpdir(), 'skillhub-suite-only-root-'))
-    const { plan, downloads } = makePlan()
+    const { plan, downloads } = makePlan(false)
     const alpha = plan.members[0]!
     await mkdir(join(directRoot, alpha.slug), { recursive: true })
     await writeFile(join(directRoot, alpha.slug, 'SKILL.md'), '# Alpha')

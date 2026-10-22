@@ -101,6 +101,21 @@ class SkillPackagePreviewSecurityIntegrationTest {
         verifyNoInteractions(previews);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api/web"})
+    void examplesSummaryUsesOptionalCountAndCompatibleStatusValues(String prefix) throws Exception {
+        given(previews.preview(anyList())).willReturn(new SkillPackagePreviewResponse("foo", "Foo", "Summary", "1.0.0",
+                com.iflytek.skillhub.domain.skill.validation.SkillExamplesSummary.Status.ready, 2));
+        mockMvc.perform(multipart(prefix + "/skills/package-preview").file(archive()).session(session()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.examplesStatus").value("ready"))
+                .andExpect(jsonPath("$.data.examplesCount").value(2));
+        given(previews.preview(anyList())).willReturn(new SkillPackagePreviewResponse("foo", "Foo", "Summary", "1.0.0",
+                com.iflytek.skillhub.domain.skill.validation.SkillExamplesSummary.Status.invalid, null));
+        mockMvc.perform(multipart(prefix + "/skills/package-preview").file(archive()).session(session()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.examplesStatus").value("invalid"))
+                .andExpect(jsonPath("$.data.examplesCount").doesNotExist());
+    }
+
     private MockHttpSession session() {
         var context = SecurityContextHolder.createEmptyContext();
         var principal = new PlatformPrincipal(userId, "Preview user", userId + "@example.test", "", "local", Set.of());

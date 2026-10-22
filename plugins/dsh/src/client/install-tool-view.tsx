@@ -1,3 +1,4 @@
+import { exactInstalledSkill, UseSkillButton } from './use-skill.js';
 import { matchesReceipt, resolveReceiptContext, readReceiptInventory, type ReceiptReads } from './receipt-context.js';
 import { receiptInventoryIssue, receiptPresentation } from './install-receipt-presentation.js';
 import { Button } from './ui.js';
@@ -22,7 +23,7 @@ export interface InstallViewServices {
   client: QueryClient;
   receipt: ReceiptReads;
   confirmation?: SearchViewServices;
-  installation: Pick<InstallationServices, 'sessionId' | 'operation' | 'installed'>;
+  installation: Pick<InstallationServices, 'sessionId' | 'operation' | 'installed' | 'skillUse'>;
   openInstalled(result: InstallResult): Promise<void>;
 }
 
@@ -97,7 +98,11 @@ function InstallationResult({ result, services, receipt, openInstalled }: {
     <header className="astron-sh-conversation-identity"><SkillAvatar slug={result.slug} namespace={result.namespace} /><div><h4>{result.slug}</h4><p>@{result.namespace}/{result.slug}</p></div><span className="astron-sh-install-badge" data-tone={presentation.tone}>{presentation.label}</span></header>
     <p className="astron-sh-conversation-caption">v{result.version} · {result.targetLabel}</p>
     <p className="astron-sh-install-outcome" role={presentation.tone === 'warning' ? 'alert' : 'status'}>{presentation.message}</p>
-    <div className="astron-sh-install-actions"><Button variant="outline" disabled={query.isFetching || inventoryPending} onClick={() => {
+    <div className="astron-sh-install-actions">{canInspectCurrent && operation?.phase === 'completed' && !context.isError && context.data && <UseSkillButton services={services.skillUse} revision={context.data.sourceRevision} resolve={async signal => {
+      const inventory = await readReceiptInventory(receipt, result, context.data!, signal);
+      const scope = operation.targetLabel === '当前用户' ? 'user' : operation.targetLabel === '当前项目' ? 'project' : undefined;
+      return scope ? exactInstalledSkill(inventory, { ...result, scope })?.itemKey ?? '' : '';
+    }} />}<Button variant="outline" disabled={query.isFetching || inventoryPending} onClick={() => {
       // Settled operation reads invalidate the enabled current-inventory query in the shared hook.
       void query.refetch();
     }}>{query.isFetching || inventoryPending ? '核验中…' : '核验状态'}</Button>

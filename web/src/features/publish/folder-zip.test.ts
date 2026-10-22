@@ -63,6 +63,21 @@ describe('createZipBlob', () => {
 })
 
 describe('collectFolderEntries', () => {
+  it('omits only the selected root installer record and preserves author bytes', async () => {
+    const entries = await collectFolderEntries([
+      fileAt('my-skill/.skillhub/metadata.json', 'private'),
+      fileAt('my-skill/.SKILLHUB/METADATA.JSON', 'alias'),
+      fileAt('my-skill/.skillhub/examples.json', '{invalid'),
+      fileAt('my-skill/.skillhub/notes.txt', 'notes'),
+      fileAt('my-skill/docs/.skillhub/metadata.json', 'author'),
+    ])
+    expect(entries.map(entry => entry.path)).toEqual([
+      'my-skill/.skillhub/examples.json', 'my-skill/.skillhub/notes.txt',
+      'my-skill/docs/.skillhub/metadata.json',
+    ])
+    expect(new TextDecoder().decode(entries[0].data)).toBe('{invalid')
+  })
+
   it('filters junk and sorts remaining files by path', async () => {
     const entries = await collectFolderEntries([
       fileAt('my-skill/scripts/run.sh', 'run'),
