@@ -24,7 +24,9 @@ Prerequisites:
 
 - Docker and Docker Compose
 - Java 21
-- Node.js and `pnpm`
+- For the web frontend: Node.js 22.13+ (22.x, default in `.nvmrc`) or 24.x, and the pnpm version declared in `web/package.json`. Other Node.js majors are not supported for frontend development (see #991).
+
+Use `nvm install && nvm use` from the repository root, then enable Corepack (`corepack enable`). Frontend dependency installation enforces this Node.js range via `web/.npmrc`; CI builds and tests both supported majors. CLI and integration packages retain their own runtime requirements.
 
 Start the local stack:
 
@@ -105,3 +107,33 @@ Do not open public issues for suspected security vulnerabilities.
 
 Use GitHub Security Advisories or your internal security process to report them
 privately to the maintainers.
+
+## Flyway migration version advisory
+
+The **Migration Preflight** workflow reads file metadata for all open PRs on PR
+changes, every six hours, or via **Actions → Migration Preflight → Run workflow**.
+See its Actions run summary for migration numbers introduced by more than one PR.
+It checks `server/skillhub-app/src/main/resources/db/migration/V<n>__*.sql` additions,
+including renames that introduce a different migration number. Pure renames with
+the same number, modified/deleted migrations and conflicts with migrations already
+merged into the base branch are outside this advisory's scope.
+
+This is a snapshot and a non-blocking warning, not a reservation or merge gate.
+If a scan is incomplete (for example API permissions, file-list truncation or a
+PR changing during collection), its summary says so; it must not be interpreted
+as confirmation of no conflict. The script exits nonzero on an incomplete scan;
+the workflow keeps this advisory and explicitly adds an unavailable-scan warning. PRs with 3,000 or more changed files are conservatively
+reported as incomplete because GitHub caps the files endpoint at 3,000 entries.
+Coordinate numbering with the other PR's author, update your migration filename,
+and rerun the relevant database/migration tests before merging. The workflow does
+not renumber files, post comments, fetch raw SQL files or execute PR code. The
+GitHub files API may include diff patches; the script ignores them and only uses
+file names/status, PR numbers and revision metadata. It uses only
+repository-content and pull-request read permissions and runs the default branch's
+script, so workflow/script changes take effect only after merging into that branch.
+
+Local offline regression checks (Python standard library only):
+
+```bash
+python3 -m unittest discover -s scripts/tests -p 'test_migration_preflight.py' -v
+```
