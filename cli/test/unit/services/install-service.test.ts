@@ -26,7 +26,7 @@ async function exists(path: string): Promise<boolean> {
 
 function skillFingerprint(zipEntries: Record<string, string>): string {
   const aggregate = createHash('sha256')
-  for (const [name, content] of Object.entries(zipEntries).sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [name, content] of Object.entries(zipEntries).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) {
     const fileHash = createHash('sha256').update(content).digest('hex')
     aggregate.update(`${name}:${fileHash}\n`, 'utf8')
   }
@@ -87,6 +87,31 @@ async function writeManagedMetadata(
 describe('installSkill', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch
+  })
+
+  test.each(['{"schemaVersion":1,"defaultLocale":"en","examples":{"en":[{"id":"one","title":"One","prompt":"Use {{skill}}"}]}}', '{invalid'])('installs authored examples unchanged and records their complete baseline: %s', async content => {
+    const root = await mkdtemp(join(tmpdir(), 'skillhub-packaged-examples-'))
+    try {
+      globalThis.fetch = installFetch({ 'SKILL.md': '# Demo', '.skillhub/examples.json': content })
+      await installSkill({ registry: 'http://registry.test', namespace: 'global', slug: 'demo',
+        targets: [{ agent: 'dsh', rootDir: join(root, 'skills'), scope: 'project', source: 'explicit' }], force: false, home: join(root, 'home') })
+      const target = join(root, 'skills/demo')
+      expect(await readFile(join(target, '.skillhub/examples.json'), 'utf8')).toBe(content)
+      const metadata = JSON.parse(await readFile(join(target, '.skillhub/metadata.json'), 'utf8'))
+      expect(metadata.files['.skillhub/examples.json']).toBe(createHash('sha256').update(content).digest('hex'))
+      expect(metadata.files['.skillhub/metadata.json']).toBeUndefined()
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  test('rejects authored installation metadata without replacing target or inventory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'skillhub-forged-metadata-'))
+    try {
+      globalThis.fetch = installFetch({ 'SKILL.md': '# Demo', '.skillhub/metadata.json': '{"registry":"evil"}' })
+      await expect(installSkill({ registry: 'http://registry.test', namespace: 'global', slug: 'demo',
+        targets: [{ agent: 'dsh', rootDir: join(root, 'skills'), scope: 'project', source: 'explicit' }], force: false, home: join(root, 'home') })).rejects.toThrow('Installer metadata')
+      expect(await exists(join(root, 'skills/demo'))).toBe(false)
+      expect((await new InventoryStore(join(root, 'home')).read()).items).toEqual([])
+    } finally { await rm(root, { recursive: true, force: true }) }
   })
 
   test.each(['journal-failure', 'directory-collision'] as const)('staging intent precedes directory creation: %s', async failure => {

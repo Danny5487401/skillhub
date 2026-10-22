@@ -563,3 +563,40 @@ skillhub doctor
 Apache-2.0
 
 Copyright 2026 iFlytek Co., Ltd.
+
+## Packaged task examples
+
+Authors can include `.skillhub/examples.json` in a skill package. The file stays at the same
+path after publishing and installation. It is versioned skill content, including when its
+JSON does not conform to the examples protocol; local edits are protected by existing
+upgrade/sync integrity checks. No separate Web configuration is required.
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultLocale": "zh-CN",
+  "examples": {
+    "zh-CN": [{ "id": "summary", "title": "整理纪要", "prompt": "请用 {{skill}} 整理会议记录。" }],
+    "en": [{ "id": "summary", "title": "Summarize notes", "prompt": "Use {{skill}} to summarize meeting notes." }]
+  }
+}
+```
+
+The native DSH plugin recognizes this bounded UTF-8 declaration and offers editable task
+prompts. Unsupported declarations remain ordinary package files. See the
+[protocol and limits](../openspec/changes/add-dsh-native-plugin/skill-examples-design.md).
+Only `.skillhub/metadata.json` is an installer-owned record: directory publishing and sync
+push omit it, and installation rejects a package that supplies it (including path aliases).
+Other authored `.skillhub` files are retained and fingerprinted.
+
+Older consumers that ignore the whole `.skillhub` directory do not support packages with
+these files. Publish/install them only with lifecycle-capable CLI/plugin builds; old package
+bytes and published fingerprints must remain unchanged. This is not transparent backward
+compatibility for existing binaries.
+
+Directory and ZIP publishing (`publish`, including `--dry-run`, and `sync push`) inspect the
+actual outgoing archive for task examples. Human output reports the recognition summary;
+`--json` keeps it in `examplesStatus`, `examplesCount` and `warnings` fields. Counts include
+all declared languages. An unsupported declaration generates a nonblocking warning and is
+still uploaded unchanged; an unreadable archive produces an inspection warning and remains
+subject to the server's package validation.

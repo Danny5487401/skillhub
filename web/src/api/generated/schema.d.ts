@@ -8188,6 +8188,10 @@ export interface components {
             displayName?: string;
             description?: string;
             version?: string;
+            /** @enum {string} */
+            examplesStatus?: "ready" | "none" | "invalid";
+            /** Format: int32 */
+            examplesCount?: number;
         };
         ApiResponseSkillAvatarUploadResponse: {
             /** Format: int32 */

@@ -1,3 +1,4 @@
+import { readSkillExamples } from '../services/skill-examples'
 import { observeInstallationDiscovery } from './install-discovery'
 import { readInstalledProjection } from './installed-projection'
 import { assessSkillUpdate } from './update-assessment'
@@ -20,6 +21,7 @@ export async function openNativeRuntime(options: { stateDirectory: string; inven
   const inventory = new InventoryStore(options.inventoryHome)
   return {
     hostInstanceId: operations.hostInstanceId,
+    readSkillExamples,
     observeInstallation: (operationId, ownerId, trustedRoots, observe) => observeInstallationDiscovery({
       operations, inventory, operationId, ownerId, trustedRoots, observe
     }),

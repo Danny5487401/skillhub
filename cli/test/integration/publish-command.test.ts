@@ -125,6 +125,7 @@ describe('publish command — P0', () => {
     const dir = await makeTempDir(['SKILL.md', '# Demo'])
     await mkdir(join(dir, '.skillhub'), { recursive: true })
     await writeFile(join(dir, '.skillhub', 'metadata.json'), '{"registry":"private"}')
+    await writeFile(join(dir, '.skillhub', 'examples.json'), '{invalid authored content}')
 
     const result = await runCli(['publish', dir, '--registry', registry.url], {
       HOME: env.home,
@@ -133,7 +134,8 @@ describe('publish command — P0', () => {
 
     expect(result.exitCode).toBe(0)
     expect(registry.received.publish!.archiveEntries).toContain('SKILL.md')
-    expect(registry.received.publish!.archiveEntries.some(path => path.startsWith('.skillhub'))).toBe(false)
+    expect(registry.received.publish!.archiveEntries).not.toContain('.skillhub/metadata.json')
+    expect(registry.received.publish!.archiveEntries).toContain('.skillhub/examples.json')
   })
 
   test('zip file happy path: exit 0, fileName matches passed file', async () => {
@@ -615,4 +617,55 @@ describe('publish command — content shape', () => {
       server.stop()
     }
   })
+})
+
+const examplesContent = JSON.stringify({ schemaVersion: 1, defaultLocale: 'zh-CN', examples: {
+  'zh-CN': [{ id: 'summary', title: '摘要', prompt: '请使用 {{skill}} 总结。' }],
+  en: [{ id: 'summary', title: 'Summary', prompt: 'Use {{skill}}.' }]
+} })
+
+for (const format of ['directory', 'zip'] as const) {
+  for (const state of ['ready', 'invalid', 'none'] as const) {
+    test.each([true, false])(`publish ${format} provides nonblocking ${state} examples feedback (json=%s)`, async json => {
+      const env = await createTempHome()
+      registry = await startFakeRegistry({ token: 'sk_ok' })
+      const directory = await makeTempDir(['SKILL.md', '# Demo'])
+      const content = state === 'ready' ? examplesContent : '{malformed author content}'
+      if (state !== 'none') {
+        await mkdir(join(directory, '.skillhub'), { recursive: true })
+        await writeFile(join(directory, '.skillhub/examples.json'), content)
+      }
+      let path = directory
+      if (format === 'zip') {
+        path = join(directory, 'package.zip')
+        await writeFile(path, zipSync({ 'SKILL.md': new TextEncoder().encode('# Demo'),
+          ...(state !== 'none' ? { '.skillhub/examples.json': new TextEncoder().encode(content) } : {}) }))
+      }
+      const result = await runCli(['publish', path, '--registry', registry.url, '--token', 'sk_ok', ...(json ? ['--json'] : [])], { HOME: env.home })
+      expect(result.exitCode).toBe(0)
+      expect(registry.received.publish).not.toBeNull()
+      if (json) {
+        const output = JSON.parse(result.stdout)
+        expect(output.examplesStatus).toBe(state)
+        expect(output.examplesCount).toBe(state === 'ready' ? 2 : state === 'none' ? 0 : undefined)
+        expect(output.warnings).toHaveLength(state === 'invalid' ? 1 : 0)
+      } else {
+        expect(result.stdout).toContain(state === 'invalid' ? 'remains ordinary package content' : state === 'ready' ? 'Task examples: 2' : 'Task examples: none')
+      }
+      if (state !== 'none') expect(registry.received.publish!.archiveEntries).toContain('.skillhub/examples.json')
+    })
+  }
+}
+
+test.each([true, false])('publish dry-run reports malformed ZIP examples without submitting (json=%s)', async json => {
+  const env = await createTempHome()
+  registry = await startFakeRegistry({ token: 'sk_ok' })
+  const directory = await makeTempDir()
+  const path = join(directory, 'skill.zip')
+  await writeFile(path, zipSync({ 'SKILL.md': new TextEncoder().encode('# Demo'), '.skillhub/examples.json': new TextEncoder().encode('{broken') }))
+  const result = await runCli(['publish', path, '--dry-run', '--registry', registry.url, '--token', 'sk_ok', ...(json ? ['--json'] : [])], { HOME: env.home })
+  expect(result.exitCode).toBe(0)
+  expect(registry.received.publish).toBeNull()
+  if (json) expect(JSON.parse(result.stdout)).toMatchObject({ valid: true, examplesStatus: 'invalid', warnings: [expect.stringContaining('ordinary package content')] })
+  else expect(result.stdout).toContain('remains ordinary package content')
 })

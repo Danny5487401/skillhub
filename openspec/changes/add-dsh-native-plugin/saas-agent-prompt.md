@@ -2,6 +2,8 @@
 
 将以下正文交给拥有 SaaS 仓库访问权限的研发 Agent。仓库、测试环境、公开测试技能及部署权限由 SaaS 项目提供；示例值不是实际配置。正式契约以本文引用的 OpenSpec 和插件实际消费代码为准。
 
+> 新增的固定案例文件适配是独立增量任务，见 [技能案例SaaS交接](skill-examples-saas-agent-prompt.md)。已有Registry能力先核对复用，不因本次案例需求重做本篇全部任务。
+
 ---
 
 你负责在 SkillHub SaaS 中核验并补齐原生 DSH 插件所需的 Registry HTTP API，使同一个插件包能够连接开源版或 SaaS 实例，完成匿名浏览、搜索、查看精确版本详情、下载以及在 DSH 主机上的安装管理。

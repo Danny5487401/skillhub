@@ -1,3 +1,4 @@
+import { UseSkillButton, type SkillUseServices } from './use-skill.js';
 import { UpgradeControl, type UpgradeServices } from './upgrade-control.js';
 import { InstallationProgressSummary, type InstallationProgressJob } from './installation-progress.js';
 import { isInventoryScopeVerified } from './installed-inventory.js';
@@ -12,6 +13,7 @@ import type { InstallationRequests } from './installation-requests.js';
 
 export interface InstallationServices extends CompatibilityServices {
   sessionId: string;
+  skillUse?: SkillUseServices;
   upgrades?: UpgradeServices;
   registryIdentity?(revision: string): Promise<string>;
   checkVersionUpdate?(revision: string, itemKey: string, version: string, signal: AbortSignal): Promise<RemoteResult<InstalledUpdateCheck>>;
@@ -127,6 +129,7 @@ export function InstallControl({ detail, sourceRevision, services, initiatedFrom
     {inventoryVerified && !current && (!attempt || completed) && <Button ref={trigger} variant="default" disabled={!writableHost.canWrite || !target || targets.isFetching}
       onClick={() => { if (!target) return; if (presentation === 'dialog') submit(completed); else setConfirmation({ key, targetToken: target.targetToken, reinstall: completed }); }}>
       {scope === 'project' ? '安装到此项目' : '安装到所有项目'}</Button>}
+    {inventoryVerified && current?.state === 'present' && current.version === detail.version && <UseSkillButton services={services.skillUse} revision={sourceRevision} itemKey={current.itemKey} onHandoff={onClose} onUsed={onClose} />}
     {current && completed && (result.warningCount > 0 || !!result.resultDetails?.warnings.length) && <p role="alert">安装有告警，请在已安装中核验。</p>}
     {submissionError && <p role="alert">{submissionError}</p>}
     {progressVisible && attempt && <InstallationProgressSummary attempt={attempt} operation={operation.data ?? attempt.operation} readFailed={operation.isError || operation.data === null}

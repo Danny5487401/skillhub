@@ -4,6 +4,7 @@ import type { NativeRuntime, NativeInstallExecution, NativeRecoveryResult, Nativ
 
 function native(): NativeRuntime {
   return {
+    readSkillExamples: async () => ({ state: 'none' }),
     observeInstallation: async () => false,
     hostInstanceId: 'fixture', listPending: async () => [], getOperation: async () => undefined,
     acceptInstall: async () => undefined,

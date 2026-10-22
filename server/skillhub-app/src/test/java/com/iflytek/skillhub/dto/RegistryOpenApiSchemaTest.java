@@ -11,6 +11,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RegistryOpenApiSchemaTest {
 
     @Test
+    void examplesSummaryFieldsAreOptionalAndStatusIsBounded() {
+        var resolved = ModelConverters.getInstance().resolveAsResolvedSchema(new AnnotatedType(SkillPackagePreviewResponse.class));
+        Schema<?> schema = resolved.schema;
+        assertThat(schema.getRequired()).isNullOrEmpty();
+        assertThat(schema.getProperties().get("examplesStatus").getEnum()).containsExactly("ready", "none", "invalid");
+        assertThat(schema.getProperties()).containsKey("examplesCount");
+    }
+
+    @Test
     void resolvedSkillDeclaresEveryInstallationIdentityFieldRequired() {
         var resolved = ModelConverters.getInstance().resolveAsResolvedSchema(
                 new AnnotatedType(CliResolveResponse.class));

@@ -421,6 +421,44 @@ class SkillPackageValidatorTest {
         assertTrue(result.errors().stream().anyMatch(error -> error.contains("does not exist in package")));
     }
 
+    @Test
+    void protectsInternalInstallerRecordIncludingPortableAliases() {
+        for (String path : List.of(".skillhub/metadata.json", ".SKILLHUB/METADATA.JSON", ".skillhub/metadata.json/child.txt",
+                ".skillhub./metadata.json", ".skillhub/metadata.json.", ".skillhub/metadata.json ",
+                ".skillhub\\metadata.json", ".skillhub/./metadata.json", ".skillhub/metadata.json:stream", ".skillhub")) {
+            byte[] content = "{}".getBytes();
+            assertFalse(validator.validate(List.of(skillMdEntry(), new PackageEntry(path, content, content.length, "application/json"))).passed(), path);
+        }
+    }
+
+    @Test
+    void preservesInvalidExamplesAndOtherSafeAuthorFiles() {
+        byte[] invalid = "{not-json".getBytes();
+        var entries = List.of(skillMdEntry(), new PackageEntry(".skillhub/examples.json", invalid, invalid.length, "application/json"),
+                new PackageEntry(".skillhub/notes.txt", invalid, invalid.length, "text/plain"),
+                new PackageEntry("docs/.skillhub/metadata.json", invalid, invalid.length, "application/json"));
+        assertTrue(validator.validate(entries).passed());
+        assertArrayEquals(invalid, entries.get(1).content());
+    }
+
+    @Test
+    void rejectsPortableDuplicatesAndFileDirectoryConflicts() {
+        for (String path : List.of(".skillhub/EXAMPLES.JSON", ".skillhub/examples.json/child.txt")) {
+            byte[] content = "{}".getBytes();
+            assertFalse(validator.validate(List.of(skillMdEntry(),
+                    new PackageEntry(".skillhub/examples.json", content, content.length, "application/json"),
+                    new PackageEntry(path, content, content.length, "application/json"))).passed());
+        }
+    }
+
+    @Test
+    void rejectsCaseAliasesOfTheFixedExamplesPath() {
+        for (String path : List.of(".SKILLHUB/examples.json", ".skillhub/Examples.JSON")) {
+            byte[] content = "{}".getBytes();
+            assertFalse(validator.validate(List.of(skillMdEntry(), new PackageEntry(path, content, content.length, "application/json"))).passed());
+        }
+    }
+
     private PackageEntry skillMdEntry() {
         String skillMdContent = """
             ---

@@ -29,6 +29,22 @@ class SkillPackageArchiveExtractorTest {
     }
 
     @Test
+    void wrappedExamplesRemainByteExactAndInstallerRecordIsRejectedAfterRootStripping() throws Exception {
+        byte[] skill = "---\nname: example-skill\ndescription: Summary\n---\nBody".getBytes(StandardCharsets.UTF_8);
+        byte[] examples = "\uFEFF{not-json}".getBytes(StandardCharsets.UTF_8);
+        var validator = new com.iflytek.skillhub.domain.skill.validation.SkillPackageValidator(
+                new com.iflytek.skillhub.domain.skill.metadata.SkillMetadataParser());
+        var valid = extractor.extractWithWarnings(new MockMultipartFile("file", "examples.zip", "application/zip",
+                createZip(Map.of("wrapper/SKILL.md", skill, "wrapper/.skillhub/examples.json", examples))));
+        assertTrue(validator.validate(valid.entries()).passed());
+        var authored = valid.entries().stream().filter(entry -> entry.path().equals(".skillhub/examples.json")).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertArrayEquals(examples, authored.content());
+        var invalid = extractor.extractWithWarnings(new MockMultipartFile("file", "private.zip", "application/zip",
+                createZip(Map.of("wrapper/SKILL.md", skill, "wrapper/.SKILLHUB/METADATA.JSON", "{}".getBytes(StandardCharsets.UTF_8)))));
+        assertFalse(validator.validate(invalid.entries()).passed());
+    }
+
+    @Test
     void shouldRejectPathTraversalEntry() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
             "file",

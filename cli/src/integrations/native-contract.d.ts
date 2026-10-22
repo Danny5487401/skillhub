@@ -39,7 +39,16 @@ export interface UpdateAssessment {
   candidateVersion: string
 }
 
+export interface SkillExample { id: string; title: string; prompt: string }
+export type SkillExamples =
+  | { state: 'ready'; digest: string; defaultLocale: string; items: Record<string, SkillExample[]> }
+  | { state: 'none' }
+  | { state: 'invalid' }
+  | { state: 'unavailable'; retryable: boolean }
+
 export interface NativeRuntime {
+  /** Host-only fixed-path read after installation verification; never a Remote path argument. */
+  readSkillExamples(directory: string): Promise<SkillExamples>
   /** Host-only, read-only evidence; the callback must verify the actual scoped DSH content and resource directory. */
   observeInstallation(operationId: string, ownerId: string, trustedRoots: readonly string[],
     observe: (paths: readonly string[]) => Promise<boolean>): Promise<boolean>

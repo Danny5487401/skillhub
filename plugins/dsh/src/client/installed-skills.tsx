@@ -1,3 +1,4 @@
+import { UseSkillButton, type SkillUseServices } from './use-skill.js';
 import { isInventoryScopeVerified } from './installed-inventory.js';
 import { CardSkeletons } from './loading-layout.js';
 import { useState, useRef, useLayoutEffect, useCallback } from 'react';
@@ -19,6 +20,7 @@ import { useInstalledUpdate } from './installed-update.js';
 
 export interface InstalledServices extends UpgradeServices, RemovalServices {
   sessionId: string;
+  skillUse?: SkillUseServices;
   list(sourceRevision: string, signal: AbortSignal): Promise<RemoteResult<InstalledSkillList>>;
   detail(sourceRevision: string, itemKey: string, signal: AbortSignal): Promise<RemoteResult<InstalledSkillDetail>>;
   checkUpdate(sourceRevision: string, itemKey: string, signal: AbortSignal): Promise<RemoteResult<InstalledUpdateCheck>>;
@@ -107,6 +109,7 @@ export function InstalledSkills({ services, sourceRevision, source, remote, mode
         : detail.data.content.state === 'local-only' ? <p role="status">远端详情暂时不可用，以上保留本地安装信息。未切换到其他版本。</p>
           : <DetailContent detail={detail.data.content.detail} modes={modes} remote={remote} retry={() => { void detail.refetch(); }} cacheIdentity={JSON.stringify([services.sessionId, sourceRevision, selected.namespace, selected.slug, detail.data.content.detail.version])} onContextStale={() => { void detail.refetch(); }} />}
     </article><aside className="astron-sh-detail-aside">
+    {!removed && !upgradedVersion && detailVerified && currentLocalState === 'present' && <UseSkillButton services={services.skillUse} revision={sourceRevision} itemKey={selected.itemKey} />}
     {!removed && !upgradedVersion && <Card className="astron-sh-version-update"><CardHeader><h3>版本与更新</h3></CardHeader><CardContent><div className="astron-sh-update-actions"><Button size="sm" variant="outline" disabled={detail.isFetching} onClick={() => { void detail.refetch(); }}>重新读取详情</Button>
     <Button size="sm" variant="outline" disabled={update.isFetching} onClick={() => { void update.refetch(); }}>检查更新</Button></div>
     {(update.isFetching || update.isError || update.data) && <div aria-live="polite">
@@ -181,6 +184,7 @@ function InstalledRow({ item, services, sourceRevision, navigate, buttonRef }: {
       {update.data && <details className="astron-sh-check-time"><summary>检查记录</summary><time className="skillhub-installed-coordinate" dateTime={update.data.checkedAt}>{update.isError || update.isFetching ? '上次成功检查' : '检查于'} {new Date(update.data.checkedAt).toLocaleString()}</time></details>}
     </div></CardContent>
     <CardFooter className="skillhub-installed-actions">
+      {item.state === 'present' && <UseSkillButton services={services.skillUse} revision={sourceRevision} itemKey={item.itemKey} />}
       <button ref={node => buttonRef('detail', node)} onClick={event => navigate('detail', event.currentTarget)}>查看已安装详情</button>
       <button disabled={update.isFetching} onClick={() => { void update.refetch(); }}>检查更新</button>
       {!update.isFetching && !update.isError && update.data?.state === 'upgradable'

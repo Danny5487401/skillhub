@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "defaultLocale": "zh-CN",
+  "examples": {
+    "zh-CN": [
+      {
+        "id": "meeting-summary",
+        "title": "整理会议纪要",
+        "prompt": "请使用 {{skill}} 整理会议记录，提取结论和待办。"
+      },
+      {
+        "id": "compare-proposals",
+        "title": "对比方案",
+        "prompt": "请使用 {{skill}} 对比两份方案，列出差异、风险和待确认问题。"
+      }
+    ],
+    "en": [
+      {
+        "id": "meeting-summary",
+        "title": "Summarize meeting notes",
+        "prompt": "Use {{skill}} to summarize meeting notes and extract action items."
+      },
+      {
+        "id": "compare-proposals",
+        "title": "Compare proposals",
+        "prompt": "Use {{skill}} to compare two proposals and identify differences, risks, and open questions."
+      }
+    ]
+  }
+}

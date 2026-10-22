@@ -27,3 +27,6 @@ export type { UpdateAssessment, UpdateIdentity } from './update-assessment'
 export { inspectUpgradeBaseline } from './upgrade-baseline'
 export type { UpgradeBaseline } from './upgrade-baseline'
 export { inspectRemovalBaseline } from './removal-baseline'
+
+export { parseSkillExamples, readSkillExamples } from '../services/skill-examples'
+export type { SkillExample, SkillExamples } from '../services/skill-examples'

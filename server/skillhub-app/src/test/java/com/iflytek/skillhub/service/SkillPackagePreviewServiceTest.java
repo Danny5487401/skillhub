@@ -36,6 +36,36 @@ class SkillPackagePreviewServiceTest {
                 .isInstanceOf(DomainBadRequestException.class);
     }
 
+    @Test
+    void oldNullableFieldsKeepTheirSerializationContract() throws Exception {
+        String serialized = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(service.preview(entries("")));
+        assertThat(serialized).contains("\"version\":null");
+    }
+
+    @Test
+    void examplesRecognitionIsNonBlockingAndOmitsInvalidCount() throws Exception {
+        assertThat(service.preview(entries("")).examplesCount()).isZero();
+        for (String content : List.of("{not json", "{\"schemaVersion\":1,\"defaultLocale\":\"en\",\"examples\":{\"en\":[]}}")) {
+            var files = new java.util.ArrayList<>(entries(""));
+            byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+            files.add(new PackageEntry(".skillhub/examples.json", bytes, bytes.length, "application/json"));
+            var response = service.preview(files);
+            assertThat(response.examplesStatus().name()).isEqualTo(content.equals("{not json") ? "invalid" : "none");
+            if (content.equals("{not json")) {
+                assertThat(response.examplesCount()).isNull();
+                assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(response)).doesNotContain("examplesCount");
+            } else assertThat(response.examplesCount()).isZero();
+            assertThat(files.get(1).content()).containsExactly(bytes);
+        }
+    }
+
+    @Test
+    void previewRejectsInstallerRecordsUsingTheSharedPublishPolicy() {
+        var files = new java.util.ArrayList<>(entries(""));
+        files.add(new PackageEntry(".skillhub/metadata.json", new byte[0], 0, "application/json"));
+        assertThatThrownBy(() -> service.preview(files)).isInstanceOf(DomainBadRequestException.class);
+    }
+
     private List<PackageEntry> entries(String extra) {
         byte[] bytes = ("---\nname: example-skill\ndescription: Summary\n" + extra + "---\nBody").getBytes(StandardCharsets.UTF_8);
         return List.of(new PackageEntry("SKILL.md", bytes, bytes.length, "text/markdown"));

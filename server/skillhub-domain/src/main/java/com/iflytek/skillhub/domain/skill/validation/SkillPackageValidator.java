@@ -73,12 +73,24 @@ public class SkillPackageValidator {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         Set<String> normalizedPaths = new HashSet<>();
+        Set<String> portablePaths = new HashSet<>();
         PackageEntry skillMd = null;
 
         for (PackageEntry entry : entries) {
             String normalizedPath;
             try {
                 normalizedPath = SkillPackagePolicy.normalizeEntryPath(entry.path());
+                String portableKey = SkillPackagePolicy.portableEntryKey(normalizedPath);
+                if (SkillPackagePolicy.isInternalMetadataPath(portableKey) || portableKey.equals(".skillhub")) {
+                    errors.add("Installer record .skillhub/metadata.json cannot be published: " + normalizedPath);
+                }
+                if (portableKey.equals(SkillPackagePolicy.EXAMPLES_PATH)
+                        && !normalizedPath.equals(SkillPackagePolicy.EXAMPLES_PATH)) {
+                    errors.add("Ambiguous skill examples path casing: " + normalizedPath);
+                }
+                if (!portablePaths.add(portableKey)) {
+                    errors.add("Duplicate portable package entry path: " + normalizedPath);
+                }
             } catch (IllegalArgumentException e) {
                 errors.add(e.getMessage());
                 continue;
@@ -99,6 +111,17 @@ public class SkillPackageValidator {
 
             if (SkillPackagePolicy.SKILL_MD_PATH.equals(normalizedPath) && skillMd == null) {
                 skillMd = entry;
+            }
+        }
+
+        for (String path : portablePaths) {
+            int slash = path.indexOf('/');
+            while (slash >= 0) {
+                if (portablePaths.contains(path.substring(0, slash))) {
+                    errors.add("Package entry file/directory conflict: " + path);
+                    break;
+                }
+                slash = path.indexOf('/', slash + 1);
             }
         }
 

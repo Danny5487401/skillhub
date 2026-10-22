@@ -12,7 +12,10 @@ import type { NativeInstallExecution } from '../../../src/integrations/native-co
 async function fixture(downloadFailure = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'skillhub-native-execution-')))
   const content = '# Native fixture'
-  const fingerprint = 'sha256:' + createHash('sha256').update('SKILL.md:' + createHash('sha256').update(content).digest('hex') + '\n').digest('hex')
+  const examples = '{invalid but preserved versioned examples}'
+  const fingerprint = 'sha256:' + createHash('sha256')
+    .update('.skillhub/examples.json:' + createHash('sha256').update(examples).digest('hex') + '\n')
+    .update('SKILL.md:' + createHash('sha256').update(content).digest('hex') + '\n').digest('hex')
   let downloads = 0
   let releaseChanged = false
   const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch(request) {
@@ -22,7 +25,7 @@ async function fixture(downloadFailure = false) {
     } })
     downloads++
     if (downloadFailure) return new Response('missing', { status: 404 })
-    return new Response(new Uint8Array(zipSync({ 'SKILL.md': new TextEncoder().encode(content) })).buffer)
+    return new Response(new Uint8Array(zipSync({ 'SKILL.md': new TextEncoder().encode(content), '.skillhub/examples.json': new TextEncoder().encode(examples) })).buffer)
   } })
   const registry = server.url.origin
   const stateDirectory = join(root, 'operations')
@@ -52,6 +55,7 @@ test('a new request for the same complete installation returns already-installed
     expect(await f.runtime.executeInstall(second)).toMatchObject({ outcome: 'committed', reason: 'already-installed' })
     expect((await f.runtime.getOperation(second.operationId, second.ownerId))?.files).toBe('already-installed')
     expect(f.downloads()).toBe(1)
+    expect(await readFile(join(f.root, 'skills/writer/.skillhub/examples.json'), 'utf8')).toBe('{invalid but preserved versioned examples}')
   } finally { await f.close() }
 })
 

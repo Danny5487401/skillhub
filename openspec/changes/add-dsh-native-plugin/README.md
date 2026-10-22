@@ -8,8 +8,8 @@
 
 | 入口 | 本期能力 | 详情容器 |
 | --- | --- | --- |
-| 技能广场 | 浏览、搜索、安装、已安装、检查更新、升级、卸载 | 主内容区子页面，左上返回 |
-| 原 DSH 对话 | 搜索卡片、详情、显式安装、自定义结果卡片 | 抽屉，窄屏内容区浮层 |
+| 技能广场 | 浏览、搜索、安装、已安装、检查更新、升级、卸载、使用已安装技能 | 主内容区子页面，左上返回 |
+| 原 DSH 对话 | 搜索卡片、详情、显式安装、自定义结果卡片、使用已安装技能 | 抽屉，窄屏内容区浮层 |
 | 宿主插件配置 | 单一 Registry 地址，版本/审核/评论 auto/show/hide | 原生插件配置区域 |
 
 不做登录、Token、私有访问、权限产品、DSH 插件市场、自动更新、降级、强制覆盖、发表评论或自动执行技能。对话升级/卸载工具不在本期，管理操作从广场进入。
@@ -20,6 +20,10 @@
 | --- | --- |
 | [proposal.md](proposal.md) | 范围与决策摘要 |
 | [product-design.md](product-design.md) | 页面、功能 ID、视觉和产品行为 |
+| [use-skill-design.md](use-skill-design.md) | 使用此技能：本地核验、原生输入框衔接、固定案例文件与生命周期兼容约定 |
+| [skill-examples-design.md](skill-examples-design.md) | 固定案例文件的 JSON 协议、版本分发、跨端生命周期与兼容策略 |
+| [skill-examples-execution-plan.md](skill-examples-execution-plan.md) | 本轮开源范围、实施阶段、验收及后续SaaS同步边界 |
+| [skill-examples-saas-agent-prompt.md](skill-examples-saas-agent-prompt.md) | 可交给SaaS Agent的案例文件增量适配任务 |
 | [conversation-design.md](conversation-design.md) | 对话卡片/抽屉、工具参数、选择引用、历史结果 |
 | [engineering-blueprint.md](engineering-blueprint.md) | 详细工程方案：装配、工具/UI、核心复用、构建和实施切片 |
 | [design.md](design.md) | 总体架构、模块边界、复用依据 |

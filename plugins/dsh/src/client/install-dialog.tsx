@@ -38,6 +38,6 @@ function Content({ identity, load, services, initiatedFrom, close, expand, onMan
       <p className="astron-sh-install-close-note">关闭窗口不会取消已提交的安装。</p><Button autoFocus onClick={close}>关闭</Button></>
       : <InstallControl key={result.data.sourceRevision} detail={result.data.detail} sourceRevision={result.data.sourceRevision} services={services} initiatedFrom={initiatedFrom}
         presentation="dialog" onClose={close} onManage={onManage} onSubmitted={value => { setJob(value); expand(); }} onContextStale={() => { void result.refetch(); }} />}
-    </div>{job && <aside aria-label="安装进度"><InstallationProgressPanel job={job} services={services} /></aside>}
+    </div>{job && <aside aria-label="安装进度"><InstallationProgressPanel job={job} services={services} onUsed={close} /></aside>}
   </div>;
 }

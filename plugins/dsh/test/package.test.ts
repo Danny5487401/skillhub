@@ -55,8 +55,8 @@ describe('native M0 package', () => {
   });
 
   test('official generator publishes the declared endpoints with scoped writes and strict codec', () => {
-    expect(TYPERT_REMOTE.descriptors.map(item => item.method).sort()).toEqual(['acknowledgeConversationDetail', 'checkUpdate', 'checkVersionUpdate', 'executePlan', 'getCompatibility', 'getContext', 'getInstalledDetail', 'getOperation', 'getSkillDetail', 'getStatus', 'listCatalog', 'listCatalogByLabel', 'listInstallTargets', 'listInstalled', 'listLabels', 'listReviews', 'listSkills', 'listVersions', 'openConversationDetail', 'prepareUninstall', 'prepareUpgrade', 'prepareVersionUpgrade', 'recoverOperation', 'reopenConversationDetail', 'startInstall', 'testRegistryConnection']);
-    for (const method of ['openConversationDetail', 'reopenConversationDetail', 'acknowledgeConversationDetail', 'listInstallTargets', 'listInstalled', 'getInstalledDetail', 'checkUpdate', 'checkVersionUpdate', 'prepareUninstall', 'prepareUpgrade', 'prepareVersionUpgrade', 'executePlan', 'startInstall', 'getOperation', 'recoverOperation']) {
+    expect(TYPERT_REMOTE.descriptors.map(item => item.method).sort()).toEqual(['acknowledgeConversationDetail', 'checkUpdate', 'checkVersionUpdate', 'executePlan', 'getCompatibility', 'getContext', 'getInstalledDetail', 'getOperation', 'getSkillDetail', 'getStatus', 'listCatalog', 'listCatalogByLabel', 'listInstallTargets', 'listInstalled', 'listLabels', 'listReviews', 'listSkills', 'listVersions', 'openConversationDetail', 'prepareSkillUse', 'prepareUninstall', 'prepareUpgrade', 'prepareVersionUpgrade', 'recoverOperation', 'reopenConversationDetail', 'startInstall', 'testRegistryConnection']);
+    for (const method of ['openConversationDetail', 'reopenConversationDetail', 'acknowledgeConversationDetail', 'listInstallTargets', 'listInstalled', 'getInstalledDetail', 'checkUpdate', 'checkVersionUpdate', 'prepareSkillUse', 'prepareUninstall', 'prepareUpgrade', 'prepareVersionUpgrade', 'executePlan', 'startInstall', 'getOperation', 'recoverOperation']) {
       const scoped = TYPERT_REMOTE.descriptors.find(item => item.method === method)!;
       expect(scoped.invocation).toMatchObject({ kind: 'context', context: 'agent', wire: 'agentId' });
     }
@@ -142,4 +142,34 @@ test('shared RPC ABI keeps Host/Client descriptors, cancellation, argument order
   const imports = new Bun.Transpiler({ loader: 'js' }).scanImports(host).map(entry => entry.path);
   expect(imports).toContain('@deepseek-ai/cordis');
   expect(imports).toContain('@deepseek-ai/dsh-typert-protocol');
+});
+
+
+test('skill-use RPC exposes only an agent-bound cancellable read and a restricted handoff projection', () => {
+  const use = TYPERT_REMOTE.descriptors.find(item => item.method === 'prepareSkillUse')!;
+  expect(use.invocation).toMatchObject({ kind: 'context', context: 'agent', wire: 'agentId' });
+  expect(use.parameters.map(item => ({ name: item.name, wire: item.wire, source: item.source }))).toEqual([
+    { name: 'sourceRevision', wire: 'sourceRevision', source: 'json' },
+    { name: 'itemKey', wire: 'itemKey', source: 'json' },
+  ]);
+  expect(use.cancellation).toEqual({ parameter: 'signal' });
+  for (const parameter of use.parameters) {
+    const parameterCodec = parameter.codec;
+    if (parameterCodec.mode !== 'strict') throw new Error('Expected strict parameter codec');
+    expect(() => parameterCodec.create().parse({ path: '/caller-controlled' })).toThrow();
+  }
+  if (use.result?.mode !== 'strict') throw new Error('Expected strict skill-use result codec');
+  const codec = use.result.create();
+  const ready = { status: 'ready', name: 'actual-name', version: '1.2.0', scope: 'project', examples: { state: 'none' } };
+  expect(codec.parse(ready)).toEqual(ready);
+  const withExamples = { ...ready, examples: { state: 'ready', digest: '0'.repeat(64), defaultLocale: 'zh-CN', items: {
+    'zh-CN': [{ id: 'summary', title: '整理会议', prompt: '使用 {{skill}} 整理。' }],
+    en: [{ id: 'summary', title: 'Summary', prompt: 'Use {{skill}}.' }],
+  } } };
+  expect(codec.parse(withExamples)).toEqual(withExamples);
+  expect(() => codec.parse({ ...ready, examples: { state: 'ready', items: {} } })).toThrow();
+  expect(codec.parse({ ...ready, path: '/private', content: 'private skill body' })).toEqual(ready);
+  expect(codec.parse({ status: 'blocked', reason: 'user-invocation-disabled' })).toEqual({ status: 'blocked', reason: 'user-invocation-disabled' });
+  expect(() => codec.parse({ ...ready, scope: 'arbitrary' })).toThrow();
+  expect(() => codec.parse({ status: 'blocked', reason: 'arbitrary' })).toThrow();
 });

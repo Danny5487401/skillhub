@@ -1,3 +1,9 @@
+import { SkillDraftRetentions } from './use-skill-drafts.js';
+import { newSkillConversation } from './use-skill-navigation.js';
+import type {} from '@deepseek-ai/dsh-client-locale/client';
+import { captureSkillUse } from './use-skill-context.js';
+import { SkillUseBinding, SkillUseController, SkillUseFocus, SkillCaseChoices } from './use-skill.js';
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client';
 import { resolveReceiptContext, receiptSessionGuard, type ReceiptReads } from './receipt-context.js';
 import { UiAvailability, UiAvailabilityNotice } from './ui-availability.js';
 import type { Context } from '@deepseek-ai/cordis';
@@ -55,7 +61,39 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     const upgradeRequests = new UpgradeRequests(() => window.sessionStorage);
     const removalRequests = new RemovalRequests(() => window.sessionStorage);
     ctx.effect(() => () => { requests.dispose(); upgradeRequests.dispose(); removalRequests.dispose(); client.clear(); });
-    function installationFor(sessionId: string): InstallationServices {
+    const drafts = new SkillDraftRetentions(ctx);
+    ctx.effect(() => () => drafts.dispose());
+    const useSkills = new SkillUseController({
+      capture: (sessionId, actions) => captureSkillUse(ctx, sessionId, actions),
+      revision: async () => {
+        const response = await ctx.remote.skillhub.getContext();
+        if (!response.ok || !response.value.configured) throw new Error('来源不可用，请检查插件设置。');
+        return response.value.sourceRevision;
+      },
+      prepare: async (sessionId, revision, itemKey, signal) => {
+        const scope = ctx.sessions.scope(SessionId(sessionId));
+        if (!scope) throw new Error('当前会话已关闭。');
+        return withSessionRemote(scope, remote => remote.skillhub.prepareSkillUse(revision, itemKey, signal));
+      },
+      newConversation: (sessionId, revision, key, signal) => newSkillConversation(ctx, sessionId, revision, key, signal, async (target, source, abort) => {
+        const scope = ctx.sessions.scope(SessionId(target));
+        if (!scope) throw new Error('新对话尚未就绪，请重试。');
+        const response = await withSessionRemote(scope, remote => remote.skillhub.listInstalled(source, abort));
+        if (!response.ok) throw new Error('来源或安装记录已变化，请重试。');
+        return response.value;
+      }, drafts),
+      current: sessionId => (ctx.sessions.list.getSnapshot().byId[SessionId(sessionId)]?.retainedBy.mainView ?? 0) > 0,
+      subscribeContext: listener => ctx.sessions.list.subscribe(listener),
+      locale: () => ctx.get('locale')?.getLocale().active,
+      subscribeLocale: listener => ctx.on('locale/change', listener),
+      reveal: () => ctx.get('layout')?.selectPanel(null),
+    });
+    ctx.effect(() => () => useSkills.dispose());
+    ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'skillhub-use-focus' },
+      props => <SkillUseBinding controller={useSkills} sessionId={props.sessionId} actions={props.inputActions}><SkillUseFocus controller={useSkills} sessionId={props.sessionId} /></SkillUseBinding>));
+    ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({ name: 'conversation.input.dock', id: 'skillhub-case-choices' },
+      props => <SkillUseBinding controller={useSkills} sessionId={props.sessionId} actions={props.inputActions}><SkillCaseChoices controller={useSkills} sessionId={props.sessionId} /></SkillUseBinding>));
+    function installationFor(sessionId: string, catalog = false): InstallationServices {
       const call = async <T,>(action: (remote: AgentContext['remote']) => Promise<T>): Promise<T> => {
         const scope = ctx.sessions.scope(SessionId(sessionId));
         if (!scope) throw new Error('当前会话已关闭，请重新打开会话。');
@@ -68,7 +106,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
         operation: (id, host) => call(remote => remote.skillhub.getOperation(id, host)),
         recoverOperation: input => call(remote => remote.skillhub.recoverOperation(input)),
       };
-      return { sessionId, requests, upgrades, registryIdentity: async revision => { const source = await ctx.remote.skillhub.getContext(); if (!source.ok || !source.value.configured || source.value.sourceRevision !== revision) throw new Error('来源已变化，请重新读取详情。'); return source.value.registryUrl; },
+      return { sessionId, requests, upgrades, skillUse: catalog ? useSkills.catalogServices(sessionId) : useSkills.services(sessionId), registryIdentity: async revision => { const source = await ctx.remote.skillhub.getContext(); if (!source.ok || !source.value.configured || source.value.sourceRevision !== revision) throw new Error('来源已变化，请重新读取详情。'); return source.value.registryUrl; },
         checkVersionUpdate: (revision, itemKey, version, signal) => call(remote => remote.skillhub.checkVersionUpdate(revision, itemKey, version, signal)),
         manageInstalled: (sourceRevision, item) => {
         const layout = ctx.get('layout');
@@ -136,7 +174,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
         layout.selectPanel(panelId);
       } } };
       },
-    }, props => <><UiAvailabilityNotice availability={availability} /><InstallToolView {...props} /></>));
+    }, props => <SkillUseBinding controller={useSkills} sessionId={props.sessionId} actions={props.inputActions}><UiAvailabilityNotice availability={availability} /><InstallToolView {...props} /></SkillUseBinding>));
     ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
       name: 'tool.call.toolview', key: 'astron_skillhub_search',
       inject: sessionId => ({ services: {
@@ -173,7 +211,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
           return withSessionRemote(scope, remote => remote.skillhub.acknowledgeConversationDetail(reference, token));
         },
       } }),
-    }, props => <><UiAvailabilityNotice availability={availability} /><SearchToolView {...props} /></>));
+    }, props => <SkillUseBinding controller={useSkills} sessionId={props.sessionId} actions={props.inputActions}><UiAvailabilityNotice availability={availability} /><SearchToolView {...props} /></SkillUseBinding>));
     ctx.inject(['layout'], (ctx) => {
       ctx.slots.inject('main', () => availability.enable('main'));
       ctx.slots.inject('sidebar.panellist', () => availability.enable('sidebar'));
@@ -181,8 +219,8 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
         children: { 'skillhub.catalog': { kind: 'single', scope: 'session-maybe' } },
       }, ({ renderSlot }) => renderSlot('skillhub.catalog', {})));
       ctx.slots.inject('skillhub.catalog', () => ctx.slots.register({ name: 'skillhub.catalog',
-        inject: sessionId => ({ installation: sessionId ? installationFor(sessionId) : undefined,
-          installed: sessionId ? { sessionId, upgradeRequests, removalRequests, compatibility: () => ctx.remote.skillhub.getCompatibility(),
+        inject: sessionId => ({ installation: sessionId ? installationFor(sessionId, true) : undefined,
+          installed: sessionId ? { sessionId, skillUse: useSkills.catalogServices(sessionId), upgradeRequests, removalRequests, compatibility: () => ctx.remote.skillhub.getCompatibility(),
             operation: installationFor(sessionId).operation,
             recoverOperation: async input => {
               const scope = ctx.sessions.scope(SessionId(sessionId));
@@ -216,8 +254,8 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
             if (!scope) throw new Error('当前会话已关闭，请重新打开会话。');
             return withSessionRemote(scope, remote => remote.skillhub.checkUpdate(revision, itemKey, signal));
           } } satisfies InstalledServices : undefined }),
-      }, ({ installation, installed }) => <CatalogPage remote={ctx.remote.skillhub} navigation={navigation} client={client}
-        installation={installation} installed={installed} availability={availability} onReturn={() => ctx.layout.selectPanel(null)} />));
+      }, ({ installation, installed, inputActions, sessionId }) => <SkillUseBinding controller={useSkills} sessionId={sessionId} actions={inputActions}><CatalogPage remote={ctx.remote.skillhub} navigation={navigation} client={client}
+        installation={installation} installed={installed} availability={availability} onReturn={() => ctx.layout.selectPanel(null)} /></SkillUseBinding>));
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: panelId, label: '技能中心', order: 10 }, () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.6" /><rect x="3" y="14" width="7" height="7" rx="1.6" /><rect x="14" y="14" width="7" height="7" rx="1.6" /><path d="M17.5 2.5v8M13.5 6.5h8" /></svg>));
     });
   });

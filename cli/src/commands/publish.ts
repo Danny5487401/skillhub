@@ -7,6 +7,7 @@ import { resolveRegistry, resolveToken } from '../services/registry-service'
 import { CliError } from '../shared/errors'
 import { EXIT } from '../shared/constants'
 import { createZip, isZipFile } from '../platform/archive'
+import { inspectPackagedExamples, examplesPreflightLine } from '../services/skill-examples-preflight'
 
 export interface PublishCommandOptions {
   namespace?: string
@@ -50,17 +51,20 @@ export async function publishCommand(path: string, options: PublishCommandOption
     }
   } else if (pathStat.isDirectory()) {
     archiveBlob = await createZip(path, {
-      exclude: relativePath => relativePath === '.skillhub' || relativePath.startsWith('.skillhub/')
+      exclude: relativePath => relativePath.toLowerCase() === '.skillhub/metadata.json'
     })
     archiveName = `${basename(path)}.zip`
   } else {
     throw new CliError(`path must be a file or directory: ${path}`, EXIT.filesystem, { path })
   }
 
+  const examples = await inspectPackagedExamples(archiveBlob)
+  const summary = examplesPreflightLine(examples)
   const client = new SkillHubClient(registry, token)
 
   if (options.dryRun) {
-    const result = await client.validatePublish(namespace, archiveBlob, toServerVisibility(visibility), archiveName)
+    const validation = await client.validatePublish(namespace, archiveBlob, toServerVisibility(visibility), archiveName)
+    const result = { ...validation, ...examples, warnings: [...new Set([...validation.warnings, ...examples.warnings])] }
 
     if (options.json) {
       if (!result.valid) {
@@ -82,6 +86,7 @@ export async function publishCommand(path: string, options: PublishCommandOption
     if (result.resolvedVersion) {
       lines.push(`  Version: ${result.resolvedVersion}`)
     }
+    if (summary) lines.push(summary)
     if (result.errors.length > 0) {
       lines.push('Errors:')
       for (const error of result.errors) {
@@ -114,14 +119,17 @@ export async function publishCommand(path: string, options: PublishCommandOption
       version: result.version,
       visibility: result.visibility.toLowerCase(),
       status: result.status,
-      detailUrl
+      detailUrl,
+      ...examples
     })
   }
   return [
     `Submitted successfully: ${result.namespace}/${result.slug}@${result.version}`,
     `Status: ${result.status}`,
     `Detail: ${detailUrl}`,
-    'Check the Web page for final publish or review status.'
+    'Check the Web page for final publish or review status.',
+    ...(summary ? [summary] : []),
+    ...examples.warnings.map(warning => `Warning: ${warning}`)
   ].join('\n')
 }
 
