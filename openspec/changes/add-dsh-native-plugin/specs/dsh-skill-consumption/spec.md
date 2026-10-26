@@ -140,13 +140,13 @@ The plugin SHALL check for updates only on user request and SHALL upgrade only t
 - **WHEN** the candidate is older, incomparable, or the same version with different content
 - **THEN** upgrade is blocked and local files remain unchanged; an identical current release is reported as unchanged
 
-#### Scenario: All shared targets are manageable
-- **WHEN** one inventory item has multiple targets entirely within trusted user and current-project scope with direct ownership
-- **THEN** the plan lists all affected targets and upgrades them together only after explicit confirmation of that complete set
+#### Scenario: Independent target releases
+- **WHEN** a skill is installed in user and project scopes and the user confirms an upgrade of the project installation
+- **THEN** only the project files and target release record change; user files, release, timestamps and ownership remain unchanged
 
-#### Scenario: Shared target outside scope
-- **WHEN** the item also has another Agent, another project, untrusted or shared-ownership target
-- **THEN** upgrade is blocked without expanding scope or partially changing the shared version
+#### Scenario: Unselected targets outside current context
+- **WHEN** the same source coordinate also has another project, Agent or Suite-owned installation
+- **THEN** that sibling is not included in the upgrade and is preserved; shared ownership or an alias of the selected physical target still blocks the operation
 
 #### Scenario: Local content modified or baseline missing
 - **WHEN** existing content differs from its recorded baseline or has no usable baseline

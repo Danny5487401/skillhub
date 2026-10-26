@@ -59,8 +59,8 @@ async function fixture(run: (f: {
       state: 'present', fingerprint: 'fingerprint', targetPath: directory };
     const items = [item];
     const baseline: RemovalBaseline = { status: 'ready', kind: 'uninstall', inventoryItem: {
-      registry: 'https://registry.example', namespace: item.namespace, slug: item.slug, version: item.version,
-      fingerprint: item.fingerprint, targets: [{ agent: 'dsh', rootDir: join(home, 'skills'), installDir: directory, installedAt: 'now' }],
+      registry: 'https://registry.example', namespace: item.namespace, slug: item.slug,
+      targets: [{ agent: 'dsh', rootDir: join(home, 'skills'), installDir: directory, installedAt: 'now', version: item.version, fingerprint: item.fingerprint }],
     }, target: { scope: 'user', root: join(home, 'skills'), path: directory, files: examples === undefined ? {} : { '.skillhub/examples.json': createHash('sha256').update(examples).digest('hex') }, metadata: {
       registry: 'https://registry.example', namespace: item.namespace, slug: item.slug, version: item.version,
     } } };

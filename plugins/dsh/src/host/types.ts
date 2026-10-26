@@ -1,3 +1,4 @@
+import type { NativeOperation } from './generated/native-contract.js';
 export type TabMode = 'auto' | 'show' | 'hide';
 export interface HostExecutePlanRequest { planId: string; requestKey: string }
 export interface HostRecoveryRequest { operationId: string; hostInstanceId: string }
@@ -164,4 +165,21 @@ export interface RegistryConnectionTest {
   reachable: true;
   mode: 'paged' | 'limited';
   elapsedMs: number;
+}
+
+/** Path-free conversation views; references bind a trusted Host snapshot, not user authority. */
+export interface ConversationInstalledResult extends InstalledSkillList {
+  schemaVersion: 1; kind: 'skillhub-installed'; toolCallId: string; sourceRevision: string; sourceLabel: string;
+}
+export interface ConversationUpdateResult {
+  schemaVersion: 1; kind: 'skillhub-update-check'; toolCallId: string; sourceRevision: string; sourceLabel: string;
+  item: InstalledSkillList['items'][number]; check: InstalledUpdateCheck;
+}
+export interface ConversationManagementResult {
+  schemaVersion: 1; kind: 'skillhub-management'; toolCallId: string;
+  action: 'upgrade' | 'uninstall'; sourceRevision: string; sourceLabel: string;
+  item: InstalledSkillList['items'][number];
+  status: 'awaiting-confirmation' | 'cancelled' | 'blocked' | 'accepted';
+  candidateVersion: string | null; reason: string;
+  confirmationRef: string | null; operation: NativeOperation | null;
 }

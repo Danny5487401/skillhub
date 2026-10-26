@@ -125,7 +125,7 @@ Each visibility setting accepts `auto`, `show` or `hide`. Auto detects actual an
 
 - Browse supports search, server sorting, real labels and explicit **Load more**, normally 12 results per page. A first-page 404/405 can fall back to bounded legacy search, with an explicit pagination/sorting limitation. A failed label filter never silently returns unfiltered results.
 - Details show fixed-version documentation and optional tabs. Select a downloadable version before confirming installation. Existing-target protection remains; skill downgrades are not supported.
-- Installed records can be filtered by source, scope and keyword. The right-side version card contains detail refresh and update checks. Upgrade confirms the complete target set; removal affects one confirmed location. Missing directories have a separate stale-record cleanup action.
+- Installed records can be filtered by source, scope and keyword. The right-side version card contains detail refresh and update checks. Upgrade and removal affect only the selected location; other locations retain their versions. Missing directories have a separate stale-record cleanup action.
 - `astron_skillhub_search` only searches. Result cards provide a detail action; the drawer offers explicit installation confirmation.
 - An explicit request to install a uniquely selected result does not require opening the drawer first. `astron_skillhub_install` verifies the search-time version and content snapshot. It accepts a `selectionRef` or a full coordinate, exclusively, and a `user`/`project` scope. Expired or ambiguous references are rejected without switching to current latest.
 
@@ -183,7 +183,7 @@ See the [release guide](../../openspec/changes/add-dsh-native-plugin/release-gui
 
 ### Open-source interaction update (unreleased)
 
-Market cards open details and offer separate installation-management actions. Multiple installed scopes require a selected target. Conversation installs without an explicit scope use the Host input-adjacent question UI to choose current project, current user, or cancel before any installation write. Hosts without an answerer retain a pending card that opens a compact confirmation dialog. Market install actions open the same dialog without detail-page navigation. A trusted project is preselected when available, but never submitted automatically. A later explicit user scope may start a new call. Details omit complete leading frontmatter and reuse public reads for 60 seconds without bypassing write validation. The versions tab requests `downloadableOnly=true`, requiring the updated open-source backend; SaaS synchronization and acceptance remain separate.
+Market cards open details and offer separate installation-management actions. Multiple installed scopes require a selected target. After an explicit install request, an omitted scope defaults to current user; project scope must be explicitly selected. Market install actions open the same dialog without detail-page navigation. Current user is preselected, with project scope in advanced options; the dialog never submits automatically. A later explicit user scope may start a new call. Details omit complete leading frontmatter and reuse public reads for 60 seconds without bypassing write validation. The versions tab requests `downloadableOnly=true`, requiring the updated open-source backend; SaaS synchronization and acceptance remain separate.
 
 After confirmation, the installation dialog expands to the right, keeping the skill, version, and scope on the left and concise real progress on the right. Narrow screens stack the sections. Progress remains indeterminate until completion; closing the dialog does not cancel a submitted installation.
 
@@ -191,4 +191,11 @@ Installation controls use current inventory rather than historical success recei
 
 Removal from market cards, installed rows, and detail controls opens an in-place confirmation. It shows the skill, version, selected scope, and impact. Opening only prepares a plan; confirmation executes it. Cancel and Escape never remove files, and existing expiry, identity, and local-file checks still apply.
 
-Version selection is read-only. A verifiable newer selected version offers an explicit exact-version upgrade; equal versions do not upgrade again, older versions cannot downgrade, and unorderable versions are blocked. Confirmation lists all installed targets that the shared transaction updates. Latest-update checks remain available, with in-place confirmation, local-change protection, and recovery.
+Version selection is read-only. A verifiable newer selected version offers an explicit exact-version upgrade; equal versions do not upgrade again, older versions cannot downgrade, and unorderable versions are blocked. Confirmation lists only the selected installation location. Latest-update checks remain available, with in-place confirmation, local-change protection, and recovery.
+
+
+### Conversation management
+
+`astron_skillhub_list_installed` lists current-source managed records in the current user/project roots, not every skill on the machine. `astron_skillhub_check_update` checks the latest or an explicitly requested newer version. `astron_skillhub_upgrade` and `astron_skillhub_uninstall` require an exact installed reference and real human confirmation, including explicitly selected scopes. Without a native question provider they return a confirmation card. Models cannot authorize operations using paths, plan IDs or confirmation flags. `astron_skillhub_operation` reads the original session-owned receipt without resubmitting a mutation.
+
+New conversational installs default to user scope after an explicit install request. Project installation is explicit/advanced. Updating one location preserves other locations' versions. Local edits and stale references block mutations. CLI installations sharing this inventory must be upgraded together; old CLI/new inventory mixed writes are unsupported.
