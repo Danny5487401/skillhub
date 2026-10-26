@@ -8,13 +8,13 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 
 `0.2.1` 缺省连接 `https://skill.xfyun.cn`；显式空串或仅空白仍表示断开，已有自定义地址保留。插件不继承 CLI 的默认地址或凭证。
 
-`0.4.0` 为待发布候选，独立标签为 `dsh-v0.4.0`，新增技能案例与原生输入框衔接、对话管理已安装技能及按安装位置独立维护版本。保留 `0.3.1` 的双 RC 兼容范围。npm 发布及公开包验收完成前，使用本版本构建的 tarball 验证。
+`0.4.0` 使用独立标签 `dsh-v0.4.0`，提供技能案例与原生输入框衔接、对话管理已安装技能及按安装位置独立维护版本。保留 `0.3.1` 的双 RC 兼容范围。公开可用状态以 npm 为准；本地构建的 tarball 可按下文独立验证。
 
 ## 使用已安装技能
 
 在已安装卡片、已安装版本详情或安装成功结果点击“使用此技能”。技能中心入口在同一工作区新建对话，对话内入口保留当前会话。核验所选安装后，案例显示在原生输入框上方；确认案例或自定义任务后，带入可编辑的技能调用。原会话草稿不会被覆盖，对话内操作保留已有文字、引用和附件。补充任务和材料后自行发送；点击使用不会自动发送、调用模型或安装文件。
 
-需要当前活动会话。被项目同名技能覆盖、本地文件变更、禁止用户调用或会话/来源变化时会提示原因；历史回执不能代替当前安装状态。此功能包含在 `0.4.0` 候选中，不属于已发布的 `0.3.1` 包。
+需要当前活动会话。被项目同名技能覆盖、本地文件变更、禁止用户调用或会话/来源变化时会提示原因；历史回执不能代替当前安装状态。此功能自 `0.4.0` 起提供。
 
 
 ## 环境与验证范围
@@ -27,7 +27,7 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 | 开发包管理器 | Bun `1.3.13`，按锁文件安装 |
 | 当前 UI | 中文；支持 DSH 深浅主题和窄屏 |
 | 已验证环境 | Linux 两版 DSH Host 严格安装、原生探针及浏览器用户/项目安装、升级、卸载与取消；Windows 浏览器访问真实 Host 的界面和交互 |
-| 验证边界 | 功能候选已进行真实模型对话及跨平台 CI；最终 `0.4.0` 候选与公开包须独立验收。真实桌面客户端、原生 Windows/macOS 人工交互和 SaaS 验收不由这些结果替代 |
+| 验证边界 | 功能实现已进行真实模型对话及跨平台 CI；构建产物与公开包的验收分别记录。真实桌面客户端、原生 Windows/macOS 人工交互和 SaaS 验收不由这些结果替代 |
 
 Windows 浏览器验证不等于 Windows 原生 Host 的全部文件操作已经验证。CI 的平台矩阵也不替代真实桌面、模型及目标实例验收。完整支持边界见仓库内的 [兼容设计](../../openspec/changes/add-dsh-native-plugin/compatibility-design.md) 和 [验收标准](../../openspec/changes/add-dsh-native-plugin/acceptance.md)。
 
@@ -69,18 +69,19 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
 
 ## 从 npm 安装
 
-`0.4.0` 在 npm 发布完成后，使用以下命令安装。先确认 DSH、Node 和上表完整 Cordis 组合满足要求，停止目标 Web Profile 的 Host，然后安装精确版本。发布完成前使用下一节的本地候选包：
+先查询 npm 上的精确版本，确认可用后安装。核对 DSH、Node 和上表完整 Cordis 组合，停止目标 Web Profile 的 Host，再执行插件安装；也可按下一节安装已验证的本地 tarball：
 
 ```sh
+npm view @astron-team/skillhub-dsh@0.4.0 version
 dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.4.0 --ignore-scripts
 dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 ```
 
-`skillhub-test` 替换为实际 Web Profile；首次创建方法见下一节。未配置 `registryUrl` 时默认使用 `https://skill.xfyun.cn`。如需自建实例，在插件设置中修改来源并测试、保存；显式保存空地址可断开。发布前请使用本地候选包验收，不要将未发布版本的 npm 安装失败当成插件加载失败。
+`skillhub-test` 替换为实际 Web Profile；首次创建方法见下一节。未配置 `registryUrl` 时默认使用 `https://skill.xfyun.cn`。如需自建实例，在插件设置中修改来源并测试、保存；显式保存空地址可断开。npm 查询或下载失败与插件加载失败应分别诊断。
 
 ## 从旧版本升级
 
-`0.4.0` 使用按安装位置记录版本的库存 v2。插件仍内置安装核心，无需为了使用插件单独安装 CLI；如果同一用户还使用 SkillHub CLI 管理这些技能，先将这些 CLI 升级到 `0.2.0`，再升级插件，并停止旧版 CLI 的定时或后台写入。发布完成后使用 `npm install -g @astron-team/skillhub@0.2.0`，确认 `skillhub version`，再执行上面的精确插件版本安装命令。
+`0.4.0` 使用按安装位置记录版本的库存 v2。插件仍内置安装核心，无需为了使用插件单独安装 CLI；如果同一用户还使用 SkillHub CLI 管理这些技能，先将这些 CLI 升级到 `0.2.0`，再升级插件，并停止旧版 CLI 的定时或后台写入。先用 `npm view @astron-team/skillhub@0.2.0 version` 确认可用，再使用 `npm install -g @astron-team/skillhub@0.2.0`，确认 `skillhub version`，再执行上面的精确插件版本安装命令。
 
 读取旧库存不迁移；首次写入 v2 前，在库存同目录保存经字节核对的 `inventory.v1.<sha256>.backup.json`。同一技能的用户与项目副本可保留不同版本。旧 CLI 与 v2 库存混写不受支持；已分位置更新后，不能只恢复旧库存文件或降级插件来回退，必须同时核对实际技能文件、安装元数据和操作记录。
 
@@ -183,7 +184,7 @@ dsh plugin --profile skillhub-test remove @astron-team/skillhub-dsh
 
 ## 服务端同步与发布
 
-插件 Host 调用匿名 Registry HTTP API；本地安装事务在 Host 内完成，不需要 SaaS 新增操作用户文件系统的安装接口。开源先定义和验证契约，再将缺失的路径、字段、匿名策略和测试同步到 SaaS。公开 npm `0.2.0` 已对 `https://skill.xfyun.cn` 完成目录、搜索、文档、版本选择和固定版本项目安装及文件/指纹、库存、DSH 发现核验；本版候选和公开包须独立验收。日期格式等无法可靠排序的非 SemVer 版本继续阻断自动升级，不显示可执行升级入口；这不影响已验证的固定版本首次安装。SaaS 技能的真实模型执行尚未验收。详细要求见 [Registry 契约](../../openspec/changes/add-dsh-native-plugin/registry-api-contract.md)。
+插件 Host 调用匿名 Registry HTTP API；本地安装事务在 Host 内完成，不需要 SaaS 新增操作用户文件系统的安装接口。开源先定义和验证契约，再将缺失的路径、字段、匿名策略和测试同步到 SaaS。公开 npm `0.2.0` 已对 `https://skill.xfyun.cn` 完成目录、搜索、文档、版本选择和固定版本项目安装及文件/指纹、库存、DSH 发现核验；各版本的构建产物与公开包分别验收。日期格式等无法可靠排序的非 SemVer 版本继续阻断自动升级，不显示可执行升级入口；这不影响已验证的固定版本首次安装。SaaS 技能的真实模型执行尚未验收。详细要求见 [Registry 契约](../../openspec/changes/add-dsh-native-plugin/registry-api-contract.md)。
 
 插件独立使用 `dsh-v<version>` tag，不复用 CLI 或服务镜像发布。`check-dsh-plugin.yml` 配置 Linux/macOS/Windows × Node 24.2.0/当前 Node 24 的普通干净安装检查，并额外保留旧 Cordis 组合的隔离 Host 回归；`release-dsh-plugin.yml` 手动触发，默认只产出候选包。发布需正式版本、可发布 manifest、候选验收及明确发布授权；配置了环境保护规则时还须完成相应审批。版本更新需显式提交，npm 发布需明确授权后运行专用工作流。
 

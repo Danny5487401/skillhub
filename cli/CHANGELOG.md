@@ -2,7 +2,7 @@
 
 All notable CLI behavior changes are documented in this file.
 
-## 0.2.0 (release candidate)
+## 0.2.0
 
 ### Added
 
