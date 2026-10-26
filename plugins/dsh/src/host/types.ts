@@ -183,3 +183,18 @@ export interface ConversationManagementResult {
   candidateVersion: string | null; reason: string;
   confirmationRef: string | null; operation: NativeOperation | null;
 }
+
+/** Path-free, read-only observations at checkedAt; never execution authorization. */
+export interface SkillAvailability {
+  installation?: { namespace: string; slug: string; version: string; scope: 'user' | 'project' };
+  scope?: 'user' | 'project';
+  checkedAt: string;
+  name?: string;
+  association: 'managed-reference' | 'not-associated';
+  integrity: 'verified' | 'changed' | 'missing' | 'unknown';
+  discovery: 'winner' | 'shadowed' | 'not-discovered' | 'unknown';
+  invocation?: { userInvocable: boolean; modelInvocable: boolean };
+  reason: 'observed' | 'host-unavailable' | 'files-missing' | 'files-unreadable' | 'local-changes'
+    | 'baseline-unverified' | 'definition-unverified' | 'snapshot-unavailable' | 'snapshot-incomplete'
+    | 'observation-changed' | 'not-discovered' | 'same-name-winner' | 'definition-changed' | 'read-failed';
+}

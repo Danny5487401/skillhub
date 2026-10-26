@@ -14,7 +14,14 @@ const management = z.object({ ...base, kind: z.literal('skillhub-management'), i
   action: z.enum(['upgrade', 'uninstall']), status: z.enum(['awaiting-confirmation', 'cancelled', 'blocked', 'accepted']),
   candidateVersion: text.nullable(), reason: z.string(), confirmationRef: text.nullable(), operation: operation.nullable() });
 const operationResult = z.object({ schemaVersion: z.literal(1), kind: z.literal('skillhub-operation'), toolCallId: text, operation: operation.extend({ kind: z.string(), namespace: text.optional(), slug: text, version: text, targetLabel: text, phase: z.string(), warningCount: z.number(), discovery: z.enum(['unconfirmed', 'confirmed', 'failed']).optional(), recovery: z.enum(['not-needed', 'restored', 'incomplete', 'unknown']).optional() }).nullable() });
-const schema = z.discriminatedUnion('kind', [installed, update, management, operationResult]);
+export const availabilitySchema = z.object({ installation: z.object({ namespace: text, slug: text, version: text, scope: z.enum(['user', 'project']) }).optional(), scope: z.enum(['user', 'project']).optional(), checkedAt: text, name: z.string().max(128).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  association: z.enum(['managed-reference', 'not-associated']), integrity: z.enum(['verified', 'changed', 'missing', 'unknown']),
+  discovery: z.enum(['winner', 'shadowed', 'not-discovered', 'unknown']),
+  invocation: z.object({ userInvocable: z.boolean(), modelInvocable: z.boolean() }).optional(),
+  reason: z.enum(['observed', 'host-unavailable', 'files-missing', 'files-unreadable', 'local-changes', 'baseline-unverified',
+    'definition-unverified', 'snapshot-unavailable', 'snapshot-incomplete', 'observation-changed', 'not-discovered', 'same-name-winner', 'definition-changed', 'read-failed']) });
+const availability = z.object({ schemaVersion: z.literal(1), kind: z.literal('skillhub-availability'), toolCallId: text, diagnosis: availabilitySchema });
+const schema = z.discriminatedUnion('kind', [installed, update, management, operationResult, availability]);
 export type ManagementViewResult = z.infer<typeof schema>;
 export type ManagementReceipt = z.infer<typeof management>;
 /** Transcript metadata is display data, never authority to mutate. Host rechecks every reference. */

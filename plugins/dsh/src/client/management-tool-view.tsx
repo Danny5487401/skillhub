@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useMemo, useRef, useState, type React
 import { QueryClientProvider, useQuery, type QueryClient } from '@tanstack/react-query';
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client';
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol';
-import type { ConversationManagementResult, InstalledSkillList, InstalledUpdateCheck } from '../host/types.js';
+import type { ConversationManagementResult, InstalledSkillList, InstalledUpdateCheck, SkillAvailability } from '../host/types.js';
 import type { InstallationServices } from './install-control.js';
 import { parseManagementResult, managementReason, type ManagementViewResult, type ManagementReceipt } from './management-result.js';
 import { NativeControlStyles } from './native-control-styles.js';
@@ -15,6 +15,7 @@ export interface ManagementViewServices {
   client: QueryClient;
   installation: InstallationServices;
   refreshInstalled(signal: AbortSignal): Promise<{ sourceRevision: string; list: InstalledSkillList }>;
+  availability?(revision: string, itemKey: string, signal: AbortSignal): Promise<RemoteResult<SkillAvailability>>;
   check(revision: string, itemKey: string, signal: AbortSignal): Promise<RemoteResult<InstalledUpdateCheck>>;
   begin(revision: string, itemKey: string, action: 'upgrade' | 'uninstall', version: string | null, requestKey: string, signal: AbortSignal): Promise<RemoteResult<ConversationManagementResult>>;
   confirm(ref: string, confirmed: boolean, signal: AbortSignal): Promise<RemoteResult<ConversationManagementResult>>;
@@ -71,10 +72,34 @@ export function ManagementContent({ result, services }: { result: ManagementView
   return <ManagementRefreshBoundary services={services} previousRevision={'sourceRevision' in result ? result.sourceRevision : undefined}><ManagementResultContent result={result} services={services} /></ManagementRefreshBoundary>;
 }
 function ManagementResultContent({ result, services }: { result: ManagementViewResult; services: ManagementViewServices }) {
+  if (result.kind === 'skillhub-availability') return <AvailabilityResult value={result.diagnosis} standalone />;
   if (result.kind === 'skillhub-operation') return <ManagementOperation result={result} services={services} />;
   if (result.kind === 'skillhub-management') return <ManagementConfirmation initial={result} services={services} />;
   if (result.kind === 'skillhub-update-check') return <ManagementRow item={result.item} revision={result.sourceRevision} services={services} initialCheck={result.check} checkOnly />;
   return <InstalledList list={result} revision={result.sourceRevision} services={services} />;
+}
+export function AvailabilityResult({ value, standalone = false }: { value: SkillAvailability; standalone?: boolean }) {
+  const messages: Record<SkillAvailability['reason'], [string, string]> = {
+    observed: [value.association === 'not-associated' ? '当前会话已发现，来源未关联。' : '当前检查：文件与宿主加载一致。', '仅反映本次检查结果。'],
+    'host-unavailable': ['宿主状态无法核验。', '请稍后重新检查。'],
+    'files-missing': ['所选安装文件缺失。', '请重新查询安装记录。'],
+    'files-unreadable': ['文件无法读取。', '请检查本地访问权限后重试。'],
+    'local-changes': ['本地内容已修改。', '请核对修改是否符合预期。'],
+    'baseline-unverified': ['安装内容基线无法核验。', '请重新查询安装记录。'],
+    'definition-unverified': ['技能定义或宿主加载无法核验。', '请核对技能定义后重新检查。'],
+    'snapshot-unavailable': ['宿主未提供完整性快照。', '请确认宿主技能服务状态。'],
+    'snapshot-incomplete': ['宿主技能列表不完整。', '请稍后重新检查。'],
+    'observation-changed': ['检查期间状态发生变化。', '请重新检查。'],
+    'not-discovered': ['当前会话未发现此技能。', '请核对技能定义与当前会话。'],
+    'same-name-winner': ['所选安装被同名技能覆盖。', '请核对当前会话的同名技能。'],
+    'definition-changed': ['文件与宿主加载内容不一致。', '请等待宿主刷新后重新检查。'],
+    'read-failed': ['暂时无法核验。', '请稍后重新检查。'],
+  };
+  const [message, advice] = messages[value.reason];
+  return <div className="astron-sh-management-availability" role="status" aria-label="技能可用性">
+    {standalone && <p><strong>{value.installation ? `@${value.installation.namespace}/${value.installation.slug} · v${value.installation.version}` : value.name ?? '技能可用性'}</strong>{value.scope && ` · ${scopeLabel(value.scope)}`}</p>}
+    <p>{message}</p>{value.invocation && <p>用户调用{value.invocation.userInvocable ? '允许' : '禁用'} · 模型调用{value.invocation.modelInvocable ? '允许' : '禁用'}</p>}<small>{advice}</small>
+  </div>;
 }
 function ManagementOperation({ result, services }: { result: Extract<ManagementViewResult, { kind: 'skillhub-operation' }>; services: ManagementViewServices }) {
   const original = result.operation;
@@ -170,6 +195,15 @@ function ManagementRow({ item, revision, services, initialCheck, checkOnly = fal
   onPendingMutation?(pending: boolean): void; onManagement?(result: ConversationManagementResult): void;
 }) {
   const [check, setCheck] = useState(initialCheck);
+  const availabilityId = useId();
+  const availability = useQuery({ queryKey: ['skillhub-availability', services.installation.sessionId, revision, item.itemKey, availabilityId],
+    enabled: false, retry: false, gcTime: 0, queryFn: async ({ signal }) => {
+      await verifyManagementReference(services, revision, item.itemKey, signal);
+      if (!services.availability) throw new Error('Availability service unavailable');
+      const value = read(await services.availability(revision, item.itemKey, signal));
+      services.assertCurrent(); signal.throwIfAborted(); return value;
+    } });
+
   const [moreOpen, setMoreOpen] = useState(false);
   const [useError, setUseError] = useState('');
   const moreTrigger = useRef<HTMLButtonElement>(null);
@@ -209,13 +243,15 @@ function ManagementRow({ item, revision, services, initialCheck, checkOnly = fal
         {check?.state === 'upgradable' && <Button size="sm" variant="default" disabled={pending} onClick={() => void run('upgrade')}>更新</Button>}
         {check?.state === 'unavailable' && <Button size="sm" variant="ghost" disabled={pending} onClick={() => void run('check')}>{pending ? '检查中…' : '重试检查'}</Button>}
         {!checkOnly && !check && item.state === 'present' && <UseSkillButton services={skillUse} revision={revision} itemKey={item.itemKey} onError={setUseError} />}
-        {!checkOnly && item.state === 'present' && (!check || check.state === 'upgradable') && <Button ref={moreTrigger} size="sm" variant="ghost" className="astron-sh-management-more-trigger" aria-label="更多操作" aria-expanded={moreOpen} disabled={pending} onClick={() => setMoreOpen(value => !value)}>···</Button>}
+        {!checkOnly && (services.availability || (item.state === 'present' && (!check || check.state === 'upgradable'))) && <Button ref={moreTrigger} size="sm" variant="ghost" className="astron-sh-management-more-trigger" aria-label="更多操作" aria-expanded={moreOpen} disabled={pending} onClick={() => setMoreOpen(value => !value)}>···</Button>}
         {!checkOnly && item.state === 'missing' && <Button size="sm" disabled={pending} onClick={() => void run('uninstall')}>清理记录</Button>}
       </div>
       {useError && <p className="astron-sh-management-use-error" role="alert">{useError}</p>}
+      {availability.isFetching ? <p role="status">正在检查可用性…</p> : availability.isError ? <><p role="alert">{stale(availability.error) ? '安装记录已变化，请重新查询。' : '可用性暂时无法核验。'}</p>{stale(availability.error) && <RefreshInstalled />}</> : availability.data && <AvailabilityResult value={availability.data} />}
       {moreOpen && <div className="astron-sh-management-more-content" aria-label="技能操作">
-        {!check && <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setMoreOpen(false); void run('check'); }}>检查更新</Button>}
-        <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setMoreOpen(false); void run('uninstall'); }}>卸载</Button>
+        {services.availability && <Button size="sm" variant="ghost" disabled={pending || availability.isFetching} onClick={() => { setMoreOpen(false); if (!availability.isFetching) void availability.refetch(); }}>检查可用性</Button>}
+        {!check && item.state === 'present' && <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setMoreOpen(false); void run('check'); }}>检查更新</Button>}
+        {item.state === 'present' && <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setMoreOpen(false); void run('uninstall'); }}>卸载</Button>}
       </div>}
     </>}
   </article>;
@@ -295,6 +331,7 @@ function ManagementStyles() {
 .skillhub-controls .astron-sh-management-target-content>.astron-sh-management-row{padding:0;min-height:28px}
 .skillhub-controls .astron-sh-management-view .astron-sh-management-more-trigger{width:28px;min-width:28px;padding:3px 0;border:1px solid var(--astron-sh-border)}
 .skillhub-controls .astron-sh-management-more-content{display:flex;justify-content:flex-end;align-items:center;gap:4px;flex-basis:100%;min-width:0;padding-top:3px;border-top:1px solid var(--astron-sh-border)}
+.skillhub-controls .astron-sh-management-availability{flex-basis:100%;min-width:0;overflow-wrap:anywhere}
 .skillhub-controls .astron-sh-management-use-error{flex-basis:100%;min-width:0;overflow-wrap:anywhere;color:var(--astron-sh-muted)}
 .skillhub-controls .astron-sh-management-actions:empty{display:none}
 @container(max-width:440px){.skillhub-controls .astron-sh-management-row>.astron-sh-management-identity{flex-basis:100%}.skillhub-controls .astron-sh-management-actions{margin-left:auto}}
