@@ -16,6 +16,7 @@ async function fixture(run: (f: {
   named(signal?: AbortSignal): Promise<{ diagnosis: SkillAvailability }>;
   use(signal?: AbortSignal, key?: string): Promise<SkillUsePreparation>; key: string; directory: string;
   setLookup(callback: (loaded: LoadedSkill) => Promise<LoadedSkill | undefined>): void;
+  setReadError(error?: Error): void;
   change(kind: string): void; observations(): number;
 }) => Promise<void>, frontmatter = '', examples?: string) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'skillhub-use-')));
@@ -39,6 +40,7 @@ async function fixture(run: (f: {
     let lookup = async (skill: LoadedSkill): Promise<LoadedSkill | undefined> => skill;
     let revision = 'source'; let observations = 0; let pendingOperations = 0; let shared = false; let invalidMetadata = false; let replaceDuringInventory = false;
     let replaceDuringProviderRead = false;
+    let readError: Error | undefined;
     const fs = { processPathFromHostPath: (path: string) => path,
       resolve: async (path: string) => ({ displayPath: path }), processPath: (target: { displayPath: string }) => target.displayPath,
       listDir: async (target: { displayPath: string }) => (await readdir(target.displayPath, { withFileTypes: true })).map(entry => ({
@@ -47,6 +49,7 @@ async function fixture(run: (f: {
       stat: async (target: { displayPath: string }) => ({ type: (await lstat(target.displayPath)).isDirectory() ? 'directory' : 'file' }),
       readText: (target: { displayPath: string }) => {
         if (replaceDuringProviderRead) currentSkills = { ...skills };
+        if (readError) throw readError;
         return readFile(target.displayPath, 'utf8');
       },
     };
@@ -95,7 +98,8 @@ async function fixture(run: (f: {
     await run({ availability: (signal = new AbortController().signal, selected = key) => service.checkAvailability('source', selected, signal),
       named: (signal = new AbortController().signal) => service.manageConversation('availability', { name: 'actual-name' }, { sessionId: 'session-a', cwd, callId: 'call' }, signal),
       use: (signal = new AbortController().signal, selected = key) => service.prepareSkillUse('source', selected, signal),
-      key, directory, observations: () => observations, setLookup: value => { lookup = value; }, change: kind => {
+      key, directory, observations: () => observations, setLookup: value => { lookup = value; },
+      setReadError: error => { readError = error; }, change: kind => {
         if (kind === 'provider-skills') replaceDuringProviderRead = true;
         if (kind === 'inventory-skills') replaceDuringInventory = true;
         if (kind === 'source') revision = 'other';
@@ -339,12 +343,25 @@ test('availability rejects changing winners and allows independent concurrent re
 });
 
 
-test('availability does not call unreadable files missing or invalid metadata modified', async () => {
+// Windows chmod does not remove directory read/traverse access.
+test.skipIf(process.platform === 'win32')('availability does not call POSIX permission-denied files missing', async () => {
   await fixture(async f => {
     await chmod(f.directory, 0);
     try { expect(await f.availability()).toMatchObject({ integrity: 'unknown', discovery: 'unknown', reason: 'files-unreadable' }); }
     finally { await chmod(f.directory, 0o700); }
   });
+});
+test('availability does not call provider EACCES missing', async () => {
+  await fixture(async f => {
+    f.setReadError(Object.assign(new Error('Permission denied'), { code: 'EACCES' }));
+    // The baseline can read the files, but the host filesystem provider cannot.
+    expect(await f.availability()).toMatchObject({ integrity: 'verified', discovery: 'unknown', reason: 'read-failed' });
+    expect(f.observations()).toBe(0);
+    f.setReadError();
+    expect(await f.availability()).toMatchObject({ integrity: 'verified', discovery: 'winner', reason: 'observed' });
+  });
+});
+test('availability does not call invalid metadata modified', async () => {
   await fixture(async f => {
     f.change('metadata-invalid');
     expect(await f.availability()).toMatchObject({ integrity: 'unknown', discovery: 'winner', reason: 'baseline-unverified' });
