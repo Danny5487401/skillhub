@@ -16,7 +16,7 @@ test('management registration preserves occupied tools and strict parameters rej
   const dispose = registerManagementTools(tools, async () => { calls++; return {}; });
   const tool = tools.get(MANAGEMENT_TOOLS.upgrade)!;
   expect(() => registerManagementTools(tools, async () => ({}))).toThrow('already registered');
-  expect(tools.entries.size).toBe(5);
+  expect(tools.entries.size).toBe(6);
   for (const extra of [{ confirmed: true }, { planId: 'plan' }, { path: '/forged' }]) {
     await expect(tool.execute({ sourceRevision: 'source', itemKey: 'item', ...extra }, context)).rejects.toThrow();
   }
@@ -77,10 +77,30 @@ test('every registered management tool teaches fresh-state reads and concise pub
       expect(guidance).toContain('skill name, installation scope, version and state');
       expect(guidance).toContain('short conclusion instead of duplicating it');
     }
+    if (action === 'availability') continue;
     // Routing references remain usable by subsequent tools; only prose guidance changes.
     expect(rendered).toContain(item.itemKey);
     if (action === 'list' || action === 'check') expect(rendered).toContain('private-source-revision');
     else expect(rendered).toContain(operationId);
     expect(tool.output.presentationMeta!(args, result)).toEqual(result);
   }
+});
+
+
+test('availability tool enforces exclusive selectors and strips unexpected diagnostic fields', async () => {
+  const tools = registry(); let calls = 0;
+  registerManagementTools(tools, async () => { calls++; return { kind: 'skillhub-availability', diagnosis: {
+    checkedAt: 'now', name: 'writer', association: 'not-associated', integrity: 'unknown', discovery: 'winner', reason: 'observed',
+    invocation: { userInvocable: false, modelInvocable: true, raw: 'secret-policy' },
+    installation: { namespace: 'team', slug: 'writer', version: '1', scope: 'user', path: '/secret/installation' },
+    content: 'secret-content', path: '/secret/path', metadata: { token: 'secret-token' }, provider: 'secret-provider',
+  } }; });
+  const tool = tools.get(MANAGEMENT_TOOLS.availability)!;
+  for (const args of [{}, { name: '../path' }, { name: 'writer', itemKey: 'key', sourceRevision: 'source' }, { itemKey: 'key' }, { name: 'writer', confirmed: true }]) {
+    await expect(tool.execute(args, context)).rejects.toThrow();
+  }
+  expect(calls).toBe(0);
+  const value = await tool.execute({ name: 'writer' }, context);
+  const rendered = JSON.stringify(tool.output.render({ name: 'writer' }, JSON.parse(JSON.stringify(value))));
+  expect(rendered).toContain('not-associated'); expect(rendered).not.toContain('secret');
 });

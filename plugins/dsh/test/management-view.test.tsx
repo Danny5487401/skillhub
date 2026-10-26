@@ -191,3 +191,28 @@ test('two-column catalog initially shows six cards and offers more for larger to
     expect(html).toContain('batch-5'); expect(html).not.toContain('batch-6');
   }
 });
+
+
+test('availability transcript is compact and does not offer ownership or mutation actions', () => {
+  const value = { schemaVersion: 1 as const, kind: 'skillhub-availability' as const, toolCallId: 'call-1', diagnosis: {
+    checkedAt: 'now', name: 'writer', association: 'not-associated' as const, integrity: 'unknown' as const,
+    discovery: 'winner' as const, reason: 'observed' as const, invocation: { userInvocable: false, modelInvocable: true },
+  } };
+  const parsed = parseManagementResult({ ...value, diagnosis: { ...value.diagnosis, path: '/secret/path' } }, 'call-1');
+  expect(parsed).toEqual(value);
+  const html = render(value);
+  expect(html).toContain('writer'); expect(html).toContain('仅反映本次检查结果'); expect(html).not.toContain('仍会重新核验');
+  expect(html).toContain('来源未关联'); expect(html).toContain('用户调用禁用'); expect(html).toContain('模型调用允许');
+  expect(html).not.toContain('<button'); expect(html).not.toContain('未安装');
+  expect(render({ ...value, diagnosis: { ...value.diagnosis, invocation: undefined, discovery: 'unknown', reason: 'snapshot-incomplete' } })).toContain('宿主技能列表不完整');
+});
+
+
+test('standalone missing definition identifies the selected installation without a fabricated invocation name', () => {
+  const html = render({ schemaVersion: 1, kind: 'skillhub-availability', toolCallId: 'call-1', diagnosis: {
+    checkedAt: 'now', association: 'managed-reference', scope: 'user', integrity: 'missing', discovery: 'unknown', reason: 'files-missing',
+    installation: { namespace: 'team', slug: 'selected-package', version: '1.2.0', scope: 'user' },
+  } });
+  expect(html).toContain('@team/selected-package'); expect(html).toContain('v1.2.0');
+  expect(html).toContain('当前用户'); expect(html).toContain('文件缺失'); expect(html).not.toContain('<button');
+});

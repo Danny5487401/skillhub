@@ -406,3 +406,17 @@ Client 使用原生 `InputActions.captureInsertion()` 和 `insertText(text, span
 Client 的 `beginConversationManagement(sourceRevision,itemKey,action,version,requestKey,signal)` 只准备计划并返回确认卡，requestKey 必须是 UUIDv4；`confirmConversationManagement(confirmationRef,confirmed,signal)` 绑定当前 Agent、来源及原计划。二者均不是模型工具。接受后沿用 getOperation 查询，不重复提交。
 
 多个位置时通过原生问题（可用时）要求用户选定一个位置，随后再由 Host 确认操作。模型引导禁止推荐同时处理所有位置；本期不提供批量工具。Host 的确定性保证是精确引用、单位置计划和真实人工确认，不宣称能直接证明模型理解了用户自然语言。
+
+
+## 可用性诊断扩展
+
+正式行为见 [技能可用性诊断](skill-availability-design.md)。仅新增插件内部 RPC 与模型只读工具，不新增 Registry HTTP API。
+
+| 入口 | 输入 | 输出 |
+| --- | --- | --- |
+| Agent RPC `checkAvailability` | `sourceRevision`、`itemKey`、`AbortSignal` | `SkillAvailability` |
+| 模型工具 `astron_skillhub_check_availability` | 严格二选一：`{sourceRevision,itemKey}` 或 `{name}`；拒绝混用、未知字段和路径 | `schemaVersion:1`、`kind:skillhub-availability`、`diagnosis` |
+
+`SkillAvailability` 用独立字段表达 `integrity`（verified/changed/missing/unknown）、`discovery`（winner/shadowed/not-discovered/unknown）、`association`（managed-reference/not-associated）与可选 `invocation`（userInvocable/modelInvocable）。`checkedAt` 为检查时刻，`reason` 为受控原因。`name` 仅在实际技能名可核对时返回，不能用市场 slug 冒充调用名。托管目标的 `installation` 仅包含精确记录中的 namespace、slug、version、scope；顶层可选 scope 与该目标一致。即使缺少文件、无法解析调用名，也可据此显示被检查目标。按 name 查询不返回 installation 或 scope，不能从名称猜测来源。
+
+`managed-reference` 仅证明选中了当前来源管理记录，不代表文件完整或当前可调用；`not-associated` 表示此次按名观察没有建立管理归属，不能解释为已确认属于其他市场。未知状态不得转成未安装。结果不携带路径、原始宿主对象、文档正文或异常文本。所有只读结果均不授予修改权限。

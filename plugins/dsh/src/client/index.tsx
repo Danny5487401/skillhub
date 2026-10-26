@@ -138,7 +138,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
         installed: (revision, signal) => { assertCurrent(); return withSessionRemote(scope!, remote => remote.skillhub.listInstalled(revision, signal)); },
       };
     }
-    for (const name of ['astron_skillhub_list_installed', 'astron_skillhub_check_update', 'astron_skillhub_upgrade', 'astron_skillhub_uninstall', 'astron_skillhub_operation']) {
+    for (const name of ['astron_skillhub_check_availability', 'astron_skillhub_list_installed', 'astron_skillhub_check_update', 'astron_skillhub_upgrade', 'astron_skillhub_uninstall', 'astron_skillhub_operation']) {
       ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({ name: 'tool.call.toolview', key: name,
         inject: sessionId => {
           const receipt = receiptReadsFor(sessionId);
@@ -159,6 +159,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
               receipt.assertCurrent();
               return { sourceRevision: source.value.sourceRevision, list: installed.value };
             }),
+            availability: (revision, itemKey, signal) => call(remote => remote.skillhub.checkAvailability(revision, itemKey, signal)),
             check: (revision, itemKey, signal) => call(remote => remote.skillhub.checkUpdate(revision, itemKey, signal)),
             begin: (revision, itemKey, action, version, requestKey, signal) => call(remote => remote.skillhub.beginConversationManagement(revision, itemKey, action, version, requestKey, signal)),
             confirm: (reference, confirmed, signal) => call(remote => remote.skillhub.confirmConversationManagement(reference, confirmed, signal)),
