@@ -2114,6 +2114,8 @@
     "subscribe": "Subscribe"
   },
   "skillCard": {
+    "relatedSuites": "Related suites",
+    "relatedSuitesHint": "This skill is included in suites you can access. Open its details to explore related skills.",
     "downloads": "{{value}} downloads",
     "stars": "{{count}} stars",
     "rating": "Rating {{rating}}",
