@@ -7,7 +7,8 @@ import { SkillCard } from './skill-card'
 vi.mock('@/api/client', () => ({ buildApiUrl: (url: string) => url }))
 vi.mock('@/features/auth/use-auth', () => ({ useAuth: () => ({ isAuthenticated: false }) }))
 vi.mock('@/features/social/use-star', () => ({ useStarredIdSet: () => ({ starredIds: new Set<number>() }) }))
-vi.mock('react-i18next', () => ({
+vi.mock('react-i18next', async (importOriginal) => ({
+  ...await importOriginal<typeof import('react-i18next')>(),
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }))
 
