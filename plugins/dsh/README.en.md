@@ -10,6 +10,8 @@ Version `0.2.1` defaults to `https://skill.xfyun.cn` when `registryUrl` is omitt
 
 Version `0.4.0` uses the independent `dsh-v0.4.0` tag. It adds versioned examples and native composer handoff, conversational installation management, and per-location installed versions while retaining the dual-RC compatibility of `0.3.1`. Check npm for public availability; locally built tarballs can be verified independently as described below.
 
+`0.5.0` adds read-only skill availability diagnosis in installed cards and conversations, with separate integrity, discovery and invocation-policy results. It retains the compatibility and inventory format of `0.4.0`.
+
 ## Use an installed skill
 
 Choose “使用此技能” on an installed card, matching installed-version detail or completed installation result. Catalog entries open a new conversation in the same workspace; conversation entries keep their current session. After installation verification, examples appear above the native composer. Confirm an example or choose a custom task to insert an editable invocation. The original conversation is preserved, and in-conversation use retains its existing text, references and attachments. Complete the task and send it yourself; this action does not submit messages, call a model or install files.
@@ -72,8 +74,8 @@ Published `0.1.0` still requires the original Cordis `4.0.4` baseline and does n
 Query the exact npm version first and install only after confirming availability. Check DSH, Node and a complete Cordis combination listed above, stop the target Web Profile Host, then install the plugin. A verified local tarball can also be installed using the next section:
 
 ```sh
-npm view @astron-team/skillhub-dsh@0.4.0 version
-dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.4.0 --ignore-scripts
+npm view @astron-team/skillhub-dsh@0.5.0 version
+dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.5.0 --ignore-scripts
 dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 ```
 
@@ -210,7 +212,7 @@ Version selection is read-only. A verifiable newer selected version offers an ex
 New conversational installs default to user scope after an explicit install request. Project installation is explicit/advanced. Updating one location preserves other locations' versions. Local edits and stale references block mutations. CLI installations sharing this inventory must be upgraded together; old CLI/new inventory mixed writes are unsupported.
 
 
-### Skill availability diagnosis (unreleased)
+### Skill availability diagnosis (0.5.0)
 
 Choose “更多 → 检查可用性” on a conversational installed-skill card to inspect its selected location. A conversation can also use the read-only `astron_skillhub_check_availability` tool to explain why a skill cannot be used.
 

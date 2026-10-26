@@ -10,6 +10,8 @@ SkillHub 的 DSH 原生插件。在 DSH 侧栏打开 **技能中心**，匿名�
 
 `0.4.0` 使用独立标签 `dsh-v0.4.0`，提供技能案例与原生输入框衔接、对话管理已安装技能及按安装位置独立维护版本。保留 `0.3.1` 的双 RC 兼容范围。公开可用状态以 npm 为准；本地构建的 tarball 可按下文独立验证。
 
+`0.5.0` 新增技能卡片及对话中的只读可用性诊断，分别报告文件完整性、宿主发现和调用策略，保留 `0.4.0` 的兼容范围及库存格式。
+
 ## 使用已安装技能
 
 在已安装卡片、已安装版本详情或安装成功结果点击“使用此技能”。技能中心入口在同一工作区新建对话，对话内入口保留当前会话。核验所选安装后，案例显示在原生输入框上方；确认案例或自定义任务后，带入可编辑的技能调用。原会话草稿不会被覆盖，对话内操作保留已有文字、引用和附件。补充任务和材料后自行发送；点击使用不会自动发送、调用模型或安装文件。
@@ -72,8 +74,8 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/candidate-output
 先查询 npm 上的精确版本，确认可用后安装。核对 DSH、Node 和上表完整 Cordis 组合，停止目标 Web Profile 的 Host，再执行插件安装；也可按下一节安装已验证的本地 tarball：
 
 ```sh
-npm view @astron-team/skillhub-dsh@0.4.0 version
-dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.4.0 --ignore-scripts
+npm view @astron-team/skillhub-dsh@0.5.0 version
+dsh plugin --profile skillhub-test add @astron-team/skillhub-dsh@0.5.0 --ignore-scripts
 dsh --profile skillhub-test --host 127.0.0.1 --port 0 --no-open
 ```
 
@@ -213,7 +215,7 @@ dsh plugin --profile skillhub-test remove @astron-team/skillhub-dsh
 多份安装先选择目标；更新不改变其他位置版本。本地修改、来源/会话变化和失效引用阻止操作。启用逐位置库存后，同机共同管理技能的 CLI 必须同步升级；旧版 CLI 与新库存混用不受支持。
 
 
-### 技能可用性诊断（待发布）
+### 技能可用性诊断（0.5.0）
 
 在对话安装列表的技能卡片中选择“更多 → 检查可用性”，检查当前选定位置。也可以在对话中询问“这个技能为什么不能用”，由 `astron_skillhub_check_availability` 返回只读结果。
 

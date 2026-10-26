@@ -1,14 +1,22 @@
 # SkillHub DSH 原生插件发布说明
 
+
+## 0.5.0 技能可用性诊断
+
+- 技能卡片“更多 → 检查可用性”与对话工具 `astron_skillhub_check_availability` 提供只读诊断，区分文件完整性、同名覆盖、宿主未知及用户/模型调用策略（[#1023](https://github.com/iflytek/skillhub/pull/1023)）。
+- 按名查询不认领安装来源；精确引用绑定当前会话和安装位置。检查不修改文件、安装记录或草稿。
+- 保留 DSH 双 RC、Node 与 Cordis 兼容范围；不修改库存格式、默认 Registry 或 CLI 版本。既有 CLI 0.2.0 可继续共同管理库存。
+- 功能候选已完成540项本地测试、双RC宿主验收、浏览器组件及2轮真实模型对话；正式发布包仍单独检查完整性和安装结果。
+
 ## 版本与交付状态
 
-当前准备版本为 `0.4.0`，尚未发布；上一公开版本为以下 `0.3.1`。
+当前准备版本为 `0.5.0`；上一公开版本为 `0.4.0`。发布状态以对应 npm 版本和发布工作流为准。
 
-`@astron-team/skillhub-dsh@0.3.1` 已发布，独立标签为 `dsh-v0.3.1`。[发布准备 PR #995](https://github.com/iflytek/skillhub/pull/995) 已合并，[专用发布工作流](https://github.com/iflytek/skillhub/actions/runs/39556075587) 成功；[公开 npm 包](https://www.npmjs.com/package/@astron-team/skillhub-dsh/v/0.3.1) 与工作流产物逐字节一致，`latest` 指向 `0.3.1`。两版 Linux 的严格安装、原生探针及浏览器操作复验通过，测试工件与公开包字节一致，结果见 [验证摘要](verification.md)。历史已发布版本保持不变。
+`@astron-team/skillhub-dsh@0.3.1` 已发布，独立标签为 `dsh-v0.3.1`。[发布准备 PR #995](https://github.com/iflytek/skillhub/pull/995) 已合并，[专用发布工作流](https://github.com/iflytek/skillhub/actions/runs/39556075587) 成功；[公开 npm 包](https://www.npmjs.com/package/@astron-team/skillhub-dsh/v/0.3.1) 与工作流产物逐字节一致，发布时 `latest` 指向 `0.3.1`。两版 Linux 的严格安装、原生探针及浏览器操作复验通过，测试工件与公开包字节一致，结果见 [验证摘要](verification.md)。历史已发布版本保持不变。
 
-## 0.4.0 候选：技能使用与对话管理
+## 0.4.0 技能使用与对话管理
 
-`@astron-team/skillhub-dsh@0.4.0` 为待发布候选，独立标签为 `dsh-v0.4.0`；配套共享库存的 CLI 候选为 `@astron-team/skillhub@0.2.0`。以下为已合并实现，不表示 npm 已发布或公开包已验收。
+`@astron-team/skillhub-dsh@0.4.0` 已发布，独立标签为 `dsh-v0.4.0`；配套共享库存的 CLI 为 `@astron-team/skillhub@0.2.0`。该版本的公开包验收独立于后续版本。
 
 - **使用技能与案例**：[PR #1007](https://github.com/iflytek/skillhub/pull/1007) 支持作者随包提供 `.skillhub/examples.json`，按语言选择案例；技能中心进入同工作区新对话，对话卡保留当前会话，在原生输入框上方选择案例并填入草稿，保留原文字、引用和附件，不自动发送。案例与技能版本共同安装和校验，无效声明按普通文件保留。
 - **对话管理**：[PR #1018](https://github.com/iflytek/skillhub/pull/1018) 支持当前来源的已安装查询、最新或指定较新版本检查、升级、卸载及原操作查询；多份安装明确选择位置，写入必须由真人确认。历史引用、本地修改、共享归属和同名覆盖继续阻止不安全动作。
