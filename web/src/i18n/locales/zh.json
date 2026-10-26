@@ -2113,6 +2113,8 @@
     "subscribe": "订阅"
   },
   "skillCard": {
+    "relatedSuites": "关联套件",
+    "relatedSuitesHint": "此技能被你可见的套件收录，查看详情了解配套关系。",
     "downloads": "下载 {{value}}",
     "stars": "收藏 {{count}}",
     "rating": "评分 {{rating}}",
